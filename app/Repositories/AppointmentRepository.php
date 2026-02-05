@@ -96,7 +96,7 @@ class AppointmentRepository extends BaseRepository
                 $patient = Patient::whereId($input['patient_id'])->with('user')->first();
                 $input['patient_name'] = $patient->user->full_name;
 
-
+                $input['booking_link'] = env('APP_URL').'patients/appointments/'.$relation_id.'/edit';
                 if ($patient->user->email_notification) {
                     Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
                 }

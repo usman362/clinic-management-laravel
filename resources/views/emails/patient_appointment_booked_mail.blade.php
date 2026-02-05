@@ -7,21 +7,21 @@
     @endslot
 
     {{-- Body --}}
-    <div>
-        <h2>Hello, <b>{{ $name }}</b></h2>
-        <p>Your Appointment Booked SuccessFully on <b>{{ $date }}</b> between <b>{{ $time }}</b>.</p>
-        <p>Click the below button to cancel the appointment.</p>
-        <div style="display: flex;justify-content: center">
-        <a href="{{ route('cancelAppointment',['patient_id'=>$patientId,'appointment_unique_id'=>$appointmentUniqueId]) }}" style="padding: 7px 15px;text-decoration: none;font-size: 14px;background-color: #df4645;font-weight: 500;border: none;border-radius: 8px;color: white">
-                Cancel Appointment
-        </a>
-        </div>
-    </div>
+
+    We're pleased to support you through this process. Please use the link below and follow the on-screen instructions to
+    book the appointments for the academic assessment with our clinicians. Appointments may be scheduled in any order,
+    according to clinicians' availability. When booking, please remember to enter the details of the patient who will be
+    seen (the child).
+
+    Booking Link: {{$link}}
+
+    Thank you,
+    **Bilingual Therapy Team**
 
     {{-- Footer --}}
     @slot('footer')
         @component('mail::footer')
-            <h6>© {{ date('Y') }} {{ getAppName() }}.</h6>
+            © {{ date('Y') }} {{ getAppName() }}.
         @endcomponent
     @endslot
 @endcomponent
