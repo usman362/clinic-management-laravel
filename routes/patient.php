@@ -29,9 +29,11 @@ Route::prefix('patients')->name('patients.')->middleware('auth', 'xss', 'checkUs
 
     Route::get('pending-bookings', [PatientAppointmentController::class, 'pending_bookings'])->name('patient-bookings-pending');
 
-    Route::get('booking-appointments/{id}', [PatientAppointmentController::class, 'bookingAppointments'])->name('fbooking.detail');
+    Route::get('booking-appointments/{id}', [PatientAppointmentController::class, 'bookingAppointments'])->name('booking.detail');
 
     Route::get('confirmed-bookings', [PatientAppointmentController::class, 'confirmed_bookings'])->name('patient-bookings-confirmed');
+
+    Route::get('feedback-bookings', [PatientAppointmentController::class, 'feedback_bookings'])->name('patient-bookings-feedback');
 
     Route::get('doctor-session-time',
         [DoctorSessionController::class, 'getDoctorSession'])->name('doctor-session-time');

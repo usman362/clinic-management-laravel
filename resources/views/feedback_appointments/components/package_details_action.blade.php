@@ -1,15 +1,15 @@
 <div class="d-flex justify-content-center">
-    {{-- <a href="{{ route('admin.appointmentPdf', $row->id) }}" target="_blank" class="btn px-1 text-primary fs-3"
+    <a href="{{ route('admin.appointmentPdf', $row->id) }}" target="_blank" class="btn px-1 text-primary fs-3"
         data-bs-toggle="tooltip" data-bs-original-title="{{ __('messages.common.download') }}">
         <i class="fa fa-download" aria-hidden="true"></i>
-    </a> --}}
+    </a>
     @if ($row->status === 5)
         <a href="{{ route('appointments.edit', $row->id) }}" class="btn px-1 text-primary fs-3" data-bs-toggle="tooltip"
             data-bs-original-title="{{ __('messages.common.view') }}">
             <i class="fas fa-edit"></i>
         </a>
     @endif
-    <a href="{{ route('feedbackpackage.details', $row->id) }}" class="btn px-1 text-primary fs-3" data-bs-toggle="tooltip"
+    <a href="{{ route('appointments.show', $row->id) }}" class="btn px-1 text-primary fs-3" data-bs-toggle="tooltip"
         data-bs-original-title="{{ __('messages.common.view') }}">
         <i class="fas fa-eye"></i>
     </a>

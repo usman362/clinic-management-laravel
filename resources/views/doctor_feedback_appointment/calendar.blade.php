@@ -1,13 +1,13 @@
 @extends('layouts.app')
 @section('title')
-    {{ __('messages.appointments') }}
+    {{ __('Feedback Appointments') }}
 @endsection
 @section('header_toolbar')
     <div class="container-fluid">
         <div class="d-md-flex align-items-center justify-content-between mb-5">
             <h1 class="mb-0">@yield('title')</h1>
             <div class="text-end mt-4 mt-md-0">
-                <a href="{{ route('feedback-appointments.index') }}"
+                <a href="{{ route('doctors.feedback_appointments') }}"
                    class="btn btn-outline-primary">{{ __('messages.common.back') }}</a>
             </div>
         </div>
@@ -46,11 +46,11 @@
                         </div>
                     </div>
                     <div class="card-body pt-0">
-                        <div id="adminFeedbackAppointmentCalendar"></div>
+                        <div id="doctorFeedbackAppointmentCalendar"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    @include('appointments.models.admin-appointment-model')
+    @include('doctor_feedback_appointment.models.show_appointment')
 @endsection

@@ -15,6 +15,8 @@
         {{ Form::label('email',__('messages.patient.email').':' ,['class' => 'form-label required']) }}
         {{ Form::email('email',!empty($patient->user) ? $patient->user->email : null,['class' => 'form-control','placeholder' => __('messages.patient.email'),'required']) }}
     </div>
+    {{ Form::hidden('password', '12345678',['class' => 'form-control','placeholder' => '']) }}
+    {{ Form::hidden('password_confirmation', '12345678',['class' => 'form-control','placeholder' => '']) }}
     {{-- @if(empty($patient))
         <div class="col-md-6 mb-5">
             <div class="mb-1">

@@ -10217,3 +10217,188 @@
     var __webpack_exports__ = __webpack_require__.O(void 0, [336, 976, 877, 220, 939, 82, 278, 378], (() => __webpack_require__(3478)));
     __webpack_exports__ = __webpack_require__.O(__webpack_exports__)
 })();
+
+
+document.addEventListener("turbo:load", function () {
+    initDoctorFeedbackCalendar();
+    initDoctorFeedbackCalendarModal();
+});
+
+var feedbackCalendar,
+    fbModal,
+    fbCurrentEventId = null,
+    fbEventData = {
+        id: "",
+        uId: "",
+        eventName: "",
+        eventStatus: "",
+        startDate: "",
+        endDate: "",
+        amount: 0,
+        service: "",
+        patientName: ""
+    };
+
+function initDoctorFeedbackCalendar() {
+    if (usersRole !== "doctor") return;
+
+    var el = document.getElementById("doctorFeedbackAppointmentCalendar");
+    if (!el) return;
+
+    var locale = $(".currentLanguage").val();
+
+    feedbackCalendar = new FullCalendar.Calendar(el, {
+        locale: locale,
+        themeSystem: "bootstrap5",
+        height: 750,
+        buttonText: {
+            today: Lang.get("js.today"),
+            day: Lang.get("js.day"),
+            month: Lang.get("js.month"),
+        },
+        headerToolbar: {
+            left: "title",
+            center: "prev,next today",
+            right: "dayGridDay,dayGridMonth",
+        },
+        initialDate: new Date(),
+        timeZone: "UTC",
+        dayMaxEvents: true,
+
+        events: function (info, success, failure) {
+            $.ajax({
+                url: route("doctors.feedback_appointments.calendar"),
+                type: "GET",
+                data: info,
+                success: function (res) {
+                    if (res.success) success(res.data);
+                },
+                error: function (err) {
+                    displayErrorMessage(err.responseJSON.message);
+                    failure();
+                },
+            });
+        },
+
+        eventClick: function (info) {
+            fbCurrentEventId = info.event.id;
+            setFeedbackEventData(info.event);
+            openFeedbackModal();
+        },
+    });
+
+    feedbackCalendar.render();
+}
+
+function initDoctorFeedbackCalendarModal() {
+    var modalEl = document.getElementById("doctorFeedbackAppointmentCalendarModal");
+    if (!modalEl) return;
+
+    fbModal = new bootstrap.Modal(modalEl);
+}
+
+function setFeedbackEventData(event) {
+    fbEventData = {
+        id: event.id,
+        eventName: event.title,
+        eventStatus: event.extendedProps.status,
+        startDate: event.startStr,
+        endDate: event.endStr,
+        uId: event.extendedProps.uId,
+        service: event.extendedProps.service,
+        patientName: event.extendedProps.patientName,
+    };
+}
+
+function openFeedbackModal() {
+    var modal = $("#doctorFeedbackAppointmentCalendarModal");
+
+    modal.find('[data-calendar="event_name"]').text(fbEventData.patientName || "-");
+    modal.find('[data-calendar="event_service"]').text(fbEventData.service || "-");
+    modal.find('[data-calendar="event_uId"]').text(fbEventData.uId || "-");
+
+    modal.find('[data-calendar="event_start_date"]').text(
+        moment(fbEventData.startDate).utc().format("Do MMM, YYYY - h:mm A")
+    );
+
+    modal.find('[data-calendar="event_end_date"]').text(
+        moment(fbEventData.endDate).utc().format("Do MMM, YYYY - h:mm A")
+    );
+
+    // status dropdown (read-only or changeable)
+    var statusSelect = modal.find('[data-calendar="event_status"]');
+
+    if (statusSelect.length) {
+        var BOOKED = 1,
+            CHECK_IN = 2,
+            CHECK_OUT = 3,
+            CANCELLED = 4;
+
+        var currentStatus = parseInt(fbEventData.eventStatus);
+
+        statusSelect.empty();
+
+        // Booked (always disabled)
+        statusSelect.append(
+            `<option value="${BOOKED}" disabled ${currentStatus === BOOKED ? 'selected' : ''}>
+                ${Lang.get("js.booked")}
+            </option>`
+        );
+
+        // Check In
+        statusSelect.append(
+            `<option value="${CHECK_IN}"
+                ${currentStatus === CHECK_IN ? 'selected' : ''}
+                ${currentStatus === CANCELLED || currentStatus === CHECK_OUT ? 'disabled' : ''}>
+                ${Lang.get("js.check_in")}
+            </option>`
+        );
+
+        // Check Out
+        statusSelect.append(
+            `<option value="${CHECK_OUT}"
+                ${currentStatus === CHECK_OUT ? 'selected' : ''}
+                ${currentStatus !== CHECK_IN ? 'disabled' : ''}>
+                ${Lang.get("js.check_out")}
+            </option>`
+        );
+
+        // Cancelled
+        statusSelect.append(
+            `<option value="${CANCELLED}"
+                ${currentStatus === CANCELLED ? 'selected' : ''}
+                ${currentStatus === CHECK_IN || currentStatus === CHECK_OUT ? 'disabled' : ''}>
+                ${Lang.get("js.cancelled")}
+            </option>`
+        );
+
+        statusSelect.val(currentStatus).trigger("change");
+    }
+
+
+    fbModal.show();
+}
+
+listenChange(
+    ".doctor-feedback-apptnt-calendar-status-change",
+    function () {
+        if (!$(this).val()) return;
+
+        var status = $(this).val();
+
+        $.ajax({
+            url: route("doctors.feedback.change-status", fbCurrentEventId),
+            type: "POST",
+            data: {
+                appointmentId: fbCurrentEventId,
+                appointmentStatus: status,
+            },
+            success: function (res) {
+                displaySuccessMessage(res.message);
+                fbModal.hide();
+                feedbackCalendar.refetchEvents();
+            },
+        });
+    }
+);
+

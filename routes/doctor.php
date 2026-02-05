@@ -36,8 +36,11 @@ Route::prefix('doctors')->name('doctors.')->middleware('auth', 'xss', 'checkUser
 
     //Doctor Appointment route
     Route::get('appointments', [AppointmentController::class, 'doctorAppointment'])->name('appointments');
+    Route::get('feedback-appointments', [AppointmentController::class, 'feedbackDoctorAppointment'])->name('feedback_appointments');
     Route::get('appointments-calendar',
         [AppointmentController::class, 'doctorAppointmentCalendar'])->name('appointments.calendar');
+    Route::get('feedback-appointments-calendar',
+        [AppointmentController::class, 'doctorFeedbackAppointmentCalendar'])->name('feedback_appointments.calendar');
     Route::get('appointments/{appointment}',
         [AppointmentController::class, 'appointmentDetail'])->name('appointment.detail');
     Route::get('appointment-pdf/{id}',

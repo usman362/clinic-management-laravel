@@ -290,6 +290,14 @@ class AppointmentController extends AppBaseController
         return view('doctor_appointment.index', compact('appointmentStatus', 'paymentStatus'));
     }
 
+    public function feedbackDoctorAppointment(Request $request): \Illuminate\View\View
+    {
+        $appointmentStatus = Appointment::ALL_STATUS;
+        $paymentStatus = getAllPaymentStatus();
+
+        return view('doctor_feedback_appointment.index', compact('appointmentStatus', 'paymentStatus'));
+    }
+
     /**
      * @return Application|Factory|View|JsonResponse
      */
@@ -303,6 +311,18 @@ class AppointmentController extends AppBaseController
         }
 
         return view('doctor_appointment.calendar');
+    }
+
+    public function doctorFeedbackAppointmentCalendar(Request $request)
+    {
+        if ($request->ajax()) {
+            $input = $request->all();
+            $data = $this->appointmentRepository->getFeedbackAppointmentsData();
+
+            return $this->sendResponse($data, __('messages.flash.doctor_appointment'));
+        }
+
+        return view('doctor_feedback_appointment.calendar');
     }
 
     /**

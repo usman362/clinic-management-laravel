@@ -719,4 +719,52 @@ class FeedbackAppointmentController extends AppBaseController
 
         return $pdf->download('invoice.pdf');
     }
+
+    public function packageDetails($id)
+    {
+        $allPaymentStatus = getAllPaymentStatus();
+        $appointment = Appointment::find($id);
+        if (getLogInUser()->hasRole('doctor')) {
+            $doctor = Appointment::whereId($appointment->id)->whereDoctorId(getLogInUser()->doctor->id);
+            if (! $doctor->exists()) {
+                return redirect()->back();
+            }
+        } elseif (getLogInUser()->hasRole('patient')) {
+            $patient = Appointment::whereId($appointment->id)->wherePatientId(getLogInUser()->patient->id);
+            if (! $patient->exists()) {
+                return redirect()->back();
+            }
+        }
+
+        $appointment = $this->appointmentRepository->showAppointment($appointment);
+
+        if (empty($appointment)) {
+            Flash::error(__('messages.flash.appointment_not_found'));
+
+            if (getLogInUser()->hasRole('patient')) {
+                return redirect(route('patients.patient-appointments-index'));
+            } else {
+                return redirect(route('admin.appointments.index'));
+            }
+        }
+
+        if (getLogInUser()->hasRole('patient')) {
+            return view('patient_appointments.show')->with('appointment', $appointment);
+        } else {
+            return view('feedback_appointments.show_package')->with('appointment', $appointment)
+                ->with('allPaymentStatus', $allPaymentStatus)
+                ->with([
+                    'paid' => Appointment::PAID,
+                    'pending' => Appointment::PENDING,
+                ])
+                ->with([
+                    'all' => Appointment::ALL,
+                    'book' => Appointment::BOOKED,
+                    'pending' => Appointment::BOOKING_PENDING,
+                    'checkIn' => Appointment::CHECK_IN,
+                    'checkOut' => Appointment::CHECK_OUT,
+                    'cancel' => Appointment::CANCELLED,
+                ]);
+        }
+    }
 }

@@ -44,6 +44,16 @@ class PatientAppointmentController extends AppBaseController
         return view('patients.appointments.confirmed-bookings', compact('paymentStatus', 'paymentGateway','logo'));
     }
 
+    public function feedback_bookings(): \Illuminate\View\View
+    {
+        $allPaymentStatus = getAllPaymentStatus();
+        $paymentStatus = Arr::except($allPaymentStatus, [Appointment::MANUALLY]);
+        $paymentGateway = getPaymentGateway();
+        $logo = Setting::where('key', 'logo')->pluck('value');
+
+        return view('patients.appointments.feedback-bookings', compact('paymentStatus', 'paymentGateway','logo'));
+    }
+
     public function pending_bookings()
     {
         $query = Appointment::with([

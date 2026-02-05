@@ -320,6 +320,11 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
         'package-details/{id}',
         [AppointmentController::class, 'packageDetails']
     )->name('package.details');
+
+    Route::get(
+        'feedbackpackage-details/{id}',
+        [FeedbackAppointmentController::class, 'packageDetails']
+    )->name('feedbackpackage.details');
     Route::middleware('permission:manage_appointments')->group(function () {
         Route::resource('appointments', AppointmentController::class);
         Route::resource('feedback-appointments', FeedbackAppointmentController::class);

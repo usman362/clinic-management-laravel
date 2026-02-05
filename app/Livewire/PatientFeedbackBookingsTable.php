@@ -8,8 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use Livewire\Attributes\Lazy;
 
-#[Lazy]
-class PatientConfirmBookingsTable extends LivewireTableComponent
+class PatientFeedbackBookingsTable extends LivewireTableComponent
 {
     public $doctorId;
 
@@ -72,7 +71,7 @@ class PatientConfirmBookingsTable extends LivewireTableComponent
             'services',
             'transaction',
             'doctor.reviews',
-        ])->where('appointments.status','!=',5)->where('appointments.appointment_type','!=','feedback')->where('patient_id', getLoginUser()->patient->id)->select('appointments.*');
+        ])->where('appointments.appointment_type','feedback')->where('patient_id', getLoginUser()->patient->id)->select('appointments.*');
 
         $query->whereIn('appointments.id', function ($q) {
             $q->selectRaw('MAX(appointments.id)')

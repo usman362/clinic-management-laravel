@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Mail\WelcomePatientMail;
 use App\Models\Country;
 use App\Models\Patient;
 use App\Models\User;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Illuminate\Support\Facades\Session;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Class PatientRepository
@@ -55,6 +57,7 @@ class PatientRepository extends BaseRepository
     public function store($input): bool
     {
         try {
+            $password = Str::password(12);
             DB::beginTransaction();
             $addressInputArray = Arr::only($input,
                 ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code']);
@@ -63,7 +66,7 @@ class PatientRepository extends BaseRepository
             $patientArray = Arr::only($input, ['patient_unique_id']);
             $input['type'] = User::PATIENT;
             $input['language'] = Setting::where('key','language')->get()->toArray()[0]['value'];
-            $input['password'] = Hash::make($input['password']);
+            $input['password'] = Hash::make($password);
             $user = User::create($input);
 
             $patient = $user->patient()->create($patientArray);
@@ -74,8 +77,9 @@ class PatientRepository extends BaseRepository
             }
             $user->sendEmailVerificationNotification();
 
+            // **Send Welcome Email with password**
+            Mail::to($user->email)->send(new WelcomePatientMail($user, $password));
             DB::commit();
-
             return true;
         } catch (\Exception $e) {
             throw new UnprocessableEntityHttpException($e->getMessage());

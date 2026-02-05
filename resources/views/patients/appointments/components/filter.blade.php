@@ -58,10 +58,6 @@
                     </div>
                     <div class="p-5">
                         <div class="mb-5">
-                            <label for="filterBtn" class="form-label">{{ __('messages.appointment.payment') }}:</label>
-                            {{ Form::select('payment_type', collect($filterHeads[0])->toArray(), \App\Models\Appointment::ALL_PAYMENT, ['class' => 'form-control form-control-solid form-select', 'data-control' => 'select2', 'id' => 'patientPaymentStatus']) }}
-                        </div>
-                        <div class="mb-5">
                             <label for="filterBtn" class="form-label">{{ __('messages.doctor.status') }}:</label>
                             {{ Form::select('status', collect($filterHeads[1])->toArray(), \App\Models\Appointment::BOOKED, ['class' => 'form-control form-control-solid form-select', 'data-control' => 'select2', 'id' => 'patientAppointmentStatus']) }}
                         </div>
@@ -73,7 +69,7 @@
                 </div>
             </div>
          </div>
-            <div class="d-flex justify-content-end flex-wrap">
+            {{-- <div class="d-flex justify-content-end flex-wrap">
                 <div class="ms-3 mt-3">
                     <input class="form-control form-control-solid px-3 custom-width" placeholder="{{ __('messages.common.pick_date_range') }}"
                         id="patientAppointmentDate" />
@@ -82,7 +78,7 @@
                     data-turbo="false">
                     {{ __('messages.appointment.add_new_appointment') }}
                 </a>
-            </div>
+            </div> --}}
 
         </div>
     </div>

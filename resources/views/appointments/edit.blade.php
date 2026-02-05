@@ -283,27 +283,57 @@
                             style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
                             <h2 class="h3 fw-bold mb-4">How Payments Work</h2>
 
-                            <p class="text-secondary mb-4">
+                            {{-- <p class="text-secondary mb-4">
                                 Important information about payment processing
-                            </p>
+                            </p> --}}
 
                             <div style="background-color: #edf1f5;padding: 16px 12px 2px 24px;border-radius: 13px;">
-                                <h5>Individual Clinician Payments</h5>
-                                <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
+                                <h5>Each clinician will issue their own invoice via email after the appointment has been completed.</h5>
+                                {{-- <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
                                     instructions
                                     via email following the confirmation or
-                                    completed appointment.</p>
+                                    completed appointment.</p> --}}
 
-                                <h5>Payment Timeline</h5>
-                                <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from
+                                <h5>All payments must be completed before scheduling the feedback meeting, during which assessment results are discussed.</h5>
+                                {{-- <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from
                                     each
                                     clinician. Please ensure timely payment to
-                                    avoid any service delays.</p>
+                                    avoid any service delays.</p> --}}
 
-                                <h5>Documentation & Reports</h5>
-                                <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
+                                <h5>The final written report will be released only after full payment has been received.</h5>
+                                {{-- <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
                                     provided
-                                    once payment has been received in full.</p>
+                                    once payment has been received in full.</p> --}}
+                            </div>
+                        </div>
+
+                        <div class="container mb-4"
+                            style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
+                            <h2 class="h3 fw-bold mb-4">Insurance & Tax Information</h2>
+
+                            {{-- <p class="text-secondary mb-4">
+                                Important information about payment processing
+                            </p> --}}
+
+                            <div style="background-color: #edf1f5;padding: 16px 12px 2px 24px;border-radius: 13px;">
+                                <h5>Medical visits are tax-deductible in accordance with Italian regulations.</h5>
+                                {{-- <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
+                                    instructions
+                                    via email following the confirmation or
+                                    completed appointment.</p> --}}
+
+                                <h5>Services are often reimbursable by major insurance providers.</h5>
+                                {{-- <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from
+                                    each
+                                    clinician. Please ensure timely payment to
+                                    avoid any service delays.</p> --}}
+
+                                <h5>We do not have direct agreements with insurance companies. <br>
+                                Please contact your insurance provider directly to confirm coverage and reimbursement details.
+                                </h5>
+                                {{-- <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
+                                    provided
+                                    once payment has been received in full.</p> --}}
                             </div>
                         </div>
                         <div class="container-fluid">

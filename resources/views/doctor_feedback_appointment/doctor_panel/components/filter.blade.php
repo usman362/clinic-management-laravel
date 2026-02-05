@@ -41,7 +41,7 @@
     <div class="d-flex justify-content-end">
         <div class="d-flex flex-wrap justify-content-end">
        <div class="d-flex align-items-end">
-        <a href="{{ route('doctors.appointments.calendar') }}" class="btn btn-icon btn-primary me-2 ms-xl-3">
+        <a href="{{ route('doctors.feedback_appointments.calendar') }}" class="btn btn-icon btn-primary me-2 ms-xl-3">
             <i class="fas fa-calendar-alt fs-2"></i>
         </a>
 

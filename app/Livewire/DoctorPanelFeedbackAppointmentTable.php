@@ -9,7 +9,7 @@ use Rappasoft\LaravelLivewireTables\Views\Column;
 use Livewire\Attributes\Lazy;
 
 #[Lazy]
-class DoctorPanelAppointmentTable extends LivewireTableComponent
+class DoctorPanelFeedbackAppointmentTable extends LivewireTableComponent
 {
     protected $model = Appointment::class;
 
@@ -20,14 +20,14 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
     public bool $showButtonOnHeader = true;
 
     public array $FilterComponent = [
-        'doctor_appointment.doctor_panel.components.filter', Appointment::PAYMENT_TYPE_ALL, Appointment::STATUS,
+        'doctor_feedback_appointment.doctor_panel.components.filter', Appointment::PAYMENT_TYPE_ALL, Appointment::STATUS,
     ];
 
     protected $listeners = [
         'refresh' => '$refresh', 'changeStatusFilter', 'changePaymentTypeFilter', 'changeDateFilter', 'resetPage',
     ];
 
-    public string $buttonComponent = 'doctor_appointment.doctor_panel.components.add_button';
+    public string $buttonComponent = 'doctor_feedback_appointment.doctor_panel.components.add_button';
 
     public string $paymentTypeFilter = '';
 
@@ -62,7 +62,7 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
     public function builder(): Builder
     {
         $query = Appointment::with(['patient.user', 'services', 'transaction'])
-        ->where('appointments.appointment_type','!=','feedback')
+        ->where('appointments.appointment_type','feedback')
         ->where('doctor_id', getLoginUser()->doctor->id)->select('appointments.*');
 
         $query->when($this->statusFilter != '' && $this->statusFilter != Appointment::ALL_STATUS,
@@ -117,7 +117,7 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
     {
         return [
             Column::make(__('messages.appointment.patient'),
-                'patient.user.first_name')->view('doctor_appointment.doctor_panel.components.patient')
+                'patient.user.first_name')->view('doctor_feedback_appointment.doctor_panel.components.patient')
                 ->sortable()
                 ->searchable(
                     function (Builder $query, $direction) {
@@ -130,14 +130,14 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
                 ->hideIf('patient.user.email')
                 ->searchable(),
             Column::make(__('messages.appointment.appointment_at'),
-                'date')->view('doctor_appointment.doctor_panel.components.appointment_at')
+                'date')->view('doctor_feedback_appointment.doctor_panel.components.appointment_at')
                 ->sortable()->searchable(),
             // Column::make(__('messages.appointment.service_charge'),
-            //     'services.charges')->view('doctor_appointment.doctor_panel.components.service_charge')
+            //     'services.charges')->view('doctor_feedback_appointment.doctor_panel.components.service_charge')
             //     ->sortable()->searchable(),
             // Column::make(__('messages.appointment.payment'), 'id')
             //     ->format(function ($value, $row) {
-            //         return view('doctor_appointment.doctor_panel.components.payment')
+            //         return view('doctor_feedback_appointment.doctor_panel.components.payment')
             //             ->with([
             //                 'row' => $row,
             //                 'paid' => Appointment::PAID,
@@ -146,7 +146,7 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
             //     }),
             Column::make(__('messages.appointment.status'), 'id')
                 ->format(function ($value, $row) {
-                    return view('doctor_appointment.doctor_panel.components.status')
+                    return view('doctor_feedback_appointment.doctor_panel.components.status')
                         ->with([
                             'row' => $row,
                             'book' => Appointment::BOOKED,
@@ -155,7 +155,7 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
                             'cancel' => Appointment::CANCELLED,
                         ]);
                 }),
-            Column::make(__('messages.common.action'), 'id')->view('doctor_appointment.doctor_panel.components.action'),
+            Column::make(__('messages.common.action'), 'id')->view('doctor_feedback_appointment.doctor_panel.components.action'),
         ];
     }
 
