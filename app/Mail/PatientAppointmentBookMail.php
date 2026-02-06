@@ -29,16 +29,16 @@ class PatientAppointmentBookMail extends Mailable
      */
     public function build(): static
     {
-        $name = $this->data['patient_name'];
-        $patientId = $this->data['patient_id'];
-        $link = $this->data['booking_link'];
+        $template = $this->data['template'];
 
-        $subject = 'Welcome to Bilingual Therapy';
+        // Replace placeholders
+        $body = str_replace(
+            '[booking_link]',
+            $this->data['booking_link'],
+            $template->body
+        );
 
-        return $this->markdown('emails.patient_appointment_booked_mail', [
-            'name' => $name,
-            'patientId' => $patientId,
-            'link' => $link,
-        ])->subject($subject);
+        return $this->subject($template->subject)
+            ->html($body);
     }
 }

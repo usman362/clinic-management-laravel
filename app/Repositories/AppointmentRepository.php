@@ -7,6 +7,7 @@ use App\Http\Controllers\GoogleCalendarController;
 use App\Mail\AppointmentBookedMail;
 use App\Mail\DoctorAppointmentBookMail;
 use App\Mail\PatientAppointmentBookMail;
+use App\Models\AdminEmail;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Notification;
@@ -96,9 +97,20 @@ class AppointmentRepository extends BaseRepository
                 $patient = Patient::whereId($input['patient_id'])->with('user')->first();
                 $input['patient_name'] = $patient->user->full_name;
 
-                $input['booking_link'] = env('APP_URL').'patients/appointments/'.$relation_id.'/edit';
+                $input['booking_link'] = env('APP_URL') . 'patients/appointments/' . $relation_id . '/edit';
                 if ($patient->user->email_notification) {
-                    Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
+
+                    // fetch template from DB
+                    $template = AdminEmail::where('type', 'patient_email')->first();
+
+                    // prepare dynamic data
+                    $data = [
+                        'booking_link' => env('APP_URL') . 'patients/appointments/' . $relation_id . '/edit',
+                        'template'     => $template,
+                    ];
+
+                    Mail::to($patient->user->email)
+                        ->send(new PatientAppointmentBookMail($data));
                 }
 
                 // // $input['full_time'] = $input['original_from_time'].'-'.$input['original_to_time'].' '.Carbon::parse($input['date'])->format('jS M, Y');
@@ -191,8 +203,8 @@ class AppointmentRepository extends BaseRepository
 
             $patient = Patient::whereId($input['patient_id'])->with('user')->first();
             $input['patient_name'] = $patient->user->full_name;
-            $input['original_from_time'] = $fromTime[0].' '.$fromTime[1];
-            $input['original_to_time'] = $toTime[0].' '.$toTime[1];
+            $input['original_from_time'] = $fromTime[0] . ' ' . $fromTime[1];
+            $input['original_to_time'] = $toTime[0] . ' ' . $toTime[1];
             $service = Service::whereId($input['service_id'])->first();
             $input['service'] = $service->name;
 
@@ -200,10 +212,10 @@ class AppointmentRepository extends BaseRepository
                 Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
             }
 
-            $input['full_time'] = $input['original_from_time'].'-'.$input['original_to_time'].' '.Carbon::parse($input['date'])->format('jS M, Y');
+            $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
             if (! getLogInUser()->hasRole('patient')) {
                 $patientNotification = Notification::create([
-                    'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG.' '.$input['full_time'],
+                    'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG . ' ' . $input['full_time'],
                     'type' => Notification::BOOKED,
                     'user_id' => $patient->user->id,
                 ]);
@@ -216,7 +228,7 @@ class AppointmentRepository extends BaseRepository
             }
 
             $doctorNotification = Notification::create([
-                'title' => $patient->user->full_name.' '.Notification::APPOINTMENT_CREATE_DOCTOR_MSG.' '.$input['full_time'],
+                'title' => $patient->user->full_name . ' ' . Notification::APPOINTMENT_CREATE_DOCTOR_MSG . ' ' . $input['full_time'],
                 'type' => Notification::BOOKED,
                 'user_id' => $doctor->user->id,
             ]);
@@ -368,7 +380,7 @@ class AppointmentRepository extends BaseRepository
         $doctorId = getLogInUser()->doctor->id;
         /** @var Appointment $appointment */
         $appointments = Appointment::with(['patient.user', 'user'])
-        ->where('appointment_type','!=','feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
+            ->where('appointment_type', '!=', 'feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
         $data = [];
         $count = 0;
         foreach ($appointments as $key => $appointment) {
@@ -398,7 +410,7 @@ class AppointmentRepository extends BaseRepository
         $doctorId = getLogInUser()->doctor->id;
         /** @var Appointment $appointment */
         $appointments = Appointment::with(['patient.user', 'user'])
-        ->where('appointment_type','feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
+            ->where('appointment_type', 'feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
         $data = [];
         $count = 0;
         foreach ($appointments as $key => $appointment) {

@@ -51,7 +51,8 @@
     @endcan
     @can('manage_appointments')
         <li class="nav-item {{ Request::is('doctors/feedback_appointments*', 'doctors/patient*') ? 'active' : '' }}">
-            <a class="nav-link d-flex align-items-center py-4" aria-current="page" href="{{ route('doctors.feedback_appointments') }}">
+            <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+                href="{{ route('doctors.feedback_appointments') }}">
                 <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
                 <span class="aside-menu-title">{{ __('Feedback Appointments') }}</span>
             </a>
@@ -96,6 +97,13 @@
             <span class="aside-menu-title">{{ __('messages.setting.connect_google_calendar') }}</span>
         </a>
     </li>
+    <li class="nav-item {{ Request::is('google/events*') ? 'active' : '' }}">
+        <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+            href="{{ url('google/events') }}">
+            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-day"></i></span>
+            <span class="aside-menu-title">{{ __('Google Calendar Events') }}</span>
+        </a>
+    </li>
     <li class="nav-item {{ Request::is('doctors/holidays*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page" href="{{ route('doctors.holiday') }}">
             <span class="aside-menu-icon pe-3"><i class="fa-solid fa-calendar-xmark"></i></span>
@@ -112,24 +120,21 @@
             <span class="aside-menu-title">{{ __('messages.appointment.appointments') }}</span>
         </a>
     </li> --}}
-    <li
-        class="nav-item {{ Request::is('patients/pending-bookings*') ? 'active' : '' }}">
+    <li class="nav-item {{ Request::is('patients/pending-bookings*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.patient-bookings-pending') }}" data-turbo="false">
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
             <span class="aside-menu-title">{{ __('Pending Bookings') }}</span>
         </a>
     </li>
-    <li
-        class="nav-item {{ Request::is('patients/confirmed-bookings*') ? 'active' : '' }}">
+    <li class="nav-item {{ Request::is('patients/confirmed-bookings*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.patient-bookings-confirmed') }}" data-turbo="false">
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
             <span class="aside-menu-title">{{ __('Confirmed Bookings') }}</span>
         </a>
     </li>
-    <li
-        class="nav-item {{ Request::is('patients/feedback-bookings*') ? 'active' : '' }}">
+    <li class="nav-item {{ Request::is('patients/feedback-bookings*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.patient-bookings-feedback') }}" data-turbo="false">
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
@@ -174,6 +179,13 @@
             href="{{ route('patients.googleCalendar.index') }}">
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-day"></i></span>
             <span class="aside-menu-title">{{ __('messages.setting.connect_google_calendar') }}</span>
+        </a>
+    </li>
+    <li class="nav-item {{ Request::is('google/events*') ? 'active' : '' }}">
+        <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+            href="{{ url('google/events') }}">
+            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-day"></i></span>
+            <span class="aside-menu-title">{{ __('Google Calendar Events') }}</span>
         </a>
     </li>
 @endrole
@@ -245,6 +257,15 @@
             </a>
         </li>
     @endcan
+
+    <li
+        class="nav-item {{ Request::is('admin/emails*') ? 'active' : '' }}">
+        <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+            href="{{ route('admin.emails.index') }}">
+            <span class="aside-menu-icon pe-3"><i class="fa fa-envelope"></i></span>
+            <span class="aside-menu-title">{{ __('Email') }}</span>
+        </a>
+    </li>
 @endif
 {{-- @can('manage_medicines')
     <li
@@ -291,8 +312,9 @@
         </a>
     </li>
 
-    <li class="nav-item {{ Request::is('admin/specializations*',) ? 'active' : '' }}">
-        <a class="nav-link d-flex align-items-center py-4" aria-current="page" href="{{ route('specializations.index') }}">
+    <li class="nav-item {{ Request::is('admin/specializations*') ? 'active' : '' }}">
+        <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+            href="{{ route('specializations.index') }}">
             <span class="aside-menu-icon pe-3"><i class="fas fa-user-cog"></i></span>
             <span class="aside-menu-title">{{ __('messages.specializations') }}</span>
             <span class="d-none">{{ __('messages.specializations') }}</span>

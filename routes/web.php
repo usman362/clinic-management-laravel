@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminEmailController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\FeedbackAppointmentController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -67,6 +68,7 @@ Route::get(
     [GoogleCalendarController::class, 'syncGoogleCalendarList']
 )->name('syncGoogleCalendarList');
 Route::get('google/callback', [GoogleCalendarController::class, 'redirect']);
+Route::get('google/events', [GoogleCalendarController::class, 'showEvents']);
 Route::post(
     'create-google-calendar-patient',
     [AppointmentController::class, 'createGoogleEventForPatient']
@@ -414,6 +416,11 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
 Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus')->group(function () {
    // Manage medicine route
     Route::resource('categories', CategoryController::class)->parameters(['categories' => 'category']);
+
+    Route::get('emails',[AdminEmailController::class,'index'])->name('admin.emails.index');
+    Route::get('emails/{id}/edit',[AdminEmailController::class,'edit'])->name('admin.emails.edit');
+    Route::post('emails/{id}/update',[AdminEmailController::class,'update'])->name('admin.emails.update');
+
     Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
     Route::post(
         'categories/{category_id}/active-deactive',

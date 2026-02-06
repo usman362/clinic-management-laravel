@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Laracasts\Flash\Flash as FlashFlash;
 use Google\Service;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Class GoogleCalendarController
@@ -39,7 +40,7 @@ class GoogleCalendarController extends AppBaseController
         // Set the application name, this is included in the User-Agent HTTP header.
         $this->client->setApplicationName(config('app.name'));
         // Set the authentication credentials we downloaded from Google.
-        $this->client->setAuthConfig(resource_path('google-oath/'.config('app.google_oauth_path')));
+        $this->client->setAuthConfig(resource_path('google-oath/' . config('app.google_oauth_path')));
         // Setting offline here means we can pull data from the venue's calendar when they are not actively using the site.
         $this->client->setAccessType('offline');
         // This will include any other scopes (Google APIs) previously granted by the venue
@@ -53,7 +54,7 @@ class GoogleCalendarController extends AppBaseController
     public function oauth(): RedirectResponse
     {
         // dd($this->client);
-        if($this->client == null){
+        if ($this->client == null) {
             return redirect()->back();
         }
         $authUrl = $this->client->createAuthUrl();
@@ -261,5 +262,34 @@ class GoogleCalendarController extends AppBaseController
         $repo->syncCalendarList(getLogInUser());
 
         return $this->sendSuccess(__('messages.flash.google_calendar_update'));
+    }
+
+    // GoogleController.php
+    public function showEvents()
+    {
+
+        try {
+            $user = Auth::user(); // ya clinician
+            $accessToken = json_decode($user->gCredentials->meta, true);
+            $client = new \Google_Client();
+            $client->setAccessToken($accessToken);
+
+            $service = new \Google_Service_Calendar($client);
+            $calendarId = 'primary';
+            // dd($service->events);
+            $events = $service->events->listEvents($calendarId, [
+                'maxResults' => 50,
+                'orderBy' => 'startTime',
+                'singleEvents' => true,
+                'timeMin' => date('c'), // aaj se aage ke events
+            ]);
+            return view('calendar.events', [
+                'events' => $events->getItems()
+            ]);
+        } catch (\Exception $e) {
+            return view('calendar.events', [
+                'events' => []
+            ]);
+        }
     }
 }
