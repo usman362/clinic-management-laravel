@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\DataTable\UserDataTable;
+use App\Mail\WelcomePatientMail;
 use App\Models\Appointment;
 use App\Models\Country;
 use App\Models\Doctor;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\Session;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 /**
  * Class UserRepository
@@ -70,6 +73,7 @@ class UserRepository extends BaseRepository
      */
     public function store(array $input)
     {
+        $password = Str::password(12);
         $addressInputArray = Arr::only($input,
             ['address1', 'address2', 'country_id', 'city_id', 'state_id', 'postal_code']);
         $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
@@ -78,7 +82,7 @@ class UserRepository extends BaseRepository
             DB::beginTransaction();
             $input['email'] = setEmailLowerCase($input['email']);
             $input['status'] = (isset($input['status'])) ? 1 : 0;
-            $input['password'] = Hash::make($input['password']);
+            $input['password'] = Hash::make($password);
             $input['type'] = User::DOCTOR;
             $input['language'] = Setting::where('key','language')->get()->toArray()[0]['value'];
             $doctor = User::create($input);
@@ -90,7 +94,7 @@ class UserRepository extends BaseRepository
                 $doctor->addMedia($input['profile'])->toMediaCollection(User::PROFILE, config('app.media_disc'));
             }
             $doctor->sendEmailVerificationNotification();
-
+            Mail::to($doctor->email)->send(new WelcomePatientMail($doctor, $password));
             DB::commit();
 
             return $doctor;

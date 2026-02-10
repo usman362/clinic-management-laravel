@@ -551,7 +551,7 @@ class User extends Authenticatable implements HasMedia
         'last_name' => 'required',
         'email' => 'required|email|unique:users,email|regex:/(.*)@(.*)\.(.*)/',
         'contact' => 'nullable|unique:users,contact',
-        'password' => 'required|same:password_confirmation|min:6',
+        // 'password' => 'required|same:password_confirmation|min:6',
         'dob' => 'nullable|date',
         'experience' => 'nullable|numeric',
         'specializations' => 'required',

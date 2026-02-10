@@ -199,48 +199,48 @@ class AppointmentRepository extends BaseRepository
                 // $appointment->relation_id = $relation_id;
                 // $appointment->payable_amount = $input['payable_amount'];
                 // $appointment->appointment_unique_id = $input['appointment_unique_id'];
-            }
+                $patient = Patient::whereId($input['patient_id'])->with('user')->first();
+                $input['patient_name'] = $patient->user->full_name;
+                $input['original_from_time'] = $fromTime[0] . ' ' . $fromTime[1];
+                $input['original_to_time'] = $toTime[0] . ' ' . $toTime[1];
+                $service = Service::whereId($appt['service_id'])->first();
+                $input['service'] = $service->name;
 
-            $patient = Patient::whereId($input['patient_id'])->with('user')->first();
-            $input['patient_name'] = $patient->user->full_name;
-            $input['original_from_time'] = $fromTime[0] . ' ' . $fromTime[1];
-            $input['original_to_time'] = $toTime[0] . ' ' . $toTime[1];
-            $service = Service::whereId($input['service_id'])->first();
-            $input['service'] = $service->name;
+                // if ($patient->user->email_notification) {
+                //     Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
+                // }
 
-            if ($patient->user->email_notification) {
-                Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
-            }
+                $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
+                if (! getLogInUser()->hasRole('patient')) {
+                    $patientNotification = Notification::create([
+                        'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG . ' ' . $input['full_time'],
+                        'type' => Notification::BOOKED,
+                        'user_id' => $patient->user->id,
+                    ]);
+                }
 
-            $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
-            if (! getLogInUser()->hasRole('patient')) {
-                $patientNotification = Notification::create([
-                    'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG . ' ' . $input['full_time'],
+                $doctor = Doctor::whereId($appt['doctor_id'])->with('user')->first();
+                // $input['doctor_name'] = $doctor->user->full_name;
+                // if ($doctor->user->email_notification) {
+                //     Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
+                // }
+
+                $doctorNotification = Notification::create([
+                    'title' => $patient->user->full_name . ' ' . Notification::APPOINTMENT_CREATE_DOCTOR_MSG . ' ' . $input['full_time'],
                     'type' => Notification::BOOKED,
-                    'user_id' => $patient->user->id,
+                    'user_id' => $doctor->user->id,
                 ]);
+                try {
+                    CreateGoogleAppointment::dispatch(true, $appointment->id);
+                    CreateGoogleAppointment::dispatch(false, $appointment->id);
+                } catch (Exception $exception) {
+                    Log::error($exception->getMessage());
+                }
             }
 
-            $doctor = Doctor::whereId($input['doctor_id'])->with('user')->first();
-            $input['doctor_name'] = $doctor->user->full_name;
-            if ($doctor->user->email_notification) {
-                Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
-            }
-
-            $doctorNotification = Notification::create([
-                'title' => $patient->user->full_name . ' ' . Notification::APPOINTMENT_CREATE_DOCTOR_MSG . ' ' . $input['full_time'],
-                'type' => Notification::BOOKED,
-                'user_id' => $doctor->user->id,
-            ]);
 
             DB::commit();
 
-            try {
-                CreateGoogleAppointment::dispatch(true, $appointment->id);
-                CreateGoogleAppointment::dispatch(false, $appointment->id);
-            } catch (Exception $exception) {
-                Log::error($exception->getMessage());
-            }
             $appointment = Appointment::find($id);
             return $appointment;
         } catch (Exception $e) {
