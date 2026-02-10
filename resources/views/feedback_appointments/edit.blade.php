@@ -427,3 +427,11 @@
 
     </div>
 @endsection
+
+@push('scripts')
+    @role('patient')
+        <script src="{{ asset('assets/js/booking.js') }}"></script>
+    @else
+        <script src="{{ asset('assets/js/admin-booking.js') }}"></script>
+    @endrole
+@endpush

@@ -288,19 +288,22 @@
                             </p> --}}
 
                             <div style="background-color: #edf1f5;padding: 16px 12px 2px 24px;border-radius: 13px;">
-                                <h5>Each clinician will issue their own invoice via email after the appointment has been completed.</h5>
+                                <h5>Each clinician will issue their own invoice via email after the appointment has been
+                                    completed.</h5>
                                 {{-- <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
                                     instructions
                                     via email following the confirmation or
                                     completed appointment.</p> --}}
 
-                                <h5>All payments must be completed before scheduling the feedback meeting, during which assessment results are discussed.</h5>
+                                <h5>All payments must be completed before scheduling the feedback meeting, during which
+                                    assessment results are discussed.</h5>
                                 {{-- <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from
                                     each
                                     clinician. Please ensure timely payment to
                                     avoid any service delays.</p> --}}
 
-                                <h5>The final written report will be released only after full payment has been received.</h5>
+                                <h5>The final written report will be released only after full payment has been received.
+                                </h5>
                                 {{-- <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
                                     provided
                                     once payment has been received in full.</p> --}}
@@ -329,7 +332,8 @@
                                     avoid any service delays.</p> --}}
 
                                 <h5>We do not have direct agreements with insurance companies. <br>
-                                Please contact your insurance provider directly to confirm coverage and reimbursement details.
+                                    Please contact your insurance provider directly to confirm coverage and reimbursement
+                                    details.
                                 </h5>
                                 {{-- <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
                                     provided
@@ -512,7 +516,7 @@
                         <div class="mb-3">
                             <label class="form-label">Internal Notes (Admin Only)</label>
                             <textarea class="form-control" name="description" id="internal_notes"
-                                placeholder="Add any internal notes about this package...">{{$appointment->description}}</textarea>
+                                placeholder="Add any internal notes about this package...">{{ $appointment->description }}</textarea>
                         </div>
 
                         <div class="d-flex justify-content-end">
@@ -527,22 +531,24 @@
                         <hr>
 
                         <div class="appointments-wrapper">
-                            @foreach (\App\Models\Appointment::where('relation_id',$appointment->relation_id)->get() as $key => $pkg)
+                            @foreach (\App\Models\Appointment::where('relation_id', $appointment->relation_id)->get() as $key => $pkg)
                                 @php
-                                    $doctersService = \Illuminate\Support\Facades\DB::table('service_doctor')->where('service_id', $pkg->service_id)->pluck('doctor_id');
-                                    $docs = \App\Models\Doctor::with('user')->whereIn('id',$doctersService)->get();
+                                    $doctersService = \Illuminate\Support\Facades\DB::table('service_doctor')
+                                        ->where('service_id', $pkg->service_id)
+                                        ->pluck('doctor_id');
+                                    $docs = \App\Models\Doctor::with('user')->whereIn('id', $doctersService)->get();
                                 @endphp
                                 {{ Form::hidden('appointments[' . $key . '][appointment_id]', $pkg->id, ['id' => 'appointment_id']) }}
-                                <div class="appointments-section mb-4" data-index="{{$key}}">
+                                <div class="appointments-section mb-4" data-index="{{ $key }}">
                                     <div class="card-body" style="background-color: #eff3f7;border-radius: 12px;">
                                         <div class="row">
                                             <div class="col-12 text-end">
                                                 <button type="button"
-                                                    class="btn btn-sm btn-danger remove-appointment {{$key == 0 ? 'd-none' : '' }}">
-                                                    <svg class="svg-inline--fa fa-trash" aria-hidden="true" focusable="false"
-                                                        data-prefix="fas" data-icon="trash" role="img"
-                                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"
-                                                        data-fa-i2svg="">
+                                                    class="btn btn-sm btn-danger remove-appointment {{ $key == 0 ? 'd-none' : '' }}">
+                                                    <svg class="svg-inline--fa fa-trash" aria-hidden="true"
+                                                        focusable="false" data-prefix="fas" data-icon="trash"
+                                                        role="img" xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 448 512" data-fa-i2svg="">
                                                         <path fill="currentColor"
                                                             d="M135.2 17.69C140.6 6.848 151.7 0 163.8 0H284.2C296.3 0 307.4 6.848 312.8 17.69L320 32H416C433.7 32 448 46.33 448 64C448 81.67 433.7 96 416 96H32C14.33 96 0 81.67 0 64C0 46.33 14.33 32 32 32H128L135.2 17.69zM394.8 466.1C393.2 492.3 372.3 512 346.9 512H101.1C75.75 512 54.77 492.3 53.19 466.1L31.1 128H416L394.8 466.1z">
                                                         </path>
@@ -551,14 +557,19 @@
                                             </div>
                                             <div class="col-lg-6 col-sm-12 mb-5">
                                                 {{ Form::label('Service', __('messages.appointment.service') . ':', ['class' => 'form-label required']) }}
-                                                {{ Form::select('appointments['.$key.'][service_id]', $data['services'], $pkg->service_id, ['class' => 'io-select2 form-select appointmentServiceId', 'data-control' => '', 'id' => 'appointmentServiceId', 'placeholder' => __('messages.appointment.service'), 'required']) }}
+                                                {{ Form::select('appointments[' . $key . '][service_id]', $data['services'], $pkg->service_id, ['class' => 'io-select2 form-select appointmentServiceId', 'data-control' => '', 'id' => 'appointmentServiceId', 'placeholder' => __('messages.appointment.service'), 'required']) }}
                                             </div>
                                             <div class="col-sm-12 col-lg-6 mb-5">
                                                 {{ Form::label('Doctor', __('messages.doctor.doctor') . ':', ['class' => 'form-label required']) }}
-                                                <select class="io-select2 form-select adminAppointmentDoctorId" id="adminAppointmentDoctorId" data-control="" required="" name="appointments[{{$key}}][doctor_id]" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                                                <select class="io-select2 form-select adminAppointmentDoctorId"
+                                                    id="adminAppointmentDoctorId" data-control="" required=""
+                                                    name="appointments[{{ $key }}][doctor_id]"
+                                                    autocomplete="off" autocorrect="off" autocapitalize="off"
+                                                    spellcheck="false">
                                                     <option value="">Doctor</option>
                                                     @foreach ($docs as $doc)
-                                                        <option value="{{$doc->id}}" @selected($doc->id == $pkg->doctor_id)>{{$doc->user->first_name.' '.$doc->user->last_name}}</option>
+                                                        <option value="{{ $doc->id }}" @selected($doc->id == $pkg->doctor_id)>
+                                                            {{ $doc->user->first_name . ' ' . $doc->user->last_name }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -611,3 +622,11 @@
 
     </div>
 @endsection
+
+@push('scripts')
+    @role('patient')
+        <script src="{{ asset('assets/js/booking.js') }}"></script>
+    @else
+        <script src="{{ asset('assets/js/admin-booking.js') }}"></script>
+    @endrole
+@endpush

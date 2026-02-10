@@ -185,11 +185,6 @@
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script src="{{ mix('js/third-party.js') }}"></script>
     <script src="{{ mix('js/pages.js') }}"></script>
-    @role('patient')
-        <script src="{{ asset('assets/js/booking.js') }}"></script>
-    @else
-        <script src="{{ asset('assets/js/admin-booking.js') }}"></script>
-    @endrole
     @php
         $bloodGroupArr = json_encode(App\Models\Doctor::BLOOD_GROUP_ARRAY);
         $bloodGroupArr = html_entity_decode($bloodGroupArr);

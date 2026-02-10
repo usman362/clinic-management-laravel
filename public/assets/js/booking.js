@@ -1,170 +1,166 @@
-document.addEventListener('DOMContentLoaded', function () {
-
-    const form = document.getElementById('addAppointmentForm');
-    const steps = form.querySelectorAll('.form-step');
-    const headers = document.querySelectorAll('.step-item');
-    const progressBar = document.querySelector('.progress-indicator');
-    const notification = document.getElementById('notification');
+(function ($) {
 
     let currentStep = 0;
 
-    /* ==========================
-        STEP DISPLAY
-    ========================== */
-    function showStep(stepIndex) {
-        steps.forEach((step, index) => {
-            step.classList.toggle('active', index === stepIndex);
-        });
+    function initAppointmentForm() {
 
-        headers.forEach((header, index) => {
-            header.classList.remove('active', 'completed');
+        const $form = $('#addAppointmentForm');
+        if (!$form.length) return;
 
-            if (index < stepIndex) {
-                header.classList.add('completed');
-            } else if (index === stepIndex) {
-                header.classList.add('active');
-            }
-        });
+        const $steps = $form.find('.form-step');
+        const $headers = $('.step-item');
+        const $progressBar = $('.progress-indicator');
+        const $notification = $('#notification');
 
-        const progress = (stepIndex / (steps.length - 1)) * 100;
-        progressBar.style.width = progress + '%';
-    }
+        /* ==========================
+            STEP DISPLAY
+        ========================== */
+        function showStep(stepIndex) {
 
-    /* ==========================
-        NOTIFICATION
-    ========================== */
-    function showNotification(message) {
-        notification.textContent = message;
-        notification.classList.add('show');
+            $steps.removeClass('active').eq(stepIndex).addClass('active');
 
-        setTimeout(() => {
-            notification.classList.remove('show');
-        }, 3000);
-    }
-
-    /* ==========================
-        VALIDATION PER STEP
-    ========================== */
-    function validateStep(stepIndex) {
-
-        /* STEP 1 – CLIENT DETAILS */
-        if (stepIndex === 0) {
-            const firstName = form.querySelector('[name="first_name"]').value.trim();
-            const lastName = form.querySelector('[name="last_name"]').value.trim();
-            const dob = form.querySelector('[name="dob"]').value.trim();
-            const taxCode = form.querySelector('[name="tax_code"]').value.trim();
-            const schoolName = form.querySelector('[name="school_name"]').value.trim();
-            const schoolGrade = form.querySelector('[name="school_grade"]').value.trim();
-            const address = form.querySelector('[name="address"]').value.trim();
-
-            if (!firstName || !lastName || !dob || !taxCode || !schoolName || !schoolGrade || !address) {
-                showNotification('Please fill all required fields.');
-                return false;
-            }
-        }
-
-        /* STEP 2 – APPOINTMENTS */
-        if (stepIndex === 1) {
-            let isValid = true;
-
-            $('.appointments-section').each(function () {
-                const appointmentDate = $(this).find('.appointmentDate').val();
-                const timeSlot = $(this).find('.timeSlot').val();
-                const toTime = $(this).find('.toTime').val();
-
-                if (!appointmentDate || !timeSlot || !toTime || timeSlot == "" || toTime == "") {
-                    showNotification('Please select date and time for all appointments.');
-
-                    // Optional UI highlight
-                    $(this).find('.appointmentDate').addClass('is-invalid');
-
-                    isValid = false;
-                    return false; // break loop
+            $headers.removeClass('active completed').each(function (index) {
+                if (index < stepIndex) {
+                    $(this).addClass('completed');
+                } else if (index === stepIndex) {
+                    $(this).addClass('active');
                 }
             });
 
-            if (!isValid) {
-                return false;
-            }
+            const progress = (stepIndex / ($steps.length - 1)) * 100;
+            $progressBar.css('width', progress + '%');
         }
 
+        /* ==========================
+            NOTIFICATION
+        ========================== */
+        function showNotification(message) {
+            $notification.text(message).addClass('show');
 
-        /* STEP 3 – CONSENT */
-        if (stepIndex === 2) {
-            const consentChecked = document.getElementById('consentConfirmed').checked;
-
-            if (!consentChecked) {
-                showNotification('You must confirm that you have signed the consent form.');
-                return false;
-            }
+            setTimeout(() => {
+                $notification.removeClass('show');
+            }, 3000);
         }
 
-        /* STEP 4 – PAYMENT ACKNOWLEDGEMENT */
-        if (stepIndex === 3) {
-            const paymentAck = document.getElementById('paymentAcknowledged').checked;
-            const documentationAck = document.getElementById('documentationPolicy').checked;
+        /* ==========================
+            VALIDATION
+        ========================== */
+        function validateStep(stepIndex) {
 
-            if (!paymentAck) {
-                showNotification('Please acknowledge the payment terms.');
-                return false;
+            /* STEP 1 */
+            if (stepIndex === 0) {
+                let valid = true;
+
+                $form.find('#step1 input[required]').each(function () {
+                    if (!$(this).val().trim()) {
+                        $(this).addClass('is-invalid');
+                        valid = false;
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                });
+
+                if (!valid) {
+                    showNotification('Please fill all required fields.');
+                    return false;
+                }
             }
 
-            if (!documentationAck) {
-                showNotification('Please acknowledge the documentation policy.');
-                return false;
+            /* STEP 2 */
+            if (stepIndex === 1) {
+                let isValid = true;
+
+                $('.appointments-section').each(function () {
+
+                    const date = $(this).find('.appointmentDate').val();
+                    const from = $(this).find('.timeSlot').val();
+                    const to = $(this).find('.toTime').val();
+
+                    if (!date || !from || !to) {
+                        showNotification('Please select date and time for all appointments.');
+                        $(this).find('.appointmentDate').addClass('is-invalid');
+                        isValid = false;
+                        return false;
+                    }
+                });
+
+                if (!isValid) return false;
             }
+
+            /* STEP 3 */
+            if (stepIndex === 2) {
+                if (!$('#consentConfirmed').is(':checked')) {
+                    showNotification('You must confirm that you have signed the consent form.');
+                    return false;
+                }
+            }
+
+            /* STEP 4 */
+            if (stepIndex === 3) {
+
+                if (!$('#paymentAcknowledged').is(':checked')) {
+                    showNotification('Please acknowledge the payment terms.');
+                    return false;
+                }
+
+                if (!$('#documentationPolicy').is(':checked')) {
+                    showNotification('Please acknowledge the documentation policy.');
+                    return false;
+                }
+            }
+
+            return true;
         }
 
-        return true;
-    }
+        /* ==========================
+            EVENT DELEGATION (KEY FIX)
+        ========================== */
+        $(document).off('click.appointmentWizard').on('click.appointmentWizard', '.next-btn', function () {
 
-    /* ==========================
-        BUTTON HANDLING
-    ========================== */
-    form.addEventListener('click', function (e) {
+            if (!validateStep(currentStep)) return;
 
-        /* NEXT */
-        if (e.target.classList.contains('next-btn')) {
-
-            if (!validateStep(currentStep)) {
-                return;
-            }
-
-            if (currentStep < steps.length - 1) {
+            if (currentStep < $steps.length - 1) {
                 currentStep++;
                 showStep(currentStep);
             }
-        }
+        });
 
-        /* PREVIOUS */
-        if (e.target.classList.contains('prev-btn')) {
+        $(document).off('click.prevAppointment').on('click.prevAppointment', '.prev-btn', function () {
+
             if (currentStep > 0) {
                 currentStep--;
                 showStep(currentStep);
             }
-        }
-    });
+        });
+
+        /* ==========================
+            SUBMIT
+        ========================== */
+        $(document).off('submit.appointmentSubmit').on('submit.appointmentSubmit', '#addAppointmentForm', function (e) {
+
+            e.preventDefault();
+
+            showNotification('Booking completed successfully.');
+
+            setTimeout(() => {
+                console.log('Booking flow finished');
+                // this.submit(); // uncomment when backend ready
+            }, 1500);
+        });
+
+        /* ==========================
+            INIT
+        ========================== */
+        showStep(currentStep);
+    }
 
     /* ==========================
-        FINAL SUBMIT
+        LOAD HANDLERS
     ========================== */
-    form.addEventListener('submit', function (e) {
-        e.preventDefault();
+    $(document).ready(initAppointmentForm);
 
-        showNotification('Booking completed successfully.');
+    // For Turbo / AJAX / SPA navigation
+    document.addEventListener('turbo:load', initAppointmentForm);
+    document.addEventListener('livewire:navigated', initAppointmentForm);
 
-        /*
-         NEXT STEP (backend):
-         - Send AJAX to Laravel
-         - Create real appointments
-         - Mark package as completed
-         */
-
-        setTimeout(() => {
-            // window.location.href = '/client/dashboard';
-            console.log('Booking flow finished');
-        }, 1500);
-    });
-
-    showStep(0);
-});
+})(jQuery);
