@@ -44,10 +44,14 @@
                     </div>
                     <div class="step-item" id="step4-header">
                         <div class="step-number">4</div>
-                        <div class="step-title d-none d-md-block">Payment</div>
+                        <div class="step-title d-none d-md-block">Booking Information</div>
                     </div>
                     <div class="step-item" id="step5-header">
                         <div class="step-number">5</div>
+                        <div class="step-title d-none d-md-block">Payment</div>
+                    </div>
+                    <div class="step-item" id="step6-header">
+                        <div class="step-number">6</div>
                         <div class="step-title d-none d-md-block">Confirmation</div>
                     </div>
                 </div>
@@ -258,8 +262,122 @@
                     </div>
                 </div>
 
-                <!-- STEP 4: PAYMENT ACKNOWLEDGEMENT -->
+                <!-- STEP 4: BOOKING INFORMATION -->
                 <div class="form-step" id="step4">
+
+                    <h2 class="h2 fw-bold mb-3">Booking Information</h2>
+                    <p class="text-secondary mb-4">
+                        Please read the information below carefully before continuing
+                    </p>
+
+                    <!-- Scrollable Content -->
+                    <div class="container mb-4"
+                        style="border:1px solid #e1e1e1;border-radius:15px;
+                                    max-height:320px;overflow-y:auto;
+                                    padding:20px;background:#f8f9fb;">
+
+                        <h5 class="fw-bold mb-3">How the Assessment Works</h5>
+
+                        <p>
+                            In accordance with Italian regulations (Law 170/2010), the assessment of learning
+                            difficulties is multidisciplinary and involves the participation of three professionals:
+                            a psychologist, a speech and language therapist, and a child neuropsychiatrist (NPI).
+                        </p>
+
+                        <p>
+                            Appointments with the professionals do not need to follow a specific order; however,
+                            all of them must be completed.
+                        </p>
+
+                        <ul>
+                            <li>1 appointment with the Child Neuropsychiatrist (NPI) (≈ 45 minutes)</li>
+                            <li>2 hours of test-based assessment (cognitive abilities)</li>
+                            <li>2 hours of test-based assessment (academic/learning skills)</li>
+                            <li>1 hour of test-based assessment (language skills)</li>
+                            <li>1 hour feedback meeting</li>
+                        </ul>
+
+                        <p>
+                            If required, additional assessments may be included (attention, neuropsychological,
+                            emotional evaluations). Timing will be discussed with professionals.
+                        </p>
+
+                        <h6 class="fw-bold mt-4">Specific Guidelines for Appointments</h6>
+
+                        <p>
+                            The Child Neuropsychiatrist appointment focuses on medical, family, and school history.
+                            Families may attend with or without the child.
+                        </p>
+
+                        <p>
+                            Based on experience, we recommend being open and honest with children about the
+                            reasons for assessment. It is not recommended for children to wait alone during
+                            sensitive discussions.
+                        </p>
+
+                        <p>
+                            Online appointments are available only in specific, pre-agreed cases and are usually
+                            suitable for parent meetings rather than direct child assessment.
+                        </p>
+
+                        <p>
+                            Cognitive assessments are conducted by a psychologist.
+                            Academic and language assessments by a speech & language therapist or psychologist.
+                        </p>
+
+                        <h6 class="fw-bold mt-4">Feedback & Final Report</h6>
+
+                        <p>
+                            After completion, professionals agree on a final diagnosis and meet with parents
+                            to explain results and recommendations.
+                        </p>
+
+                        <p>
+                            A written report (English or other language if required) will be provided within one month
+                            after the feedback meeting, once all invoices are paid.
+                        </p>
+
+                        <h6 class="fw-bold mt-4">Fees</h6>
+                        <ul>
+                            <li>Child Neuropsychiatrist visit: €150</li>
+                            <li>Test administration: €145 per hour</li>
+                            <li>Feedback meeting: €145</li>
+                            <li>Final report: €145</li>
+                        </ul>
+
+                        <p>
+                            Payment is made by bank transfer directly to each professional.
+                            A regular invoice will be issued after each appointment.
+                        </p>
+
+                        <h6 class="fw-bold mt-4">Required Documentation</h6>
+                        <p>
+                            A consent form must be signed for each professional. In joint custody cases,
+                            signatures from both parents are required.
+                        </p>
+
+                        <p class="mt-3">
+                            Contact: <strong>bilingualtherapymilan@gmail.com</strong>
+                        </p>
+                    </div>
+
+                    <!-- Required Checkbox -->
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="assessmentInfoAccepted">
+                        <label class="form-check-label fw-semibold" for="assessmentInfoAccepted">
+                            I have read and understood <strong>How the Assessment Works</strong>
+                        </label>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="prev-btn btn btn-light">Back</button>
+                        <button type="button" class="next-btn btn btn-primary">Continue</button>
+                    </div>
+
+                </div>
+
+                <!-- STEP 5: PAYMENT ACKNOWLEDGEMENT -->
+                <div class="form-step" id="step5">
                     <h2 class="h2 fw-bold mb-4">Payment Information</h2>
 
                     <p class="text-secondary mb-4">
@@ -270,25 +388,61 @@
                         style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
                         <h2 class="h3 fw-bold mb-4">How Payments Work</h2>
 
-                        <p class="text-secondary mb-4">
-                            Important information about payment processing
-                        </p>
+                        {{-- <p class="text-secondary mb-4">
+                                Important information about payment processing
+                            </p> --}}
 
                         <div style="background-color: #edf1f5;padding: 16px 12px 2px 24px;border-radius: 13px;">
-                            <h5>Individual Clinician Payments</h5>
-                            <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
-                                instructions
-                                via email following the confirmation or
-                                completed appointment.</p>
+                            <h5>Each clinician will issue their own invoice via email after the appointment has been
+                                completed.</h5>
+                            {{-- <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
+                                    instructions
+                                    via email following the confirmation or
+                                    completed appointment.</p> --}}
 
-                            <h5>Payment Timeline</h5>
-                            <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from each
-                                clinician. Please ensure timely payment to
-                                avoid any service delays.</p>
+                            <h5>All payments must be completed before scheduling the feedback meeting, during which
+                                assessment results are discussed.</h5>
+                            {{-- <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from
+                                    each
+                                    clinician. Please ensure timely payment to
+                                    avoid any service delays.</p> --}}
 
-                            <h5>Documentation & Reports</h5>
-                            <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be provided
-                                once payment has been received in full.</p>
+                            <h5>The final written report will be released only after full payment has been received.
+                            </h5>
+                            {{-- <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
+                                    provided
+                                    once payment has been received in full.</p> --}}
+                        </div>
+                    </div>
+
+                    <div class="container mb-4"
+                        style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
+                        <h2 class="h3 fw-bold mb-4">Insurance & Tax Information</h2>
+
+                        {{-- <p class="text-secondary mb-4">
+                                Important information about payment processing
+                            </p> --}}
+
+                        <div style="background-color: #edf1f5;padding: 16px 12px 2px 24px;border-radius: 13px;">
+                            <h5>Medical visits are tax-deductible in accordance with Italian regulations.</h5>
+                            {{-- <p style="font-size: 13px;color:#6c757d">Each clinician will send their own payment
+                                    instructions
+                                    via email following the confirmation or
+                                    completed appointment.</p> --}}
+
+                            <h5>Services are often reimbursable by major insurance providers.</h5>
+                            {{-- <p style="font-size: 13px;color:#6c757d">You will receive payment details directly from
+                                    each
+                                    clinician. Please ensure timely payment to
+                                    avoid any service delays.</p> --}}
+
+                            <h5>We do not have direct agreements with insurance companies. <br>
+                                Please contact your insurance provider directly to confirm coverage and reimbursement
+                                details.
+                            </h5>
+                            {{-- <p style="font-size: 13px;color:#6c757d">Any documentation and reporting will only be
+                                    provided
+                                    once payment has been received in full.</p> --}}
                         </div>
                     </div>
                     <div class="container-fluid">
@@ -297,7 +451,8 @@
                             <label class="form-check-label" for="paymentAcknowledged">
                                 I understand how payments will be processed*
                             </label>
-                            <p style="font-size: 13px;color:#6c757d">I acknowledge that each clinician will send their own
+                            <p style="font-size: 13px;color:#6c757d">I acknowledge that each clinician will send their
+                                own
                                 payment instructions</p>
                         </div>
 
@@ -306,7 +461,8 @@
                             <label class="form-check-label" for="documentationPolicy">
                                 I understand the documentation policy *
                             </label>
-                            <p style="font-size: 13px;color:#6c757d">I acknowledge that documentation and reports will only
+                            <p style="font-size: 13px;color:#6c757d">I acknowledge that documentation and reports will
+                                only
                                 be released upon full payment</p>
                         </div>
                     </div>
@@ -317,8 +473,8 @@
                     </div>
                 </div>
 
-                <!-- STEP 5: CONFIRMATION -->
-                <div class="form-step" id="step5">
+                <!-- STEP 6: CONFIRMATION -->
+                <div class="form-step" id="step6">
                     <h2 class="h2 fw-bold mb-4">Booking Confirmation</h2>
 
                     <div class="container mb-4"
@@ -380,7 +536,7 @@
                                     <div class="col-md-2">
                                         <div class="mt-2"
                                             style="background-color: black;color: white;font-weight: bold;border-radius: 40px;
-                                        width: 44px;height: 44px;text-align: center;padding-top: 11px;">
+                                            width: 44px;height: 44px;text-align: center;padding-top: 11px;">
                                             {{ $key + 1 }}</div>
                                     </div>
                                     <div class="col-md-10">

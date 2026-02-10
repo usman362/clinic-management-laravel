@@ -96,7 +96,18 @@
             }
 
             /* STEP 4 */
+
             if (stepIndex === 3) {
+                if (!$('#assessmentInfoAccepted').is(':checked')) {
+                    showNotification(
+                        'Please confirm that you have read and understood how the assessment works.'
+                    );
+                    return false;
+                }
+            }
+
+            /* STEP 5 */
+            if (stepIndex === 4) {
 
                 if (!$('#paymentAcknowledged').is(':checked')) {
                     showNotification('Please acknowledge the payment terms.');
