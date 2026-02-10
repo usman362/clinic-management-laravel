@@ -109,8 +109,8 @@ class AppointmentRepository extends BaseRepository
                         'template'     => $template,
                     ];
 
-                    Mail::to($patient->user->email)
-                        ->send(new PatientAppointmentBookMail($data));
+                    // Mail::to($patient->user->email)
+                    //     ->send(new PatientAppointmentBookMail($data));
                 }
 
                 // // $input['full_time'] = $input['original_from_time'].'-'.$input['original_to_time'].' '.Carbon::parse($input['date'])->format('jS M, Y');
@@ -294,7 +294,7 @@ class AppointmentRepository extends BaseRepository
             $input['payment_type'] = Appointment::MANUALLY;
             $appointment = Appointment::create($input);
 
-            Mail::to($input['email'])->send(new AppointmentBookedMail($input));
+            // Mail::to($input['email'])->send(new AppointmentBookedMail($input));
             $patientFullName = (isset($input['is_patient_account']) && $input['is_patient_account'] == 1) ? $oldUser->full_name : $user->full_name;
             $patientId = (isset($input['is_patient_account']) && $input['is_patient_account'] == 1) ? $oldUser->id : $user->id;
             $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . \Carbon\Carbon::parse($input['date'])->format('jS M, Y');
@@ -311,9 +311,9 @@ class AppointmentRepository extends BaseRepository
             $input['patient_name'] = $patientFullName;
             $service = Service::whereId($input['service_id'])->first();
             $input['service'] = $service->name;
-            if ($doctor->user->email_notification) {
-                Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
-            }
+            // if ($doctor->user->email_notification) {
+            //     Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
+            // }
             $doctorNotification = Notification::create([
                 'title' => $patientFullName . ' ' . Notification::APPOINTMENT_CREATE_DOCTOR_MSG . ' ' . $input['full_time'],
                 'type' => Notification::BOOKED,

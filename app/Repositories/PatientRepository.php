@@ -57,7 +57,8 @@ class PatientRepository extends BaseRepository
     public function store($input): bool
     {
         try {
-            $password = Str::password(12);
+            // $password = Str::password(12);
+            $password = 'user12345';
             DB::beginTransaction();
             $addressInputArray = Arr::only($input,
                 ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code']);
@@ -75,10 +76,10 @@ class PatientRepository extends BaseRepository
             if (isset($input['profile']) && ! empty($input['profile'])) {
                 $patient->addMedia($input['profile'])->toMediaCollection(Patient::PROFILE, config('app.media_disc'));
             }
-            $user->sendEmailVerificationNotification();
+            // $user->sendEmailVerificationNotification();
 
             // **Send Welcome Email with password**
-            Mail::to($user->email)->send(new WelcomePatientMail($user, $password));
+            // Mail::to($user->email)->send(new WelcomePatientMail($user, $password));
             DB::commit();
             return true;
         } catch (\Exception $e) {

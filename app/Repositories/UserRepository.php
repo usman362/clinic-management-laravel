@@ -73,7 +73,8 @@ class UserRepository extends BaseRepository
      */
     public function store(array $input)
     {
-        $password = Str::password(12);
+        // $password = Str::password(12);
+        $password = 'user12345';
         $addressInputArray = Arr::only($input,
             ['address1', 'address2', 'country_id', 'city_id', 'state_id', 'postal_code']);
         $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
@@ -93,8 +94,8 @@ class UserRepository extends BaseRepository
             if (isset($input['profile']) && ! empty('profile')) {
                 $doctor->addMedia($input['profile'])->toMediaCollection(User::PROFILE, config('app.media_disc'));
             }
-            $doctor->sendEmailVerificationNotification();
-            Mail::to($doctor->email)->send(new WelcomePatientMail($doctor, $password));
+            // $doctor->sendEmailVerificationNotification();
+            // Mail::to($doctor->email)->send(new WelcomePatientMail($doctor, $password));
             DB::commit();
 
             return $doctor;

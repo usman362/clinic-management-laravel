@@ -61,7 +61,7 @@ class RegisteredUserController extends Controller
 
         $user->assignRole('patient');
 
-        $user->sendEmailVerificationNotification();
+        // $user->sendEmailVerificationNotification();
 
         Flash::success(__('messages.flash.your_reg_success'));
 

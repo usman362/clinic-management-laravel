@@ -366,7 +366,7 @@ class UserController extends AppBaseController
             return $this->sendError(__('messages.flash.user_already_verified'));
         }
 
-        $user->sendEmailVerificationNotification();
+        // $user->sendEmailVerificationNotification();
 
         return $this->sendSuccess(__('messages.flash.notification_send'));
     }
