@@ -174,7 +174,7 @@
     </li>
 
     --}}
-    <li class="nav-item {{ Request::is('patients/connect-google-calendar*') ? 'active' : '' }}">
+    {{-- <li class="nav-item {{ Request::is('patients/connect-google-calendar*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.googleCalendar.index') }}">
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-day"></i></span>
@@ -187,7 +187,7 @@
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-day"></i></span>
             <span class="aside-menu-title">{{ __('Google Calendar Events') }}</span>
         </a>
-    </li>
+    </li> --}}
 @endrole
 @can('manage_doctors')
     <li

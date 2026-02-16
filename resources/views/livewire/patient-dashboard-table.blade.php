@@ -10,8 +10,8 @@
               <div class="align-items-center py-3 py-sm-1">
                   <div class="image image-circle image-mini">
                       @if(getLogInUser()->hasRole('patient'))
-                          <img class="img-fluid patient-card-img" alt="img-fluid"
-                               src="{{ getLogInUser()->patient->profile }}"/>
+                          {{-- <img class="img-fluid patient-card-img" alt="img-fluid"
+                               src="{{ getLogInUser()->patient->profile }}"/> --}}
                       @elseif(getLogInUser()->hasRole('doctor'))
                           <img class="img-fluid patient-card-img" alt="img-fluid"
                                src="{{ getLogInUser()->profile_image }}"/>

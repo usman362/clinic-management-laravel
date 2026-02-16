@@ -64,6 +64,7 @@
                     <thead>
                         <tr class="text-uppercase">
                             <th class="text-muted mt-1 fw-bold fs-7">{{ __('Booking') }}</th>
+                            <th class="text-muted mt-1 fw-bold fs-7">{{ __('Link') }}</th>
                             <th class="text-muted mt-1 fw-bold fs-7 text-center">
                                 {{ __('Action') }}</th>
                         </tr>
@@ -74,9 +75,19 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="d-flex flex-column">
-                                            <a href="javascript:void(0)"
+                                            <a href="{{route('patients.appointments.edit',$appointment->id)}}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
                                                 New Booking – Action Required
+                                            </a>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="d-flex flex-column">
+                                            <a href="{{route('patients.appointments.edit',$appointment->id)}}"
+                                                class="text-primary-800 mb-1 fs-6 text-decoration-none">
+                                                {{route('patients.appointments.edit',$appointment->id)}}
                                             </a>
                                         </div>
                                     </div>

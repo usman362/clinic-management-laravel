@@ -106,8 +106,8 @@
             <div class="dropdown d-flex align-items-center py-4">
                 <div class="image image-circle image-mini">
                     @if(getLogInUser()->hasRole('patient'))
-                        <img class="img-fluid" alt="img-fluid"
-                             src="{{ getLogInUser()->patient->profile }}"/>
+                        {{-- <img class="img-fluid" alt="img-fluid"
+                             src="{{ getLogInUser()->patient->profile }}"/> --}}
                     @elseif(getLogInUser()->hasRole('doctor'))
                         <img class="img-fluid" alt="img-fluid"
                              src="{{ getLogInUser()->profile_image }}"/>
@@ -124,8 +124,8 @@
                     <div class="text-center border-bottom pb-5">
                         <div class="image image-circle image-tiny mb-5">
                             @if(getLogInUser()->hasRole('patient'))
-                                <img class="img-fluid" alt="img-fluid"
-                                     src="{{ getLogInUser()->patient->profile }}"/>
+                                {{-- <img class="img-fluid" alt="img-fluid"
+                                     src="{{ getLogInUser()->patient->profile }}"/> --}}
                             @elseif(getLogInUser()->hasRole('doctor'))
                                 <img class="img-fluid" alt="img-fluid"
                                      src="{{ getLogInUser()->profile_image }}"/>

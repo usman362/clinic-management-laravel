@@ -87,17 +87,17 @@ class PatientBookingAppointmentTable extends LivewireTableComponent
             }
         );
 
-        if ($this->dateFilter != '' && $this->dateFilter != getWeekDate()) {
-            $timeEntryDate = explode(' - ', $this->dateFilter);
-            $startDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
-            $endDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
-            $query->whereBetween('appointments.date', [$startDate, $endDate]);
-        } else {
-            $timeEntryDate = explode(' - ', getWeekDate());
-            $startDate = Carbon::parse($timeEntryDate[0])->format('Y-m-d');
-            $endDate = Carbon::parse($timeEntryDate[1])->format('Y-m-d');
-            $query->whereBetween('appointments.date', [$startDate, $endDate]);
-        }
+        // if ($this->dateFilter != '' && $this->dateFilter != getWeekDate()) {
+        //     $timeEntryDate = explode(' - ', $this->dateFilter);
+        //     $startDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
+        //     $endDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
+        //     $query->whereBetween('appointments.date', [$startDate, $endDate]);
+        // } else {
+        //     $timeEntryDate = explode(' - ', getWeekDate());
+        //     $startDate = Carbon::parse($timeEntryDate[0])->format('Y-m-d');
+        //     $endDate = Carbon::parse($timeEntryDate[1])->format('Y-m-d');
+        //     $query->whereBetween('appointments.date', [$startDate, $endDate]);
+        // }
 
         // $query->whereIn('appointments.id', function ($q) {
         //     $q->selectRaw('MAX(appointments.id)')

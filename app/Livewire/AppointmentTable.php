@@ -165,6 +165,7 @@ class AppointmentTable extends LivewireTableComponent
             Column::make(__('messages.appointment.patient'), 'patient.patientUser.email')
                 ->hideIf('patient.patientUser.email')
                 ->searchable(),
+            Column::make(__('Package Link'), 'id')->view('appointments.components.appointment_link'),
             Column::make(__('Total Appointments'), 'id')->view('appointments.components.appointment_count'),
             // Column::make(__('messages.appointment.status'), 'status')->view('appointments.components.status'),
             // Column::make(

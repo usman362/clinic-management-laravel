@@ -51,9 +51,6 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <div class="image image-circle image-mini me-3">
-                                        <img src="{{ isset($patient->profile) ? $patient->profile : asset('web/media/avatars/male.jpg') }}" alt="user" class="">
-                                    </div>
                                     <div class="d-flex flex-column">
                                         <a href="{{ route('patients.show', $patient->id) }}" class="text-primary-800 mb-1 fs-6 text-decoration-none">{{ $patient->user->fullname }}</a>
                                         <span class="text-muted fw-bold d-block">{{ $patient->user->email }}</span>

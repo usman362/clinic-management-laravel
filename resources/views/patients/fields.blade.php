@@ -42,16 +42,22 @@
                 </div>
         </div>
     @endif --}}
-    <div class="col-md-6 mb-5">
+    {{-- <div class="col-md-6 mb-5">
         {{ Form::label('contact', __('messages.patient.contact_no').':', ['class' => 'form-label']) }}
         {{ Form::tel('contact', !empty($patient->user) ? '+'.$patient->user->region_code.$patient->user->contact : null, ['class' => 'form-control',
             'placeholder' => __('messages.patient.contact_no'),'onkeyup' => 'if (/\D/g.test(this.value)) this.value = this.value.replace(/\D/g,"")','id'=>'phoneNumber']) }}
         {{ Form::hidden('region_code',!empty($patient->user) ? $patient->user->region_code : null,['id'=>'prefix_code']) }}
         <span id="valid-msg" class="text-success d-none fw-400 fs-small mt-2">{{ __('messages.valid_number') }}</span>
         <span id="error-msg" class="text-danger d-none fw-400 fs-small mt-2">{{ __('messages.invalid_number') }}</span>
-    </div>
+    </div> --}}
+
     <div class="col-md-6 mb-5">
-        {{ Form::label('gender', __('messages.staff.gender').':', ['class' => 'form-label required']) }}
+        {{ Form::label('dob',__('messages.patient.dob').':' ,['class' => 'form-label']) }}
+        {{ Form::text('dob',!empty($patient->user) ? $patient->user->dob : null,['class' => 'form-control patient-dob','id' => __('messages.patient.dob'), 'placeholder' => __('messages.doctor.dob')]) }}
+    </div>
+
+    <div class="col-md-6 mb-5">
+        {{ Form::label('gender', __('messages.staff.gender').':', ['class' => 'form-label']) }}
         <span class="is-valid">
             <div class="mt-2">
                 <input class="form-check-input" type="radio" name="gender" value="1" checked
@@ -63,13 +69,9 @@
             </div>
         </span>
     </div>
-    <div class="col-md-6 mb-5">
-        {{ Form::label('dob',__('messages.patient.dob').':' ,['class' => 'form-label']) }}
-        {{ Form::text('dob',!empty($patient->user) ? $patient->user->dob : null,['class' => 'form-control patient-dob','id' => __('messages.patient.dob'), 'placeholder' => __('messages.doctor.dob')]) }}
-    </div>
 </div>
 <div class="row">
-    <div class="col-lg-6 mt-5">
+    {{-- <div class="col-lg-6 mt-5">
         <div class="mb-3" io-image-input="true">
             <label for="exampleInputImage" class="form-label">{{__('messages.patient.profile')}}:</label>
             <div class="d-block">
@@ -86,7 +88,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> --}}
     <div class="fw-bolder fs-3 mb-7 mt-5">{{ __('messages.patient.address_information') }}
     </div>
     <div class="col-md-6 mb-7">

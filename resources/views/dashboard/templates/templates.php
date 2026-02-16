@@ -3,9 +3,9 @@
 <tr>
     <td>
                <div class="d-flex align-items-center">
-            <div class="image image-circle image-mini me-3">
+            <!-- <div class="image image-circle image-mini me-3">
                 <img src="{{:image}}" alt="user" class="">
-            </div>
+            </div> -->
             <div class="d-flex flex-column">
                 <a href="{{:route}}"
                    class="text-primary-800 mb-1 fs-6 text-decoration-none">

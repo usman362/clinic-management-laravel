@@ -33,75 +33,78 @@
                     ]) }}
                     @csrf
                     @method('PUT')
-                    <div class="row mb-5">
-                        <div class="col-lg-4">
-                            <label for="exampleInputImage" class="form-label">{{__('messages.doctor.profile')}}:</label>
-                        </div>
-                        <div class="col-lg-8">
-                            @php $styleCss = 'style' @endphp
-                            <div class="mb-3" io-image-input="true">
-                                <div class="d-block">
-                                    <div class="image-picker">
-                                        <div class="image previewImage" id="exampleInputImage" {{ $styleCss }}="background-image: url('{{ (getLogInUser()->hasRole('patient')) ? getLogInUser()->patient->profile : $user->profile_image }}')
+                    @if (!getLogInUser()->hasRole('patient'))
+                        <div class="row mb-5">
+                            <div class="col-lg-4">
+                                <label for="exampleInputImage"
+                                    class="form-label">{{ __('messages.doctor.profile') }}:</label>
+                            </div>
+                            <div class="col-lg-8">
+                                @php $styleCss = 'style' @endphp
+                                <div class="mb-3" io-image-input="true">
+                                    <div class="d-block">
+                                        <div class="image-picker">
+                                            <div class="image previewImage" id="exampleInputImage"
+                                                {{ $styleCss }}="background-image: url('{{ getLogInUser()->hasRole('patient') ? getLogInUser()->patient->profile : $user->profile_image }}')
                                         ">
+                                            </div>
+                                            <span class="picker-edit rounded-circle text-gray-500 fs-small"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-original-title="{{ __('messages.user.edit_profile') }}">
+                                                <label>
+                                                    <i class="fa-solid fa-pen" id="profileImageIcon"></i>
+                                                    <input type="file" id="profilePicture" name="image"
+                                                        class="image-upload d-none profile-validation" accept="image/*" />
+                                                </label>
+                                            </span>
+                                        </div>
                                     </div>
-                                    <span class="picker-edit rounded-circle text-gray-500 fs-small"
-                                          data-bs-toggle="tooltip"
-                                          data-bs-original-title="{{ __('messages.user.edit_profile') }}">
-                                            <label>
-                                                <i class="fa-solid fa-pen" id="profileImageIcon"></i>
-                                                <input type="file" id="profilePicture" name="image"
-                                                       class="image-upload d-none profile-validation" accept="image/*"/>
-                                            </label>
-                                        </span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-            </div>
-
-            <div class="row mb-5">
-                @if (getLoginUser()->hasRole('patient'))
-                    @php
-                        $fullName = 'Full Name of the Child';
-                    @endphp
-                @else
-                    @php
-                        $fullName = __('messages.user.full_name');
-                    @endphp
-                @endif
-                <label class="col-lg-4 form-label required">{{ $fullName.':' }}</label>
+                    @endif
+                    <div class="row mb-5">
+                        @if (getLoginUser()->hasRole('patient'))
+                            @php
+                                $fullName = 'Full Name of the Child';
+                            @endphp
+                        @else
+                            @php
+                                $fullName = __('messages.user.full_name');
+                            @endphp
+                        @endif
+                        <label class="col-lg-4 form-label required">{{ $fullName . ':' }}</label>
                         <div class="col-lg-8">
                             <div class="row">
                                 <div class="col-lg-6 mb-5">
-                                    {{ Form::text('first_name', $user->first_name, ['class'=> 'form-control', 'placeholder' => __('messages.doctor.first_name'), 'required']) }}
+                                    {{ Form::text('first_name', $user->first_name, ['class' => 'form-control', 'placeholder' => __('messages.doctor.first_name'), 'required']) }}
                                     <div class="invalid-feedback"></div>
                                 </div>
                                 <div class="col-lg-6">
-                                    {{ Form::text('last_name', $user->last_name, ['class'=> 'form-control', 'placeholder' =>__('messages.doctor.last_name'), 'required']) }}
+                                    {{ Form::text('last_name', $user->last_name, ['class' => 'form-control', 'placeholder' => __('messages.doctor.last_name'), 'required']) }}
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="row mb-5">
-                        <label class="col-lg-4 form-label required">{{ __('messages.user.email').':' }}</label>
+                        <label class="col-lg-4 form-label required">{{ __('messages.user.email') . ':' }}</label>
                         <div class="col-lg-8">
-                            {{ Form::email('email', $user->email, ['class'=> 'form-control', 'placeholder' => __('messages.user.email'), 'required']) }}
+                            {{ Form::email('email', $user->email, ['class' => 'form-control', 'placeholder' => __('messages.user.email'), 'required']) }}
                         </div>
                     </div>
 
                     <div class="row mb-6">
-                        <label class="col-lg-4 form-label required">{{ __('messages.user.time_zone').':' }}
+                        <label class="col-lg-4 form-label required">{{ __('messages.user.time_zone') . ':' }}
                         </label>
                         <div class="col-lg-8">
-                            {{ Form::select('time_zone', App\Models\User::TIME_ZONE_ARRAY, $user->time_zone,['class'=> 'form-control io-select2', 'placeholder' => __('messages.user.select_time_zone'), 'required', 'data-control'=>'select2',]) }}
+                            {{ Form::select('time_zone', App\Models\User::TIME_ZONE_ARRAY, $user->time_zone, ['class' => 'form-control io-select2', 'placeholder' => __('messages.user.select_time_zone'), 'required', 'data-control' => 'select2']) }}
                         </div>
                     </div>
 
                     <div class="row mb-5">
                         <div class="col-lg-4">
-                            <label class="col-lg-4 form-label">{{ __('messages.user.contact_number').':' }}</label>
+                            <label class="col-lg-4 form-label">{{ __('messages.user.contact_number') . ':' }}</label>
                         </div>
                         <div class="col-lg-8">
                             {{ Form::tel('contact', $user->contact ? '+' . $user->region_code . $user->contact : null, ['id' => 'phoneNumber', 'class' => 'form-control', 'placeholder' => __('messages.user.contact_number'), 'onkeyup' => 'if (/\D/g.test(this.value)) this.value = this.value.replace(/\D/g,"")']) }}
@@ -114,7 +117,7 @@
                     </div>
                     <div class="row mb-5">
                         <div class="col-md-4">
-                        {{ Form::label('dob', __('messages.patient.dob') . ':', ['class' => 'form-label']) }}
+                            {{ Form::label('dob', __('messages.patient.dob') . ':', ['class' => 'form-label']) }}
                         </div>
                         <div class="col-md-8">
                             {{ Form::text('dob', !empty($user) ? $user->dob : null, ['class' => 'form-control patient-dob', 'id' => __('messages.patient.dob'), 'placeholder' => __('messages.doctor.dob')]) }}
@@ -137,10 +140,10 @@
                     @if (getLoginUser()->hasRole('doctor'))
                         <div class="row mb-7">
                             <div class="col-md-4">
-                            {{ Form::label('jotform_link',__('Jotform Embed Link').':' ,['class' => 'form-label']) }}
+                                {{ Form::label('jotform_link', __('Jotform Embed Link') . ':', ['class' => 'form-label']) }}
                             </div>
                             <div class="col-md-8">
-                            {{ Form::text('jotform_link', !empty(\App\Models\Doctor::where('user_id',auth()->id())->first()) ? \App\Models\Doctor::where('user_id',auth()->id())->first()->jotform_link : null,['class' => 'form-control','placeholder' => __('Jotform Embed Link'), 'id' => 'jotform_link']) }}
+                                {{ Form::text('jotform_link', !empty(\App\Models\Doctor::where('user_id', auth()->id())->first()) ? \App\Models\Doctor::where('user_id', auth()->id())->first()->jotform_link : null, ['class' => 'form-control', 'placeholder' => __('Jotform Embed Link'), 'id' => 'jotform_link']) }}
                             </div>
                         </div>
                     @endif
