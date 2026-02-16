@@ -12,26 +12,11 @@
         {{ Form::email('email', $user->email,['class' => 'form-control','placeholder' =>  __('messages.web.email')]) }}
     </div>
     <div class="col-md-6 mb-5">
-        {{ Form::label('Contact',__('messages.user.contact_number').':' ,['class' => 'form-label']) }}
-        {{ Form::tel('contact', '+'.$user->region_code.$user->contact,['class' => 'form-control','placeholder' =>  __('messages.patient.contact_no'),'onkeyup' => 'if (/\D/g.test(this.value)) this.value = this.value.replace(/\D/g,"")','id'=>'phoneNumber']) }}
-        {{ Form::hidden('region_code',!empty($user->user) ? $user->user->region_code : null,['id'=>'prefix_code']) }}
-        <span id="valid-msg" class="text-success d-none fw-400 fs-small mt-2">{{ __('messages.valid_number') }}</span>
-        <span id="error-msg" class="text-danger d-none fw-400 fs-small mt-2">{{ __('messages.invalid_number') }}</span>
-    </div>
-    <div class="col-md-6 mb-5">
-        {{ Form::label('DOB',__('messages.doctor.dob').':' ,['class' => 'form-label']) }}
-        {{ Form::text('dob', $user->dob,['class' => 'form-control doctor-dob','placeholder' => __('messages.doctor.dob'), 'id'=>'dob']) }}
-    </div>
-    <div class="col-md-6 mb-5">
         {{ Form::label('Specialization',__('messages.doctor.specialization').':' ,['class' => 'form-label required']) }}
         {{ Form::select('specializations[]',$data['specializations'], $data['doctorSpecializations'],['class' => 'io-select2 form-select', 'data-control'=>"select2", 'multiple']) }}
     </div>
     <div class="col-md-6 mb-5">
-        {{ Form::label('Experience', __('messages.doctor.experience').':', ['class' => 'form-label']) }}
-        {{ Form::text('experience', $doctor->experience, ['class' => 'form-control', 'placeholder' => __('messages.doctor.experience'),'step'=>'any']) }}
-    </div>
-    <div class="col-md-6 mb-5">
-        <label class="form-label required">
+        <label class="form-label">
             {{__('messages.doctor.select_gender')}}
             :
         </label>
@@ -47,18 +32,6 @@
     <div class="col-md-6 mb-5">
         {{ Form::label('jotform_link',__('Jotform Embed Link').':' ,['class' => 'form-label']) }}
         {{ Form::text('jotform_link', !empty($doctor->jotform_link) ? $doctor->jotform_link : null,['class' => 'form-control','placeholder' => __('Jotform Embed Link'), 'id' => 'jotform_link']) }}
-    </div>
-    <div class="col-md-6 mb-5">
-        {{ Form::label('twitter',__('messages.doctor.twitter').':' ,['class' => 'form-label']) }}
-        {{ Form::text('twitter_url', !empty($doctor->twitter_url) ? $doctor->twitter_url : null,['class' => 'form-control','placeholder' =>  __('messages.common.twitter_url'),'id' => 'twitterUrl']) }}
-    </div>
-    <div class="col-md-6 mb-5">
-        {{ Form::label('linkedin',__('messages.doctor.linkedin').':' ,['class' => 'form-label']) }}
-        {{ Form::text('linkedin_url', !empty($doctor->linkedin_url) ? $doctor->linkedin_url : null,['class' => 'form-control','placeholder' =>  __('messages.common.linkedin_url'), 'id' => 'linkedinUrl']) }}
-    </div>
-    <div class="col-md-6 mb-5">
-        {{ Form::label('instagram',__('messages.doctor.instagram').':' ,['class' => 'form-label']) }}
-        {{ Form::text('instagram_url', !empty($doctor->instagram_url) ? $doctor->instagram_url : null,['class' => 'form-control','placeholder' =>  __('messages.common.instagram_url'), 'id' => 'instagramUrl']) }}
     </div>
     <div class="col-md-6 mb-5">
         <div class="mb-3" io-image-input="true">
@@ -78,8 +51,7 @@
             </div>
         </div>
     </div>
-</div>
-<div class="col-md-6 mb-5">
+    <div class="col-md-6 mb-5">
     <label class="form-label">{{__('messages.doctor.status')}}:</label>
     <div class="col-lg-8">
         <div class="form-check form-check-solid form-switch">
@@ -89,6 +61,8 @@
         </div>
     </div>
 </div>
+</div>
+
 <div class="row gx-10 mb-5">
     <div class="col-md-6 mb-5">
         {{ Form::label('Address 1', __('messages.doctor.address1').':', ['class' => 'form-label']) }}
@@ -116,7 +90,7 @@
         {{ Form::text('postal_code', isset($user->address->postal_code) ? $user->address->postal_code : '', ['class' => 'form-control', 'placeholder' => __('messages.doctor.postal_code')]) }}
     </div>
 </div>
-<div>
+{{-- <div>
     <div class="fw-bolder fs-3 rotate collapsible mb-4">{{ __('messages.doctor.qualification_information') }}
     </div>
     <a class="btn btn-primary float-end mb-4" id="addQualification">{{__('messages.doctor.add_qualification')}}</a>
@@ -177,7 +151,7 @@
         @endforeach
         </tbody>
     </table>
-</div>
+</div> --}}
 <div class="d-flex mt-4">
     <button type="submit" class="btn btn-primary">{{__('messages.common.save')}}</button>&nbsp;&nbsp;&nbsp;
     <a href="{{route('doctors.index')}}" type="reset" id="ResetForm"

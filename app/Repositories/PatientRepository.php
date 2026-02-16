@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Illuminate\Support\Facades\Session;
 use App\Models\Setting;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -68,6 +69,7 @@ class PatientRepository extends BaseRepository
             $input['type'] = User::PATIENT;
             $input['language'] = Setting::where('key','language')->get()->toArray()[0]['value'];
             $input['password'] = Hash::make($password);
+            $input['email_verified_at'] = Carbon::now();
             $user = User::create($input);
 
             $patient = $user->patient()->create($patientArray);

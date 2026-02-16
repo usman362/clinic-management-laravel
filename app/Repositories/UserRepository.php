@@ -86,6 +86,7 @@ class UserRepository extends BaseRepository
             $input['password'] = Hash::make($password);
             $input['type'] = User::DOCTOR;
             $input['language'] = Setting::where('key','language')->get()->toArray()[0]['value'];
+            $input['email_verified_at'] = Carbon::now();
             $doctor = User::create($input);
             $doctor->assignRole('doctor');
             $doctor->address()->create($addressInputArray);

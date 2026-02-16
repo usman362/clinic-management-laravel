@@ -17,7 +17,7 @@
             {{ Form::email('email', null,['class' => 'form-control','placeholder' => __('messages.user.email')]) }}
         </div>
     </div>
-    <div class="col-md-6">
+    {{-- <div class="col-md-6">
         <div class="mb-5">
             {{ Form::label('Contact',__('messages.user.contact_number').':' ,['class' => 'form-label']) }}
             {{ Form::tel('contact', null,['class' => 'form-control','placeholder' => __('messages.user.contact_number'),'onkeyup' => 'if (/\D/g.test(this.value)) this.value = this.value.replace(/\D/g,"")','id'=>'phoneNumber']) }}
@@ -25,7 +25,7 @@
             <span id="valid-msg" class="text-success d-none fw-400 fs-small mt-2">{{ __('messages.valid_number') }}</span>
             <span id="error-msg" class="text-danger d-none fw-400 fs-small mt-2">{{ __('messages.invalid_number') }}</span>
         </div>
-    </div>
+    </div> --}}
     {{-- <div class="col-md-6 mb-5">
         <div class="mb-1">
             {{ Form::label('password',__('messages.staff.password').':' ,['class' => 'form-label required']) }}
@@ -50,27 +50,27 @@
             </div>
         </div>
     </div> --}}
-    <div class="col-md-6">
+    {{-- <div class="col-md-6">
         <div class="mb-5">
             {{ Form::label('DOB',__('messages.doctor.dob').':' ,['class' => 'form-label']) }}
             {{ Form::text('dob', null,['class' => 'form-control doctor-dob','placeholder' => __('messages.doctor.dob'), 'id'=>'dob']) }}
         </div>
-    </div>
+    </div> --}}
     <div class="col-md-6">
         <div class="mb-5">
             {{ Form::label('Specialization',__('messages.doctor.specialization').':' ,['class' => 'form-label required']) }}
             {{ Form::select('specializations[]',$specializations, null,['class' => 'io-select2 form-select', 'data-control'=>"select2", 'multiple', 'data-placeholder' => __('messages.doctor.specialization')]) }}
         </div>
     </div>
-    <div class="col-md-6">
+    {{-- <div class="col-md-6">
         <div class="mb-5">
             {{ Form::label('Experience',__('messages.doctor.experience').':' ,['class' => 'form-label']) }}
             {{ Form::text('experience', null,['class' => 'form-control','onkeyup' => 'if (/\D/g.test(this.value)) this.value = this.value.replace(/\D/g,"")','placeholder' => __('messages.doctor.experience'),'step'=>'any']) }}
         </div>
-    </div>
+    </div> --}}
     <div class="col-md-6">
         <div class="mb-5">
-            <label class="form-label required">
+            <label class="form-label">
                 {{__('messages.doctor.select_gender')}}
                 :
             </label>
@@ -88,7 +88,7 @@
         {{ Form::label('jotform_link',__('Jotform Embed Link').':' ,['class' => 'form-label']) }}
         {{ Form::text('jotform_link', null,['class' => 'form-control','placeholder' => __('Jotform Embed Link'), 'id' => 'jotform_link']) }}
     </div>
-    <div class="col-md-6 mb-5">
+    {{-- <div class="col-md-6 mb-5">
         {{ Form::label('twitter',__('messages.doctor.twitter').':' ,['class' => 'form-label']) }}
         {{ Form::text('twitter_url', null,['class' => 'form-control','placeholder' => __('messages.common.twitter_url'), 'id' => 'twitterUrl']) }}
     </div>
@@ -99,7 +99,7 @@
     <div class="col-md-6 mb-5">
         {{ Form::label('instagram',__('messages.doctor.instagram').':' ,['class' => 'form-label']) }}
         {{ Form::text('instagram_url', null,['class' => 'form-control','placeholder' => __('messages.common.instagram_url'), 'id' => 'instagramUrl']) }}
-    </div>
+    </div> --}}
     <div class="col-lg-6">
         <div class="mb-5">
             <div class="mb-3" io-image-input="true">

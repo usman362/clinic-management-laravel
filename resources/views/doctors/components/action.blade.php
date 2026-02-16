@@ -9,11 +9,11 @@
         </a>
     @endif
 
-    <a data-id="{{ $row->user->id }}" data-bs-toggle="tooltip"
+    {{-- <a data-id="{{ $row->user->id }}" data-bs-toggle="tooltip"
        data-bs-original-title="{{ __('messages.doctor.add_qualification') }}"
        class="btn px-2 fs-2 add-qualification">
         <i class="fa-solid fa-plus"></i>
-    </a>
+    </a> --}}
     <a href="{{ route('doctors.edit', $row->id) }}" title="{{ __('messages.common.edit') }}" class="btn px-2 text-primary fs-2 doctor-edit-btn" data-bs-toggle="tooltip"
        data-bs-original-title="Edit" data-turbolinks="false">
         <i class="fa-solid fa-pen-to-square"></i>
