@@ -19,7 +19,7 @@ class AdminDashBoardTable extends Component
             ->withCount('appointments')
             ->whereRaw('Date(created_at) = CURDATE()')
             ->orderBy('created_at', 'DESC')
-            ->get()->toArray();
+            ->get();
     }
 
     public function placeholder()
