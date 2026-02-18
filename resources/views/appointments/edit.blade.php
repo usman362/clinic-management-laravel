@@ -77,43 +77,43 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">First Name</label>
-                                <input type="text" class="form-control" id="first_name" name="first_name"
+                                <input type="text" class="form-control" id="first_name" oninput="changeValue('client_name',this)" name="first_name"
                                     value="{{ @$appointment->patient->user->first_name }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Last Name</label>
-                                <input type="text" class="form-control" id="last_name" name="last_name"
+                                <input type="text" class="form-control" id="last_name" oninput="changeValue('client_name',this)" name="last_name"
                                     value="{{ @$appointment->patient->user->last_name }}" required>
                             </div>
 
                             <div class="col-md-12 mb-3">
                                 <label class="form-label">Address</label>
-                                <input type="text" class="form-control" id="address" name="address"
+                                <input type="text" class="form-control" id="address" oninput="changeValue('client_address',this)" name="address"
                                     value="{{ @$appointment->patient->address->address1 }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Date of Birth</label>
-                                <input type="date" class="form-control" id="dob" name="dob"
+                                <input type="date" class="form-control" id="dob" oninput="changeValue('client_dob',this)" name="dob"
                                     value="{{ @$appointment->patient->user->dob }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tax Code (Codice Fiscale)</label>
-                                <input type="text" class="form-control" id="tax_code" name="tax_code"
+                                <input type="text" class="form-control" id="tax_code" oninput="changeValue('client_tax_code',this)" name="tax_code"
                                     value="{{ @$appointment->patient->address->tax_code }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">School Name</label>
-                                <input type="text" class="form-control" id="school_name" name="school_name"
+                                <input type="text" class="form-control" id="school_name" oninput="changeValue('client_school',this)" name="school_name"
                                     value="{{ @$appointment->patient->address->school_name }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">School Grade</label>
-                                <input type="text" class="form-control" id="school_grade" name="school_grade"
+                                <input type="text" class="form-control" id="school_grade" oninput="changeValue('client_grade',this)" name="school_grade"
                                     value="{{ @$appointment->patient->address->school_grade }}" required>
                             </div>
                         </div>
@@ -132,6 +132,7 @@
                         <div class="appointments-wrapper">
                             @foreach (\App\Models\Appointment::where('relation_id', $appointment->relation_id)->get() as $key => $relation)
                                 <div class="appointments-section mb-4" data-index="{{ $key }}">
+                                    <input type="hidden" class="date_id" value="date-time{{$relation->id}}">
                                     <div class="card-body" style="border: 1px solid #eff3f7;border-radius: 12px;">
                                         <div
                                             style="font-size: 12px;border-radius: 12px;background-color: #eaecef;text-align: center;width: 106px;margin-bottom: 14px;">
@@ -557,7 +558,7 @@
                                             <p style="color:#6c757d;font-size:13px" class="m-0">
                                                 {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . $relation->services->duration . ' min)' }}
                                             </p>
-                                            <p style="color:#6c757d;font-size:13px" class="m-0 date-time">Date & Time not
+                                            <p style="color:#6c757d;font-size:13px" id="date-time{{$relation->id}}" class="m-0 date-time">Date & Time not
                                                 selected</p>
                                         </div>
                                     </div>

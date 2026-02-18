@@ -33,12 +33,12 @@ class UpdateSettingRequest extends FormRequest
         if ($this->request->get('sectionName') == 'general') {
             return [
                 'email' => 'required|email:filter',
-                'specialities' => 'required',
+                // 'specialities' => 'required',
                 'clinic_name' => 'required',
-                'contact_no' => 'required',
+                // 'contact_no' => 'required',
                 'logo' => 'image|mimes:jpeg,png,jpg',
                 'favicon' => 'image|mimes:png|dimensions:width=32,height=32',
-                'language' => 'required',
+                // 'language' => 'required',
             ];
         }
     }

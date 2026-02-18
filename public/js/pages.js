@@ -443,6 +443,9 @@
                 // update hidden inputs
                 section.find('.timeSlot').val(fromTime);
                 section.find('.toTime').val(toTime);
+                let dateId = section.find('.date_id').val();
+                $('#'+dateId).text(section.find('.appointmentDate').val()+' '+fromTime+'-'+toTime);
+                section.find('.date-time').text(section.find('.appointmentDate').val()+' '+fromTime+'-'+toTime);
             });
 
             var o;
@@ -10401,4 +10404,18 @@ listenChange(
         });
     }
 );
+
+function changeValue(className, el){
+    let value = el.value;
+
+    if(className === 'client_name'){
+        let first_name = document.getElementById('first_name').value;
+        let last_name = document.getElementById('last_name').value;
+        value = first_name+' '+last_name;
+    }
+
+    document.querySelectorAll('.' + className).forEach(function(element){
+        element.textContent = value;
+    });
+}
 

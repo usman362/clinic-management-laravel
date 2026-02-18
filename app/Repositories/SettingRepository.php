@@ -43,17 +43,18 @@ class SettingRepository extends BaseRepository
 
         if ($inputArr['sectionName'] == 'general') {
             $inputArr['clinic_name'] = (empty($inputArr['clinic_name'])) ? '' : $inputArr['clinic_name'];
-            $inputArr['contact_no'] = (empty($inputArr['contact_no'])) ? '' : $inputArr['contact_no'];
+            // $inputArr['contact_no'] = (empty($inputArr['contact_no'])) ? '' : $inputArr['contact_no'];
             $inputArr['email'] = (empty($inputArr['email'])) ? '' : $inputArr['email'];
-            $inputArr['specialities'] = (empty($inputArr['specialities'])) ? '1' : json_encode($inputArr['specialities']);
+            // $inputArr['specialities'] = (empty($inputArr['specialities'])) ? '1' : json_encode($inputArr['specialities']);
             $inputArr['currency'] = (empty($inputArr['currency'])) ? '1' : $inputArr['currency'];
             $inputArr['prefix'] = (empty($inputArr['prefix'])) ? '' : $inputArr['prefix'];
             $inputArr['region_code'] = (empty($inputArr['region_code'])) ? '' : $inputArr['region_code'];
             $inputArr['email_verified'] = (empty($inputArr['email_verified'])) ? '0' : $inputArr['email_verified'];
-            $inputArr['default_country_code'] = (empty($inputArr['default_country_code'])) ? '' : $inputArr['default_country_code'];
+            // $inputArr['default_country_code'] = (empty($inputArr['default_country_code'])) ? '' : $inputArr['default_country_code'];
             $inputArr['recaptcha'] = (empty($inputArr['recaptcha'])) ? 0 : $inputArr['recaptcha'];
             $inputArr['googleCaptchaKey'] = (empty($inputArr['googleCaptchaKey'])) ? '' : $inputArr['googleCaptchaKey'];
             $inputArr['googleCaptchaSecret'] = (empty($inputArr['googleCaptchaSecret'])) ? '' : $inputArr['googleCaptchaSecret'];
+            $inputArr['booking_information'] = (empty($inputArr['booking_information'])) ? '' : json_decode($inputArr['booking_information']);
         }
         if ($inputArr['sectionName'] == 'contact_information') {
             $inputArr['address_one'] = (empty($inputArr['address_one'])) ? '' : $inputArr['address_one'];
