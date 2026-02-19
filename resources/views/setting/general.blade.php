@@ -48,7 +48,7 @@
                         {{ Form::email('email', $setting['email'], ['class' => 'form-control ','placeholder'=>__('messages.user.email'),'required']) }}
                     </div>
                 </div>
-                <div class="row mb-6">
+                {{-- <div class="row mb-6">
                     {{ Form::label('specialities',__('messages.setting.specialities').':',
                                      ['class'=>'col-lg-4 form-label']) }}
                     <div class="col-lg-8">
@@ -56,7 +56,7 @@
                          'class' => 'form-select', 'aria-label'=>"Select a Country",
                          'data-control'=>'select2','required']) }}
                     </div>
-                </div>
+                </div> --}}
                 <div class="row mb-6">
                         <label for="appLogoPreview" class="col-lg-4 required form-label">{{ __('messages.setting.logo').':'}}</label>
                     <div class="col-lg-8">
