@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::table('services', function (Blueprint $table) {
             $table->integer('duration')->default(0);
-            if (Schema::hasColumn('services', 'category_id')) {
+            // if (Schema::hasColumn('services', 'category_id')) {
                 $table->dropForeign(['category_id']);
                 $table->dropColumn('category_id');
-            }
+            // }
             $table->string('category_id')->nullable();
         });
     }

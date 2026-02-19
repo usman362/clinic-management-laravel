@@ -19,9 +19,9 @@ return new class extends Migration
             $table->boolean('status')->default(1);
             $table->timestamps();
 
-            // $table->foreign('category_id')->references('id')->on('service_categories')
-            //     ->onUpdate('cascade')
-            //     ->onDelete('cascade');
+            $table->foreign('category_id')->references('id')->on('service_categories')
+                ->onUpdate('cascade')
+                ->onDelete('cascade');
         });
     }
 
