@@ -140,16 +140,17 @@ class FeebackAppointmentTable extends LivewireTableComponent
     {
         return [
 
-            Column::make(__('messages.visit.doctor'), 'doctor.doctorUser.first_name')
-                ->view('feedback_appointments.components.doctor_name')
-                ->sortable()
-                ->searchable(
-                    function (Builder $query, $direction) {
-                        return $query->whereHas('doctor.doctorUser', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
-                        });
-                    }
-                ),
+            // Column::make(__('messages.visit.doctor'), 'doctor.doctorUser.first_name')
+            //     ->view('appointments.components.doctor_name')
+            //     ->sortable()
+            //     ->searchable(
+            //         function (Builder $query, $direction) {
+            //             return $query->whereHas('doctor.doctorUser', function (Builder $q) use ($direction) {
+            //                 $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+            //             });
+            //         }
+            //     ),
+
             Column::make(__('messages.appointment.patient'), 'patient.patientUser.first_name')
                 ->view('feedback_appointments.components.patient_name')
                 ->sortable(function (Builder $query, $direction) {
@@ -165,11 +166,13 @@ class FeebackAppointmentTable extends LivewireTableComponent
             Column::make(__('messages.appointment.patient'), 'patient.patientUser.email')
                 ->hideIf('patient.patientUser.email')
                 ->searchable(),
-            Column::make(__('messages.appointment.status'), 'status')->view('feedback_appointments.components.status'),
+            Column::make(__('Package Link'), 'id')->view('feedback_appointments.components.appointment_link'),
+            Column::make(__('Total Appointments'), 'id')->view('feedback_appointments.components.appointment_count'),
+            // Column::make(__('messages.appointment.status'), 'status')->view('feedback_appointments.components.status'),
             // Column::make(
             //     __('messages.appointment.appointment_at'),
             //     'date'
-            // )->view('appointments.components.appointment_at')
+            // )->view('feedback_appointments.components.appointment_at')
             //     ->sortable()->searchable(),
             Column::make(__('messages.common.action'), 'id')->view('feedback_appointments.components.action'),
         ];

@@ -173,7 +173,7 @@ class Appointment extends Model
         self::PAYPAL => 'Paypal',
         // self::RAZORPAY => 'Razorpay',
         // self::AUTHORIZE => 'Authorize',
-      //   self::PAYTM => 'Paytm',
+        //   self::PAYTM => 'Paytm',
     ];
 
     const PAYMENT_GATEWAY = [
@@ -182,7 +182,7 @@ class Appointment extends Model
         self::PAYPAL => 'Paypal',
         // self::RAZORPAY => 'Razorpay',
         // self::AUTHORIZE => 'Authorize',
-      //  self::PAYTM => 'Paytm',
+        //  self::PAYTM => 'Paytm',
     ];
 
     /**
@@ -200,6 +200,32 @@ class Appointment extends Model
         'to_time' => 'required',
         'payment_type' => 'required',
     ];
+
+
+    protected static function booted()
+    {
+        static::updated(function ($appointment) {
+            // Sirf tab jab status change hua aur ab CHECK_OUT hai
+            if ($appointment->status == Appointment::CHECK_OUT) {
+
+                // Prevent duplicate feedback record
+                // $exists = Appointment::where('relation_id', $appointment->relation_id)
+                //     ->where('status', 5)
+                //     ->exists();
+
+                // if (! $exists) {
+
+                    $feedback = $appointment->replicate();
+
+                    $feedback->status = 5; // feedback default status
+                    $feedback->appointment_type = 'feedback'; // optional but recommended
+                    $feedback->appointment_unique_id = strtoupper(Appointment::generateAppointmentUniqueId());
+
+                    $feedback->save();
+                // }
+            }
+        });
+    }
 
     public static function generateAppointmentUniqueId(): string
     {
@@ -253,5 +279,4 @@ class Appointment extends Model
     {
         return $this->hasOne(Transaction::class, 'appointment_id', 'appointment_unique_id');
     }
-
 }

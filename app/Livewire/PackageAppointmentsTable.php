@@ -76,7 +76,8 @@ class PackageAppointmentsTable extends LivewireTableComponent
             'transaction',
             'doctor.reviews',
             'doctor.user.media',
-        ])->where('relation_id',$this->relationId);
+        ])->where('relation_id',$this->relationId)
+        ->where('appointment_type','assessment');
 
         // $query->when($this->statusFilter != '' && $this->statusFilter != Appointment::ALL_STATUS,
         //     function (Builder $q) {

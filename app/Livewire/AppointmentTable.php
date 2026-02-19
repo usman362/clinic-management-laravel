@@ -66,7 +66,7 @@ class AppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
-        $query = Appointment::with([
+        $query = Appointment::where('appointment_type','assessment')->with([
             'doctor.user',
             'patient.user',
             'services',

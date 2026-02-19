@@ -213,7 +213,7 @@ class AppointmentController extends AppBaseController
         $docServices = DB::table('service_doctor')->where('service_id', $appointment->service_id)->pluck('doctor_id');
         $doctors = Doctor::whereIn('id', $docServices)->with('user')->get()->where('user.status', User::ACTIVE)->pluck('user.full_name', 'id');
         $fullDoctors = Doctor::whereIn('id', $docServices)->with('user')->get();
-        return view('appointments.edit', compact('data', 'appointment', 'doctors','fullDoctors'));
+        return view('appointments.edit', compact('data', 'appointment', 'doctors', 'fullDoctors'));
     }
 
     public function update(Request $request, $id)
@@ -380,7 +380,6 @@ class AppointmentController extends AppBaseController
         }
 
         $appointment = Appointment::findOrFail($input['appointmentId']);
-
         $appointment->update([
             'status' => $input['appointmentStatus'],
         ]);
@@ -389,9 +388,7 @@ class AppointmentController extends AppBaseController
         $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
         $doctor = Doctor::whereId($appointment->doctor_id)->with('user')->first();
         if ($input['appointmentStatus'] == Appointment::CHECK_OUT) {
-            $appointment->appointment_type = 'feedback';
-            // $appointment->status = 5;
-            $appointment->save();
+
             Notification::create([
                 'title' => Notification::APPOINTMENT_CHECKOUT_PATIENT_MSG . ' ' . getLogInUser()->full_name,
                 'type' => Notification::CHECKOUT,

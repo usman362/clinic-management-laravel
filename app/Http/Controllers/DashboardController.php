@@ -31,15 +31,15 @@ class DashboardController extends AppBaseController
     public function index(Request $request)
     {
         $data = $this->dashboardRepository->getData();
-        $appointmentChartData = $this->dashboardRepository->getAppointmentChartData($request->all());
+        // $appointmentChartData = $this->dashboardRepository->getAppointmentChartData($request->all());
         $clinic_name = Setting::where('key','clinic_name')->pluck('value')->first();
-        if ($request->ajax()) {
-            $appointmentFilterChartData = $this->dashboardRepository->getAppointmentChartData($request->all());
+        // if ($request->ajax()) {
+        //     $appointmentFilterChartData = $this->dashboardRepository->getAppointmentChartData($request->all());
 
-            return $this->sendResponse($appointmentFilterChartData, __('messages.filter_success'));
-        }
+        //     return $this->sendResponse($appointmentFilterChartData, __('messages.filter_success'));
+        // }
 
-        return view('dashboard.index', compact('data', 'appointmentChartData','clinic_name'));
+        return view('dashboard.index', compact('data', 'clinic_name'));
     }
 
     /**
