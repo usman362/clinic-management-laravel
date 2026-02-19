@@ -7,7 +7,7 @@
         <div class="maincard-section p-0 pb-4">
             <div class="row">
                 <input type="hidden" name="doctor_id" value="{{ getLogInUser()->doctor->id }}" />
-                <div class="col-4 p-0">
+                <div class="col-12 p-0">
                     <div class="my-4 ms-3">
                         {{ Form::label('session_gap', __('messages.doctor_session.session_gap') . ':', ['class' => 'form-label required']) }}
                         {{ Form::select('session_gap', $gaps, isset($sessionWeekDays) ? null : $gaps[array_key_first($gaps)], [
@@ -20,7 +20,7 @@
                         ]) }}
                     </div>
                 </div>
-                <div class="col-4">
+                {{-- <div class="col-4">
                     <div class="my-4 ms-3">
                         {{ Form::label('session_meeting_time', __('messages.doctor_session.session_meeting_time') . ':', ['class' => 'form-label required']) }}
                         {{ Form::select(
@@ -36,7 +36,7 @@
                             ],
                         ) }}
                     </div>
-                </div>
+                </div> --}}
             </div>
             @foreach (App\Models\ClinicSchedule::WEEKDAY as $day => $shortWeekDay)
                 @php($isValid = isset($sessionWeekDays) && $sessionWeekDays->where('day_of_week', $day)->count() != 0)

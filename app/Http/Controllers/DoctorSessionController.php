@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\ClinicSchedule;
 use App\Models\DoctorHoliday;
 use App\Models\DoctorSession;
+use App\Models\Service;
 use App\Models\WeekDay;
 use App\Repositories\DoctorSessionRepository;
 use Carbon\Carbon;
@@ -161,6 +162,12 @@ class DoctorSessionController extends AppBaseController
         $doctorId = $request->get('adminAppointmentDoctorId');
         $timezone_offset_minutes = $request->get('timezone_offset_minutes');
         $doctor_holiday = DoctorHoliday::where('doctor_id', $doctorId)->where('date', $holidaydate)->get();
+        $service = Service::find($request->appointmentServiceId);
+        if($service){
+            $duration = $service->duration;
+        }else{
+            $duration = 0;
+        }
         if (! $doctor_holiday->count() == 0) {
             return $this->sendError(__('messages.flash.doctor_not_available'));
         }
@@ -177,6 +184,7 @@ class DoctorSessionController extends AppBaseController
 
             return $this->sendError(__('messages.flash.no_available_slots'));
         }
+        // dd($doctorWeekDaySessions);
 
         $appointments = Appointment::whereDoctorId($doctorId)->whereIn('status',
             [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT])->get();
@@ -195,7 +203,9 @@ class DoctorSessionController extends AppBaseController
             // convert 12 hours to 24 hours
             $startTime = date('H:i', strtotime($doctorWeekDaySession->full_start_time));
             $endTime = date('H:i', strtotime($doctorWeekDaySession->full_end_time));
-            $slots = $this->getTimeSlot($doctorSession->session_meeting_time, $startTime, $endTime);
+            // dd($doctorSession->session_meeting_time);
+            // $slots = $this->getTimeSlot($doctorSession->session_meeting_time, $startTime, $endTime);
+            $slots = $this->getTimeSlot($duration, $startTime, $endTime);
             $gap = $doctorSession->session_gap;
             $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
             foreach ($slots as $key => $slot) {

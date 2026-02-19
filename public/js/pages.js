@@ -370,13 +370,14 @@
                     type: "GET",
                     data: {
                         adminAppointmentDoctorId: $(this).closest('.appointments-section').find('.adminAppointmentDoctorId').val(),
+                        appointmentServiceId: $(this).closest('.appointments-section').find('.appointmentServiceId').val(),
                         date: n,
                         timezone_offset_minutes: s
                     },
 
                     success: function (e) {
                         if (!e.success) return;
-
+                        console.log(e);
                         // case: bookedSlot exists but no slots
                         if (e.data.bookedSlot != null && e.data.bookedSlot.length > 0 && e.data.slots.length === 0) {
                             dateSection.find(".no-time-slot").addClass("d-none");

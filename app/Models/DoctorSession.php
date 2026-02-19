@@ -69,6 +69,7 @@ class DoctorSession extends Model
     ];
 
     const GAPS = [
+        '0' => '0 minute',
         '5' => '5 minutes',
         '10' => '10 minutes',
         '15' => '15 minutes',
@@ -97,7 +98,7 @@ class DoctorSession extends Model
      */
     public static $rules = [
         'doctor_id' => 'required',
-        'session_meeting_time' => 'required',
+        // 'session_meeting_time' => 'required',
         'session_gap' => 'required',
     ];
 
