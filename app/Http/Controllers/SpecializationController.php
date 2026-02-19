@@ -67,7 +67,7 @@ class SpecializationController extends AppBaseController
     public function destroy(Specialization $specialization): JsonResponse
     {
         if ($specialization->doctors()->count()) {
-            return $this->sendError(__('messages.flash.specialization_used_some_where'));
+            return $this->sendError(__('Specialization is used Somewhere'));
         }
         $specialization->delete();
 
