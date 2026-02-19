@@ -49,6 +49,8 @@ class SettingRepository extends BaseRepository
             $inputArr['currency'] = (empty($inputArr['currency'])) ? '1' : $inputArr['currency'];
             $inputArr['prefix'] = (empty($inputArr['prefix'])) ? '' : $inputArr['prefix'];
             $inputArr['region_code'] = (empty($inputArr['region_code'])) ? '' : $inputArr['region_code'];
+            $inputArr['default_country_data'] = (empty($inputArr['default_country_data'])) ? '' : $inputArr['default_country_data'];
+            $inputArr['default_country_code'] = (empty($inputArr['default_country_code'])) ? '' : $inputArr['default_country_code'];
             $inputArr['email_verified'] = (empty($inputArr['email_verified'])) ? '0' : $inputArr['email_verified'];
             // $inputArr['default_country_code'] = (empty($inputArr['default_country_code'])) ? '' : $inputArr['default_country_code'];
             $inputArr['recaptcha'] = (empty($inputArr['recaptcha'])) ? 0 : $inputArr['recaptcha'];
