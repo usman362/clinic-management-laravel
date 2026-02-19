@@ -111,6 +111,7 @@ class AppointmentRepository extends BaseRepository
 
                     Mail::to($patient->user->email)
                         ->send(new PatientAppointmentBookMail($data));
+                        dd($patient->user->email);
                 }
 
                 // // $input['full_time'] = $input['original_from_time'].'-'.$input['original_to_time'].' '.Carbon::parse($input['date'])->format('jS M, Y');
