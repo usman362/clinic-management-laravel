@@ -4796,9 +4796,10 @@
                         }))
                     }
                 })
-            })), listenClick("#settingSubmitBtn", (function () {
-                return $('input[name="payment_gateway[]"]:checked').length ? "" !== $("#error-msg").text() ? ($("#phoneNumber").focus(), displayErrorMessage(Lang.get("js.contact_number") + $("#error-msg").text()), !1) : void $("#generalSettingForm")[0].submit() : (displayErrorMessage(Lang.get("js.select_payment")), !1)
             }))
+            // , listenClick("#settingSubmitBtn", (function () {
+            //     return $('input[name="payment_gateway[]"]:checked').length ? "" !== $("#error-msg").text() ? ($("#phoneNumber").focus(), displayErrorMessage(Lang.get("js.contact_number") + $("#error-msg").text()), !1) : void $("#generalSettingForm")[0].submit() : (displayErrorMessage(Lang.get("js.select_payment")), !1)
+            // }))
         },
         698: () => {
             document.addEventListener("turbo:load", (function () {
