@@ -123,11 +123,11 @@ class AppointmentRepository extends BaseRepository
                 //     ]);
                 // }
 
-                $doctor = Doctor::whereId($appt['doctor_id'])->with('user')->first();
-                $input['doctor_name'] = $doctor->user->full_name;
-                if ($doctor->user->email_notification) {
-                    Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
-                }
+                // $doctor = Doctor::whereId($appt['doctor_id'])->with('user')->first();
+                // $input['doctor_name'] = $doctor->user->full_name;
+                // if ($doctor->user->email_notification) {
+                //     Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
+                // }
 
                 // $doctorNotification = Notification::create([
                 //     'title' => $patient->user->full_name.' '.Notification::APPOINTMENT_CREATE_DOCTOR_MSG.' '.$input['full_time'],
