@@ -86,19 +86,19 @@ class SettingController extends AppBaseController
                 session()->forget('languageName');
             }
         }
-        $paymentGateways = $request->payment_gateway;
-        if (! empty($paymentGateways)) {
-            PaymentGateway::query()->delete();
-        }
+        // $paymentGateways = $request->payment_gateway;
+        // if (! empty($paymentGateways)) {
+        //     PaymentGateway::query()->delete();
+        // }
 
-        if (isset($paymentGateways)) {
-            foreach ($paymentGateways as $paymentGateway) {
-                PaymentGateway::updateOrCreate(['payment_gateway_id' => $paymentGateway],
-                    [
-                        'payment_gateway' => Appointment::PAYMENT_METHOD[$paymentGateway],
-                    ]);
-            }
-        }
+        // if (isset($paymentGateways)) {
+        //     foreach ($paymentGateways as $paymentGateway) {
+        //         PaymentGateway::updateOrCreate(['payment_gateway_id' => $paymentGateway],
+        //             [
+        //                 'payment_gateway' => Appointment::PAYMENT_METHOD[$paymentGateway],
+        //             ]);
+        //     }
+        // }
 
         $id = Auth::id();
 

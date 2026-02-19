@@ -50,7 +50,7 @@
                 </div>
                 <div class="row mb-6">
                     {{ Form::label('specialities',__('messages.setting.specialities').':',
-                                     ['class'=>'col-lg-4 form-label required']) }}
+                                     ['class'=>'col-lg-4 form-label']) }}
                     <div class="col-lg-8">
                         {{ Form::select('specialities[]', $specialities, json_decode($setting['specialities']), ['multiple',
                          'class' => 'form-select', 'aria-label'=>"Select a Country",
