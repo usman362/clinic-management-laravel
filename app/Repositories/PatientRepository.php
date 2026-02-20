@@ -81,7 +81,7 @@ class PatientRepository extends BaseRepository
             // $user->sendEmailVerificationNotification();
 
             // **Send Welcome Email with password**
-            // Mail::to($user->email)->send(new WelcomePatientMail($user, $password));
+            Mail::to($user->email)->send(new WelcomePatientMail($user, $password));
             DB::commit();
             return true;
         } catch (\Exception $e) {

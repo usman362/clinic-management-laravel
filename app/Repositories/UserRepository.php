@@ -96,7 +96,7 @@ class UserRepository extends BaseRepository
                 $doctor->addMedia($input['profile'])->toMediaCollection(User::PROFILE, config('app.media_disc'));
             }
             // $doctor->sendEmailVerificationNotification();
-            // Mail::to($doctor->email)->send(new WelcomePatientMail($doctor, $password));
+            Mail::to($doctor->email)->send(new WelcomePatientMail($doctor, $password));
             DB::commit();
 
             return $doctor;
