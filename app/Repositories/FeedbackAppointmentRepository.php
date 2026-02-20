@@ -209,7 +209,7 @@ class FeedbackAppointmentRepository extends BaseRepository
                 //     ]);
                 // }
 
-                $doctor = Doctor::whereId($appt['doctor_id'])->with('user')->first();
+                $doctor = Doctor::whereId($appointment->doctor_id)->with('user')->first();
                 $input['doctor_name'] = $doctor->user->full_name;
                 if ($doctor->user->email_notification) {
                     Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
