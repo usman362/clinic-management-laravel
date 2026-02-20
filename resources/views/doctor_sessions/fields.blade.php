@@ -22,27 +22,27 @@
                 @if(Auth::user()->hasRole('doctor'))
                     <input type="hidden" name="doctor_id" value="{{ Auth::user()->doctor->id }}"/>
                 @elseif(!isset($sessionWeekDays))
-                    <div class="{{ isset($doctorSession) ? 'col-xl-6' : 'col-xl-4' }} col-sm-6 p-0">
+                    <div class="{{ isset($doctorSession) ? 'col-xl-12' : 'col-xl-6' }} col-sm-6 p-0">
                         <div class="my-4 ms-3">
                             {{ Form::label('doctor_id',__('messages.doctor.doctor').':' ,['class' => 'form-label required']) }}
                             {{ Form::select('doctor_id', $doctorsList, null,['class' => 'form-control', 'data-control'=>'select2','placeholder' => __('messages.common.select_doctor'),'required']) }}
                         </div>
                     </div>
                 @endif
-                <div class="{{ isset($doctorSession) ? 'col-xl-6' : 'col-xl-4' }} col-sm-6 ps-0">
+                <div class="{{ isset($doctorSession) ? 'col-xl-12' : 'col-xl-6' }} col-sm-6 ps-0">
                     <div class="my-4 ms-3">
                         {{ Form::label('session_gap',__('messages.doctor_session.session_gap').':' ,['class' => 'form-label required']) }}
                         {{ Form::select('session_gap', $gaps,isset($sessionWeekDays)  ? null : $gaps[array_key_first($gaps)],
 ['class' => 'form-control','data-width' => '100%', 'data-control'=>'select2','id' => 'selGap', 'placeholder' => __('messages.doctor_session.select_session_gap'),'required']) }}
                     </div>
                 </div>
-                <div class="{{ isset($doctorSession) ? 'col-xl-6' : 'col-xl-4' }} col-sm-6">
+                {{-- <div class="{{ isset($doctorSession) ? 'col-xl-6' : 'col-xl-4' }} col-sm-6">
                     <div class="my-4 ms-3">
                         {{ Form::label('session_meeting_time',__('messages.doctor_session.session_meeting_time').':' ,['class' => 'form-label required']) }}
                         {{ Form::select('session_meeting_time', $sessionMeetingTime, isset($sessionWeekDays)  ? null : $sessionMeetingTime[array_key_first($sessionMeetingTime)],
 ['class' => 'form-control','data-width' => '100%', 'data-control'=>'select2' ,'placeholder' => __('messages.doctor_session.select_meeting_time'),'required']) }}
                     </div>
-                </div>
+                </div> --}}
             </div>
             @foreach(App\Models\ClinicSchedule::WEEKDAY as $day => $shortWeekDay)
                 @php($isValid = isset($sessionWeekDays) && $sessionWeekDays->where('day_of_week',$day)->count() != 0)
