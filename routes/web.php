@@ -420,6 +420,7 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus')->group(func
     Route::get('emails',[AdminEmailController::class,'index'])->name('admin.emails.index');
     Route::get('emails/{id}/edit',[AdminEmailController::class,'edit'])->name('admin.emails.edit');
     Route::post('emails/{id}/update',[AdminEmailController::class,'update'])->name('admin.emails.update');
+    Route::get('resend-package/{id}/email',[AdminEmailController::class,'resendAppointmentEmail'])->name('resend.package.email');
 
     Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
     Route::post(

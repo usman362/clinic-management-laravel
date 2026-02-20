@@ -13,7 +13,8 @@ class XSS
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->route()->getName() == 'cms.update') {
+        if ($request->route()->getName() == 'cms.update' || $request->route()->getName() == 'admin.emails.update'
+        || $request->route()->getName() == 'setting.update') {
             return $next($request);
         }
 

@@ -289,90 +289,12 @@
                             style="border:1px solid #e1e1e1;border-radius:15px;
                                     max-height:320px;overflow-y:auto;
                                     padding:20px;background:#f8f9fb;">
+                            @php
+                                $booking_info = \App\Models\Setting::pluck('value', 'key')->toArray();
+                            @endphp
 
-                            <h5 class="fw-bold mb-3">How the Assessment Works</h5>
-
-                            <p>
-                                In accordance with Italian regulations (Law 170/2010), the assessment of learning
-                                difficulties is multidisciplinary and involves the participation of three professionals:
-                                a psychologist, a speech and language therapist, and a child neuropsychiatrist (NPI).
-                            </p>
-
-                            <p>
-                                Appointments with the professionals do not need to follow a specific order; however,
-                                all of them must be completed.
-                            </p>
-
-                            <ul>
-                                <li>1 appointment with the Child Neuropsychiatrist (NPI) (≈ 45 minutes)</li>
-                                <li>2 hours of test-based assessment (cognitive abilities)</li>
-                                <li>2 hours of test-based assessment (academic/learning skills)</li>
-                                <li>1 hour of test-based assessment (language skills)</li>
-                                <li>1 hour feedback meeting</li>
-                            </ul>
-
-                            <p>
-                                If required, additional assessments may be included (attention, neuropsychological,
-                                emotional evaluations). Timing will be discussed with professionals.
-                            </p>
-
-                            <h6 class="fw-bold mt-4">Specific Guidelines for Appointments</h6>
-
-                            <p>
-                                The Child Neuropsychiatrist appointment focuses on medical, family, and school history.
-                                Families may attend with or without the child.
-                            </p>
-
-                            <p>
-                                Based on experience, we recommend being open and honest with children about the
-                                reasons for assessment. It is not recommended for children to wait alone during
-                                sensitive discussions.
-                            </p>
-
-                            <p>
-                                Online appointments are available only in specific, pre-agreed cases and are usually
-                                suitable for parent meetings rather than direct child assessment.
-                            </p>
-
-                            <p>
-                                Cognitive assessments are conducted by a psychologist.
-                                Academic and language assessments by a speech & language therapist or psychologist.
-                            </p>
-
-                            <h6 class="fw-bold mt-4">Feedback & Final Report</h6>
-
-                            <p>
-                                After completion, professionals agree on a final diagnosis and meet with parents
-                                to explain results and recommendations.
-                            </p>
-
-                            <p>
-                                A written report (English or other language if required) will be provided within one month
-                                after the feedback meeting, once all invoices are paid.
-                            </p>
-
-                            <h6 class="fw-bold mt-4">Fees</h6>
-                            <ul>
-                                <li>Child Neuropsychiatrist visit: €150</li>
-                                <li>Test administration: €145 per hour</li>
-                                <li>Feedback meeting: €145</li>
-                                <li>Final report: €145</li>
-                            </ul>
-
-                            <p>
-                                Payment is made by bank transfer directly to each professional.
-                                A regular invoice will be issued after each appointment.
-                            </p>
-
-                            <h6 class="fw-bold mt-4">Required Documentation</h6>
-                            <p>
-                                A consent form must be signed for each professional. In joint custody cases,
-                                signatures from both parents are required.
-                            </p>
-
-                            <p class="mt-3">
-                                Contact: <strong>bilingualtherapymilan@gmail.com</strong>
-                            </p>
+                                {!! $booking_info['booking_info'] !!}
+                                
                         </div>
 
                         <!-- Required Checkbox -->

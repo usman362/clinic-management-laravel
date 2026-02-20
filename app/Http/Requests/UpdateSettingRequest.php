@@ -41,6 +41,12 @@ class UpdateSettingRequest extends FormRequest
                 // 'language' => 'required',
             ];
         }
+
+        if ($this->request->get('sectionName') == 'booking_info') {
+            return [
+                'booking_info' => 'required',
+            ];
+        }
     }
 
     /**

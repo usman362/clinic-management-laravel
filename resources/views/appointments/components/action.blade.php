@@ -4,8 +4,14 @@
         <i class="fa fa-download" aria-hidden="true"></i>
     </a> --}}
     @if ($row->status === 5)
+        <a href="{{ route('resend.package.email', $row->relation_id) }}" class="btn px-1 text-primary fs-3" data-bs-toggle="tooltip"
+            data-bs-original-title="Resend Email">
+            <i class="fas fa-envelope"></i>
+        </a>
+    @endif
+    @if ($row->status === 5)
         <a href="{{ route('appointments.edit', $row->id) }}" class="btn px-1 text-primary fs-3" data-bs-toggle="tooltip"
-            data-bs-original-title="{{ __('messages.common.view') }}">
+            data-bs-original-title="{{ __('Edit') }}">
             <i class="fas fa-edit"></i>
         </a>
     @endif
