@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Setting;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 use Mariuzzo\LaravelJsLocalization\Commands\LangJsCommand;
@@ -22,9 +23,9 @@ class AppServiceProvider extends ServiceProvider
             $files = $app['files'];
 
             if ($laravelMajorVersion === 4) {
-                $langs = $app['path.base'].'/app/lang';
+                $langs = $app['path.base'] . '/app/lang';
             } elseif ($laravelMajorVersion >= 5 && $laravelMajorVersion < 9) {
-                $langs = $app['path.base'].'/resources/lang';
+                $langs = $app['path.base'] . '/resources/lang';
             } elseif ($laravelMajorVersion >= 9) {
                 $langs = app()->langPath();
             }
@@ -40,6 +41,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $setting = Setting::pluck('value', 'key')->toArray();
+        if ($setting) {
+            config([
+                'mail.mailer' => $setting->mail_mailer ?? '',
+                'mail.host' => $setting->mail_host ?? '',
+                'mail.port' => $setting->mail_port ?? '',
+                'mail.username' => $setting->mail_username ?? '',
+                'mail.password' => $setting->mail_password ?? '',
+                'mail.encryption' => $setting->mail_encryption ?? '',
+                'mail.from.address' => $setting->mail_from_address ?? '',
+                'mail.from.name' => $setting->mail_from_name ?? '',
+            ]);
+        }
         Paginator::useBootstrap();
     }
 }

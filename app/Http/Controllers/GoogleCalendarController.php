@@ -31,6 +31,7 @@ class GoogleCalendarController extends AppBaseController
     public function __construct()
     {
         $name = config('app.google_oauth_path');
+        $setting = Setting::pluck('value', 'key')->toArray();
 
         if (empty($name)) {
             return;
@@ -40,7 +41,9 @@ class GoogleCalendarController extends AppBaseController
         // Set the application name, this is included in the User-Agent HTTP header.
         $this->client->setApplicationName(config('app.name'));
         // Set the authentication credentials we downloaded from Google.
-        $this->client->setAuthConfig(resource_path('google-oath/' . config('app.google_oauth_path')));
+        // $this->client->setAuthConfig(resource_path('google-oath/' . config('app.google_oauth_path')));
+        $this->client->setAuthConfig(resource_path('google-oath/' . $setting['google_credentials']));
+
         // Setting offline here means we can pull data from the venue's calendar when they are not actively using the site.
         $this->client->setAccessType('offline');
         // This will include any other scopes (Google APIs) previously granted by the venue

@@ -47,6 +47,15 @@ class UpdateSettingRequest extends FormRequest
                 'booking_info' => 'required',
             ];
         }
+
+        if ($this->request->get('sectionName') == 'smtp') {
+            return [
+                'mail_username' => 'required',
+                'mail_password' => 'required',
+                'mail_from_name' => 'required',
+                'mail_from_address' => 'required',
+            ];
+        }
     }
 
     /**

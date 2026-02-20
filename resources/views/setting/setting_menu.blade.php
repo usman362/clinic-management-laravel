@@ -13,6 +13,10 @@
                     <a class="nav-link p-0 {{ (isset($sectionName) && $sectionName == 'booking_info') ? 'active' : ''}}"
                        href="{{ route('setting.index',['section' => 'booking_info']) }}">{{ __('Booking Information') }}</a>
                 </li>
+                <li class="nav-item position-relative me-7 mb-3" role="presentation">
+                    <a class="nav-link p-0 {{ (isset($sectionName) && $sectionName == 'smtp') ? 'active' : ''}}"
+                       href="{{ route('setting.index',['section' => 'smtp']) }}">{{ __('SMTP/API') }}</a>
+                </li>
                 {{-- <li class="nav-item position-relative me-7 mb-3" role="presentation">
                     <a class="nav-link p-0 {{ (isset($sectionName) && $sectionName == 'contact-information') ? 'active' : ''}}"
                        href="{{ route('setting.index',['section' => 'contact-information']) }}">{{ __('messages.setting.contact_information') }}</a>

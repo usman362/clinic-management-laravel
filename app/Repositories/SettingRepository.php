@@ -89,6 +89,23 @@ class SettingRepository extends BaseRepository
                 $media = $setting->addMedia($value)->toMediaCollection(Setting::FAVICON, config('app.media_disc'));
                 $setting->update(['value' => $media->getUrl()]);
             }
+            if ($key == 'google_credentials' && !empty($value)) {
+                
+                $directory = resource_path('google-oath');
+
+                if (!file_exists($directory)) {
+                    mkdir($directory, 0755, true);
+                }
+
+                // original file name preserve karega
+                $fileName = $value->getClientOriginalName();
+
+                $value->move($directory, $fileName);
+
+                $setting->update([
+                    'value' => $fileName
+                ]);
+            }
         }
 
         Cache::flush('settings');
