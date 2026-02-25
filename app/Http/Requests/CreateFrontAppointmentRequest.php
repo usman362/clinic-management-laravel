@@ -22,7 +22,7 @@ class CreateFrontAppointmentRequest extends FormRequest
     {
         $rules = Appointment::$rules;
         unset($rules['patient_id']);
-        $rules['email'] = 'required|email|max:255|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix';
+        $rules['email'] = 'required|max:255|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix';
 
         return $rules;
     }

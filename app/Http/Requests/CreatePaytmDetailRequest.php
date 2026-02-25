@@ -21,7 +21,7 @@ class CreatePaytmDetailRequest extends FormRequest
     {
         return [
             'name' => 'required',
-            'email' => 'required|email:filter',
+            'email' => 'required:filter',
             'mobile' => 'required|numeric',
         ];
     }

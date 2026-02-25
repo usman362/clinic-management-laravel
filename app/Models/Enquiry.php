@@ -76,7 +76,7 @@ class Enquiry extends Model
 
     public static $rules = [
         'name' => 'required',
-        'email' => 'required|email|max:255|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix',
+        'email' => 'required|max:255|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix',
         'message' => 'required',
         'subject' => 'required',
     ];

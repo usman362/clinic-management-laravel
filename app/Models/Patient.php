@@ -147,7 +147,7 @@ class Patient extends Model implements HasMedia
         'patient_unique_id' => 'required|unique:patients,patient_unique_id|regex:/^\S*$/u',
         'first_name' => 'required',
         'last_name' => 'required',
-        'email' => 'required|email|unique:users,email',
+        'email' => 'required|unique:users,email',
         'contact' => 'nullable|unique:users,contact',
         'password' => 'required|same:password_confirmation|min:6',
         'postal_code' => 'nullable',

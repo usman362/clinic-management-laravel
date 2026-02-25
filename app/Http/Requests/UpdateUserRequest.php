@@ -22,7 +22,7 @@ class UpdateUserRequest extends FormRequest
         return [
             'first_name' => 'required',
             'last_name' => 'required',
-            'email' => 'required|email|regex:/(.*)@(.*)\.(.*)/|unique:users,email,'.$this->route('doctor')->user_id,
+            'email' => 'required|regex:/(.*)@(.*)\.(.*)/|unique:users,email,'.$this->route('doctor')->user_id,
             'contact' => 'nullable|unique:users,contact,'.$this->route('doctor')->user_id,
             'dob' => 'nullable|date',
             'experience' => 'nullable|numeric',

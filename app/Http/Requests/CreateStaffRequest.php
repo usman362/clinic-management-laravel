@@ -22,7 +22,7 @@ class CreateStaffRequest extends FormRequest
         return [
             'first_name' => 'required',
             'last_name' => 'required',
-            'email' => 'required|email:filter|unique:users,email',
+            'email' => 'required:filter|unique:users,email',
             'contact' => 'nullable|unique:users,contact',
             'password' => 'required|same:password_confirmation|min:6',
             'gender' => 'required',

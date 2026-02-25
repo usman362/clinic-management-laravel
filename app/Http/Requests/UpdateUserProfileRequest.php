@@ -26,7 +26,7 @@ class UpdateUserProfileRequest extends FormRequest
             'first_name' => 'required',
             'last_name' => 'required',
             'time_zone' => 'required',
-            'email' => 'required|email|unique:users,email,'.$id.'|regex:/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/i',
+            'email' => 'required|unique:users,email,'.$id.'|regex:/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/i',
             'image' => 'nullable|mimes:jpeg,jpg,png|max:2000',
             // 'contact' => 'required',
         ];

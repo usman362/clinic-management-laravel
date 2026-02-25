@@ -95,7 +95,7 @@ class Staff extends Model implements HasMedia
     public static $rules = [
         'first_name' => 'required',
         'last_name' => 'required',
-        'email' => 'required|email|unique:users,email',
+        'email' => 'required|unique:users,email',
         'password' => 'required|same:password_confirmation|min:6',
         'contact' => 'nullable|unique:users,contact',
         'gender' => 'required',

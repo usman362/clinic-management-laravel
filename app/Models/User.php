@@ -549,7 +549,7 @@ class User extends Authenticatable implements HasMedia
     public static $rules = [
         'first_name' => 'required',
         'last_name' => 'required',
-        'email' => 'required|email|unique:users,email|regex:/(.*)@(.*)\.(.*)/',
+        'email' => 'required|unique:users,email|regex:/(.*)@(.*)\.(.*)/',
         'contact' => 'nullable|unique:users,contact',
         // 'password' => 'required|same:password_confirmation|min:6',
         'dob' => 'nullable|date',

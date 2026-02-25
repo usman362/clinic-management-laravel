@@ -32,7 +32,7 @@ class UpdateSettingRequest extends FormRequest
 
         if ($this->request->get('sectionName') == 'general') {
             return [
-                'email' => 'required|email:filter',
+                'email' => 'required:filter',
                 // 'specialities' => 'required',
                 'clinic_name' => 'required',
                 // 'contact_no' => 'required',
