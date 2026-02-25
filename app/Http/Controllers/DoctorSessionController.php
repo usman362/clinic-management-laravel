@@ -254,6 +254,116 @@ class DoctorSessionController extends AppBaseController
     }
 
     /**
+     * Return list of dates in a range that have at least one available slot for the doctor.
+     * Used by the frontend to enable only those dates in the calendar and highlight them.
+     *
+     * @return JsonResponse
+     */
+    public function getDoctorAvailableDates(Request $request): JsonResponse
+    {
+        $doctorId = $request->get('adminAppointmentDoctorId');
+        $serviceId = $request->get('appointmentServiceId');
+        $startDate = $request->get('start_date', now()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->addDays(60)->format('Y-m-d'));
+        $timezone_offset_minutes = $request->get('timezone_offset_minutes', 0);
+
+        if (! $doctorId) {
+            return $this->sendError(__('messages.flash.doctor_not_available'));
+        }
+
+        $service = $serviceId ? Service::find($serviceId) : null;
+        $duration = $service ? $service->duration : 0;
+
+        $timezone_name = timezone_name_from_abbr('', (int) $timezone_offset_minutes * 60, false);
+        $start = Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay();
+        $end = Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay();
+
+        $availableDates = [];
+        $date = $start->copy();
+
+        while ($date->lte($end)) {
+            $dateStr = $date->format('Y-m-d');
+            $doctor_holiday = DoctorHoliday::where('doctor_id', $doctorId)->where('date', $dateStr)->exists();
+            if ($doctor_holiday) {
+                $date->addDay();
+                continue;
+            }
+
+            $doctorWeekDaySessions = WeekDay::whereDayOfWeek($date->dayOfWeek)->whereDoctorId($doctorId)->with('doctorSession')->get();
+            if ($doctorWeekDaySessions->count() === 0) {
+                $date->addDay();
+                continue;
+            }
+
+            $appointments = Appointment::whereDoctorId($doctorId)
+                ->where('date', $dateStr)
+                ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT])
+                ->get();
+            $bookedSlot = $appointments->map(function ($a) {
+                return $a->from_time.' '.$a->from_time_type.' - '.$a->to_time.' '.$a->to_time_type;
+            })->all();
+
+            $bookingSlot = [];
+            foreach ($doctorWeekDaySessions as $doctorWeekDaySession) {
+                date_default_timezone_set($timezone_name);
+                $doctorSession = $doctorWeekDaySession->doctorSession;
+                $startTime = date('H:i', strtotime($doctorWeekDaySession->full_start_time));
+                $endTime = date('H:i', strtotime($doctorWeekDaySession->full_end_time));
+                $slots = $this->getTimeSlot($duration, $startTime, $endTime);
+                $gap = $doctorSession->session_gap;
+                $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
+
+                foreach ($slots as $key => $slot) {
+                    $key--;
+                    if ($key != 0) {
+                        $slotStartTime = date('h:i A', strtotime('+'.$gap * $key.' minutes', strtotime($slot[0])));
+                        $slotEndTime = date('h:i A', strtotime('+'.$gap * $key.' minutes', strtotime($slot[1])));
+                        if (strtotime($doctorWeekDaySession->full_end_time) < strtotime($slotEndTime)) {
+                            break;
+                        }
+                        if (strtotime($slotStartTime) < strtotime($slotEndTime)) {
+                            if (($isSameWeekDay && strtotime($slotStartTime) > strtotime(date('h:i A'))) || ! $isSameWeekDay) {
+                                $startTimeOrg = Carbon::parse(date('h:i A', strtotime($slotStartTime)));
+                                $slotStartTimeCarbon = Carbon::parse(date('h:i A', strtotime($startTime)));
+                                $slotEndTimeCarbon = Carbon::parse(date('h:i A', strtotime($endTime)));
+                                if (! $startTimeOrg->between($slotStartTimeCarbon, $slotEndTimeCarbon)) {
+                                    break;
+                                }
+                                if (in_array(($slotStartTime.' - '.$slotEndTime), $bookingSlot)) {
+                                    break;
+                                }
+                                $bookingSlot[] = $slotStartTime.' - '.$slotEndTime;
+                            }
+                        }
+                    } else {
+                        if (($isSameWeekDay && strtotime($slot[0]) > strtotime(date('h:i A'))) || ! $isSameWeekDay) {
+                            $slotStr = date('h:i A', strtotime($slot[0])).' - '.date('h:i A', strtotime($slot[1]));
+                            if (in_array($slotStr, $bookingSlot)) {
+                                break;
+                            }
+                            $bookingSlot[] = $slotStr;
+                        }
+                    }
+                }
+            }
+
+            $hasAvailableSlot = false;
+            foreach ($bookingSlot as $slot) {
+                if (! in_array($slot, $bookedSlot)) {
+                    $hasAvailableSlot = true;
+                    break;
+                }
+            }
+            if ($hasAvailableSlot) {
+                $availableDates[] = $dateStr;
+            }
+            $date->addDay();
+        }
+
+        return $this->sendResponse(['dates' => $availableDates], __('messages.flash.retrieve'));
+    }
+
+    /**
      * @throws Exception
      */
     public function getTimeSlot($interval, $start_time, $end_time)

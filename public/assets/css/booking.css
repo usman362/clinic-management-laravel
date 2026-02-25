@@ -209,3 +209,26 @@
             opacity: 1;
             visibility: visible;
         }
+
+        /* Appointment date calendar: available = primary, unavailable = grey */
+        /* .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled) {
+            background: rgba(13, 110, 253, 0.2);
+            color: #0a58ca;
+        }
+        .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled):hover {
+            background: rgba(13, 110, 253, 0.35);
+        } */
+
+        .flatpickr-day {
+            background: rgba(13, 110, 253, 0.2) !important;
+            color: #0a58ca !important;
+            border-radius: unset !important;
+            margin-bottom: unset !important;
+        }
+
+        .flatpickr-day.flatpickr-disabled {
+            background: #e9ecef !important;
+            color: #adb5bd !important;
+            cursor: not-allowed;
+            opacity: 0.9;
+        }

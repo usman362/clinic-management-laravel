@@ -101,6 +101,7 @@ mix.js([
     'resources/assets/js/appointments/appointments.js',
     'resources/assets/js/appointments/patient-appointments.js',
     'resources/assets/js/appointments/create-edit.js',
+    'resources/assets/js/appointments/appointment-available-dates.js',
     'resources/assets/js/staff/staff.js',
     'resources/assets/js/smart_patient_cards/smart_patient_cards.js',
     'resources/assets/js/staff/create-edit.js',

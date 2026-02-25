@@ -159,6 +159,7 @@ Route::post('/enquiries', [EnquiryController::class, 'store'])->name('enquiries.
 Route::post('/subscribe', [SubscribeController::class, 'store'])->name('subscribe.store');
 
 Route::get('doctor-session-time', [DoctorSessionController::class, 'getDoctorSession'])->name('doctor-session-time');
+Route::get('doctor-available-dates', [DoctorSessionController::class, 'getDoctorAvailableDates'])->name('doctor-available-dates');
 Route::get('get-service', [ServiceController::class, 'getService'])->name('get-service');
 Route::get('get-charge', [ServiceController::class, 'getCharge'])->name('get-charge');
 Route::post(

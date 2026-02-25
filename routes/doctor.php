@@ -30,6 +30,8 @@ Route::prefix('doctors')->name('doctors.')->middleware('auth', 'xss', 'checkUser
 
     Route::get('doctor-session-time',
         [DoctorSessionController::class, 'getDoctorSession'])->name('doctor-session-time');
+    Route::get('doctor-available-dates',
+        [DoctorSessionController::class, 'getDoctorAvailableDates'])->name('doctor-available-dates');
     Route::resource('doctor-sessions', DoctorSessionController::class);
     Route::get('get-slot-by-gap', [DoctorSessionController::class, 'getSlotByGap'])->name('get.slot.by.gap');
     Route::get('doctor-schedule-edit',[DoctorSessionController::class, 'doctorScheduleEdit'])->name('doctor.schedule.edit');

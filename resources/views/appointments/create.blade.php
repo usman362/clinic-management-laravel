@@ -305,4 +305,5 @@
     @else
         <script src="{{ asset('assets/js/admin-booking.js') }}"></script>
     @endrole
+    <script src="{{ asset('assets/js/appointment-available-dates.js') }}"></script>
 @endpush
