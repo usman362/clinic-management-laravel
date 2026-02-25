@@ -6,9 +6,8 @@
                     <div
                         class="patient-wiget-appointment-card1 rounded-10 p-xxl-8 px-7 py-10 d-flex align-items-center justify-content-between mb-5">
                         <div class="text-start text-dark">
-                            <h3 class="mb-0 fs-6 mb-3 fw-light">{{ __('messages.doctor_dashboard.total_appointments') }}
-                            </h3>
-                            <h1 class="fs-2-xxl fw-bolder">{{ $todayAppointmentCount }}</h1>
+                            <h3 class="mb-0 fs-6 mb-3 fw-light">{{ __('messages.doctor_dashboard.total_appointments') }}</h3>
+                            <h1 class="fs-2-xxl fw-bolder">{{ $totalAppointmentCount }}</h1>
                         </div>
                         <div
                             class="bg-cyan-500 widget-icon patient-widget-icon rounded-50 d-flex align-items-center justify-content-center">
@@ -22,9 +21,8 @@
                     <div
                         class="patient-wiget-appointment-card1 rounded-10 p-xxl-8 px-7 py-10 d-flex align-items-center justify-content-between mb-5">
                         <div class="text-start text-dark">
-                            <h3 class="mb-0 fs-6 mb-3 fw-light">{{ __('messages.doctor_dashboard.total_appointments') }}
-                            </h3>
-                            <h1 class="fs-2-xxl fw-bolder">{{ $upcomingAppointmentCount }}</h1>
+                            <h3 class="mb-0 fs-6 mb-3 fw-light">{{ __('messages.patient_dashboard.pending_appointments') }}</h3>
+                            <h1 class="fs-2-xxl fw-bolder">{{ $pendingAppointmentCount }}</h1>
                         </div>
                         <div
                             class="bg-cyan-500 widget-icon patient-widget-icon rounded-50 d-flex align-items-center justify-content-center">
@@ -38,8 +36,7 @@
                     <div
                         class="patient-wiget-appointment-card1 rounded-10 p-xxl-8 px-7 py-10 d-flex align-items-center justify-content-between mb-5">
                         <div class="text-start text-dark">
-                            <h3 class="mb-0 fs-6 mb-3 fw-light">
-                                {{ __('messages.patient_dashboard.completed_appointments') }}</h3>
+                            <h3 class="mb-0 fs-6 mb-3 fw-light">{{ __('messages.patient_dashboard.completed_appointments') }}</h3>
                             <h1 class="fs-2-xxl fw-bolder">{{ $completedAppointmentCount }}</h1>
                         </div>
                         <div

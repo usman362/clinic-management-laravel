@@ -676,6 +676,7 @@ return [
     'patient_dashboard' => [
         'today_appointments' => 'Today Appointments',
         'completed_appointments' => 'Completed Appointments',
+        'pending_appointments' => 'Pending Appointments',
         'upcoming_appointments' => 'Upcoming Appointments',
         'next_appointment' => 'Next Appointments',
     ],
