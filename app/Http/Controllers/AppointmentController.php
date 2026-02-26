@@ -7,6 +7,7 @@ use App\Http\Requests\CreateAppointmentRequest;
 use App\Http\Requests\CreateFrontAppointmentRequest;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\Document;
 use App\Models\Notification;
 use App\Models\Patient;
 use App\Models\Service;
@@ -65,7 +66,59 @@ class AppointmentController extends AppBaseController
     public function create(): \Illuminate\View\View
     {
         $data = $this->appointmentRepository->getData();
+        $data['doctorsWithJotform'] = Doctor::with('user')
+            ->whereHas('user', fn ($q) => $q->where('status', User::ACTIVE))
+            ->whereNotNull('jotform_link')
+            ->where('jotform_link', '!=', '')
+            ->get();
         return view('appointments.create', compact('data'));
+    }
+
+    /**
+     * Store consent form PDF for the logged-in patient (e.g. after Jotform redirect or upload).
+     * Saves to the client's documents in public/uploads/documents/user_{user_id}.
+     * Use this URL as Jotform redirect target or as form action for consent PDF upload.
+     */
+    public function storeConsentDocument(Request $request): JsonResponse|RedirectResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:10240', // 10MB for PDF
+            'title' => 'nullable|string|max:255',
+            'doctor_id' => 'nullable|exists:doctors,id',
+        ]);
+
+        $user = getLogInUser();
+        if (! $user->hasRole('patient') || ! $user->patient) {
+            return $this->sendError(__('messages.common.unauthorized'), 403);
+        }
+
+        $file = $request->file('file');
+        $userId = $user->id;
+        $path = $file->store('documents/user_' . $userId, 'public');
+
+        $title = $request->input('title', 'Consent Form');
+        if ($request->doctor_id) {
+            $doctor = Doctor::with('user')->find($request->doctor_id);
+            if ($doctor) {
+                $title = 'Consent Form - ' . $doctor->user->full_name;
+            }
+        }
+
+        Document::create([
+            'user_id' => $userId,
+            'uploaded_by' => $userId,
+            'title' => $title,
+            'type' => 'consent',
+            'path' => $path,
+            'mime_type' => $file->getClientMimeType(),
+            'size' => (int) round($file->getSize() / 1024),
+        ]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return $this->sendResponse(['path' => $path], __('Document uploaded successfully.'));
+        }
+
+        return redirect()->back()->with('success', __('Document uploaded successfully.'));
     }
 
     /**

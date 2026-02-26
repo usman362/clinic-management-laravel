@@ -320,6 +320,7 @@
                                             <select name="type" class="form-select">
                                                 <option value="identity">Identity</option>
                                                 <option value="medical">Medical</option>
+                                                <option value="consent">Consent</option>
                                                 <option value="other">Other</option>
                                             </select>
                                         </div>

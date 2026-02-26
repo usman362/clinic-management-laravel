@@ -23,6 +23,7 @@ Route::prefix('patients')->name('patients.')->middleware('auth', 'xss', 'checkUs
         [DashboardController::class, 'getPatientList'])->name('patientData.dashboard');
 
     Route::resource('appointments', AppointmentController::class)->except(['index']);
+    Route::post('documents/consent', [AppointmentController::class, 'storeConsentDocument'])->name('documents.consent.store');
     Route::get('appointment-pdf/{id}',
         [AppointmentController::class, 'appointmentPdf'])->name('appointmentPdf');
     Route::get('appointments', [PatientAppointmentController::class, 'index'])->name('patient-appointments-index');

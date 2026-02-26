@@ -231,11 +231,18 @@
                         To complete your booking, you must complete the consent form
                     </p>
 
-                    <!-- Embedded JotForm -->
+                    <!-- Embedded JotForm – one per doctor with a Jotform link -->
                     <div class="consent-form-wrapper">
-                        <iframe src="https://form.jotform.com/260177736956066" width="100%" height="600"
-                            frameborder="0" scrolling="auto">
-                        </iframe>
+                        @forelse(($doctorsWithJotform ?? []) as $doctor)
+                            <div class="mb-4">
+                                <h6 class="fw-bold mb-2">{{ $doctor->user->first_name }} {{ $doctor->user->last_name }}</h6>
+                                <iframe src="{{ $doctor->jotform_link }}" width="100%" height="600"
+                                    frameborder="0" scrolling="auto" title="Consent form - {{ $doctor->user->full_name }}">
+                                </iframe>
+                            </div>
+                        @empty
+                            <p class="text-muted">No consent forms are currently required for this booking.</p>
+                        @endforelse
                     </div>
 
 

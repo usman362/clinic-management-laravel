@@ -66,6 +66,11 @@ class FeedbackAppointmentController extends AppBaseController
     public function create(): \Illuminate\View\View
     {
         $data = $this->appointmentRepository->getData();
+        $data['doctorsWithJotform'] = \App\Models\Doctor::with('user')
+            ->whereHas('user', fn ($q) => $q->where('status', \App\Models\User::ACTIVE))
+            ->whereNotNull('jotform_link')
+            ->where('jotform_link', '!=', '')
+            ->get();
         return view('feedback_appointments.create', compact('data'));
     }
 
@@ -165,8 +170,12 @@ class FeedbackAppointmentController extends AppBaseController
         $appointment = Appointment::find($id);
         $docServices = DB::table('service_doctor')->where('service_id', $appointment->service_id)->pluck('doctor_id');
         $doctors = Doctor::whereIn('id', $docServices)->with('user')->get()->where('user.status', User::ACTIVE)->pluck('user.full_name', 'id');
-        // dd($appointment);
-        return view('feedback_appointments.edit', compact('data', 'appointment', 'doctors'));
+        $doctorsWithJotform = Doctor::whereIn('id', $docServices)->with('user')
+            ->whereHas('user', fn ($q) => $q->where('status', User::ACTIVE))
+            ->whereNotNull('jotform_link')
+            ->where('jotform_link', '!=', '')
+            ->get();
+        return view('feedback_appointments.edit', compact('data', 'appointment', 'doctors', 'doctorsWithJotform'));
     }
 
     public function update(Request $request, $id)

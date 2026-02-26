@@ -109,11 +109,18 @@
                         <div class="form-step" id="step3">
                             <h2 class="h5 fw-bold mb-4">Consent</h2>
 
-                            <!-- Embedded JotForm -->
-                            <div class="mb-4">
-                                <iframe src="https://form.jotform.com/YOUR_FORM_ID" width="100%" height="500"
-                                    frameborder="0">
-                                </iframe>
+                            <!-- Embedded JotForm – one per doctor with a Jotform link -->
+                            <div class="mb-4 consent-form-wrapper">
+                                @forelse(($data['doctorsWithJotform'] ?? []) as $doctor)
+                                    <div class="mb-4">
+                                        <h6 class="fw-bold mb-2">{{ $doctor->user->first_name }} {{ $doctor->user->last_name }}</h6>
+                                        <iframe src="{{ $doctor->jotform_link }}" width="100%" height="500"
+                                            frameborder="0" title="Consent form - {{ $doctor->user->full_name }}">
+                                        </iframe>
+                                    </div>
+                                @empty
+                                    <p class="text-muted">No consent forms are currently required.</p>
+                                @endforelse
                             </div>
 
                             <div class="form-check mb-3">
