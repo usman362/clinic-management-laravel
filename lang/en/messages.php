@@ -651,6 +651,7 @@ return [
         'Select_payment_method' => 'Select payment method',
         'payment_method' => 'Payment Method',
         'cancel_appointment' => 'Cancel Appointment',
+        'rebook_appointment' => 'Rebook / Choose new slot',
         'session_created_successfully' => 'session created successfully',
         'appointment_status' => 'Appointment Status',
         'payment_status' => 'Payment Status',

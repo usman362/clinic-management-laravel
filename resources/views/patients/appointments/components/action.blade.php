@@ -5,6 +5,13 @@
         <i class="fas fa-edit"></i>
     </a>
     @endif
+    @if ($row->status === $cancel)
+    <a href="{{ route('patients.appointments.edit', $row->id) }}" class="btn px-1 text-success fs-3"
+        data-bs-toggle="tooltip" data-bs-original-title="{{ __('messages.appointment.rebook_appointment') }}"
+        title="{{ __('messages.appointment.rebook_appointment') }}">
+        <i class="fas fa-calendar-plus"></i>
+    </a>
+    @endif
     @if ($row->status !== $cancel && $row->status !== $checkOut)
         <a href="{{ route('patients.appointmentPdf', $row->id) }}" target="_blank" class="btn px-1 text-primary fs-3"
             data-bs-toggle="tooltip" data-bs-original-title="{{ __('download') }}">

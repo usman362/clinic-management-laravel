@@ -208,8 +208,15 @@ class AppointmentController extends AppBaseController
 
     public function edit($id): \Illuminate\View\View
     {
+        $appointment = Appointment::findOrFail($id);
+
+        if (getLogInUser()->hasRole('patient')) {
+            if ($appointment->patient_id !== getLogInUser()->patient->id) {
+                abort(403, __('messages.common.not_allow__assess_record'));
+            }
+        }
+
         $data = $this->appointmentRepository->getData();
-        $appointment = Appointment::find($id);
         $docServices = DB::table('service_doctor')->where('service_id', $appointment->service_id)->pluck('doctor_id');
         $doctors = Doctor::whereIn('id', $docServices)->with('user')->get()->where('user.status', User::ACTIVE)->pluck('user.full_name', 'id');
         $fullDoctors = Doctor::whereIn('id', $docServices)->with('user')->get();
