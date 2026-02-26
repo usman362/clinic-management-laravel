@@ -7,6 +7,7 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -66,6 +67,10 @@ class Handler extends ExceptionHandler
                 'success' => false,
                 'message' => $message,
             ], $code);
+        }
+
+        if ($exception instanceof HttpException && $exception->getStatusCode() === 403) {
+            return response()->view('errors.403', [], 403);
         }
 
         return parent::render($request, $exception);
