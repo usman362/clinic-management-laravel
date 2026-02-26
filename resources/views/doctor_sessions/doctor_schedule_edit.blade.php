@@ -7,6 +7,15 @@
         <div class="maincard-section p-0 pb-4">
             <div class="row">
                 <input type="hidden" name="doctor_id" value="{{ getLogInUser()->doctor->id }}" />
+                <div class="col-12 p-0 mb-4">
+                    <div class="alert alert-info d-flex align-items-start mb-0" role="alert">
+                        <i class="fas fa-info-circle me-2 mt-1"></i>
+                        <div>
+                            <strong class="alert-heading">{{ __('messages.doctor_session.how_to_choose_slots_title') }}</strong>
+                            <p class="mb-0 mt-1 small">{{ __('messages.doctor_session.how_to_choose_slots_help') }}</p>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-12 p-0">
                     <div class="my-4 ms-3">
                         {{ Form::label('session_gap', __('messages.doctor_session.session_gap') . ':', ['class' => 'form-label required']) }}

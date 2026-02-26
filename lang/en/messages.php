@@ -500,6 +500,8 @@ return [
         'session_meeting_time' => 'Schedule Meeting Time',
         'unavailable' => 'Unavailable',
         'copy' => 'Copy',
+        'how_to_choose_slots_title' => 'How do I choose my availability?',
+        'how_to_choose_slots_help' => 'The dropdowns show specific time slots (every 15 minutes) within the clinic\'s operating hours. For each day you work: check the day, then pick a Start time and End time for each block you are available. Use the + button to add more blocks per day (e.g. morning and afternoon). Schedule Gap above sets the duration of each bookable appointment.',
     ],
 
     'city' => [
