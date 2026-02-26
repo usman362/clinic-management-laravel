@@ -43,16 +43,13 @@
                     <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.service')}}:</label>
                     <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_service"></span></div>
                 </div>
-                <div class="d-flex align-items-center mt-3">
+                <div class="d-flex align-items-center mt-3  d-none">
                     <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.payable_amount')}}:</label>
                     <div class="fs-6 fw-bold ms-3"><span>$</span><span class="ms-1" data-calendar="event_amount"></span></div>
                 </div>
-                <div class="d-flex align-items-center mt-4">
+                <div class="d-flex align-items-center mt-4 d-none">
                     <label {{ $styleCss }}="width: 170px">{{__('messages.appointment.status')}}:</label>
-                    <select class="form-select-sm form-select-solid form-select" id="changeAppointmentStatus"
-                            data-control="select2" data-calendar="event_status"
-                            data-minimum-results-for-search="Infinity">
-                    </select>
+                    <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_status"></span></div>
                 </div>
             </div>
         </div>

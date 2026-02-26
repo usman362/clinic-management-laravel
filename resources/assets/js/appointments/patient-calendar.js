@@ -46,9 +46,9 @@ const initCalendarApp = function () {
         themeSystem: 'bootstrap5',
         height: 750,
         buttonText: {
-            today: Lang.get('js.datepicker.today'),
-            day: Lang.get('js.day'),
-            month: Lang.get('js.month'),
+            today: 'Today',
+            day: 'Day',
+            month: 'Month',
         },
         headerToolbar: {
             left: 'title',

@@ -173,69 +173,32 @@ const showEventModal = () => {
     viewUId.innerText = data.uId
     viewService.innerText = data.service
 
-    populateStatusDropdown()
-}
-
-/* -------------------------------------------------
- | STATUS DROPDOWN
- -------------------------------------------------*/
-function populateStatusDropdown () {
     const book = $('#bookCalenderConst').val()
     const checkIn = $('#checkInCalenderConst').val()
     const checkOut = $('#checkOutCalenderConst').val()
     const cancel = $('#cancelCalenderConst').val()
-
-    $(viewEventStatus).html(`
-        <option disabled value="${book}" ${data.eventStatus == book ? 'selected' : ''}>
-            ${Lang.get('js.booked')}
-        </option>
-        <option value="${checkIn}" ${data.eventStatus == checkIn ? 'selected' : ''}>
-            ${Lang.get('js.check_in')}
-        </option>
-        <option value="${checkOut}" ${data.eventStatus == checkOut ? 'selected' : ''}>
-            ${Lang.get('js.check_out')}
-        </option>
-        <option value="${cancel}" ${data.eventStatus == cancel ? 'selected' : ''}>
-            ${Lang.get('js.cancelled')}
-        </option>
-    `)
-
-    $(viewEventStatus).val(data.eventStatus)
+    const statusLabel = String(data.eventStatus) === book ? Lang.get('js.booked')
+        : String(data.eventStatus) === checkIn ? Lang.get('js.check_in')
+        : String(data.eventStatus) === checkOut ? Lang.get('js.check_out')
+        : String(data.eventStatus) === cancel ? Lang.get('js.cancelled')
+        : ''
+    viewEventStatus.innerText = statusLabel
 }
-
-/* -------------------------------------------------
- | STATUS CHANGE
- -------------------------------------------------*/
-listenChange('#changeAppointmentStatus', function () {
-    const status = $(this).val()
-    if (!status || status == data.eventStatus) return
-
-    $.post(route('change-status', appointmentStatusId), {
-        appointmentId: appointmentStatusId,
-        appointmentStatus: status,
-    }).done(res => {
-        displaySuccessMessage(res.message)
-        $('#eventModal').modal('hide')
-
-        activeCalendarType === 'feedback'
-            ? feedbackCalendar.refetchEvents()
-            : appointmentCalendar.refetchEvents()
-    })
-})
 
 /* -------------------------------------------------
  | HELPERS
  -------------------------------------------------*/
 function formatArgs (event) {
+    const ep = event.extendedProps || {}
     data.id = event.id
     data.eventName = event.title
-    data.patientName = event.extendedProps.patient
-    data.eventDescription = event.extendedProps.description
-    data.eventStatus = event.extendedProps.status
+    data.patientName = ep.patient || event.patient
+    data.eventDescription = ep.description || event.description
+    data.eventStatus = ep.status !== undefined ? ep.status : event.status
     data.startDate = event.start
     data.endDate = event.end
-    data.amount = event.extendedProps.amount
-    data.uId = event.extendedProps.uId
-    data.service = event.extendedProps.service
-    data.doctorName = event.extendedProps.doctorName
+    data.amount = ep.amount !== undefined ? ep.amount : event.amount
+    data.uId = ep.uId || event.uId
+    data.service = ep.service || event.service
+    data.doctorName = ep.doctorName || event.doctorName
 }
