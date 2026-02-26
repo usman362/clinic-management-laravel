@@ -22,9 +22,9 @@ return [
     'discard' => 'Discard',
     'please_wait' => 'Please wait...',
     'save' => 'Save',
-    'cancelled_appointment' => 'Cancelled Appointment !',
+    'cancelled_appointment' => 'Cancel Appointment !',
     'are_you_sure' => 'Are you sure want to delete this',
-    'are_you_sure_cancel' => 'Are you sure want to cancel this ',
+    'are_you_sure_cancel' => 'Are you sure you want to cancel? This cannot be undone! ',
     'no' => 'No, Cancel',
     'yes' => 'Yes, Delete!',
     'error' => 'Error',
@@ -149,7 +149,7 @@ return [
     'this_month' => 'This Month',
     'last_month' => 'Last Month',
     'custom' => 'Custom Range',
-    
+
     'holiday' => 'Holiday',
     'appointment_created_payment_not_complete' => 'Appointment created successfully and Payment is not completed.',
 ];

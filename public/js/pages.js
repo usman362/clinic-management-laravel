@@ -640,7 +640,7 @@
             })), window.cancelAppointment = function (e, t, a) {
                 swal({
                     title: Lang.get("js.cancelled_appointment"),
-                    text: Lang.get("js.are_you_sure_cancel") + t + " ?",
+                    text: Lang.get("js.are_you_sure_cancel"),
                     type: "warning",
                     icon: "warning",
                     showCancelButton: !0,

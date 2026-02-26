@@ -170,7 +170,7 @@ listenClick(".patient-cancel-appointment", function (event) {
 window.cancelAppointment = function (url, header, appointmentId) {
     swal({
         title: Lang.get("js.cancelled_appointment"),
-        text: Lang.get("js.are_you_sure_cancel") + header + " ?",
+        text: Lang.get("js.are_you_sure_cancel"),
         type: "warning",
         icon: "warning",
         showCancelButton: true,
