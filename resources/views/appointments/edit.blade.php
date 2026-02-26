@@ -61,7 +61,12 @@
                     <!-- Form Steps -->
                     @if (getLogInUser()->hasRole('patient') || getLogInUser()->hasRole('doctor'))
                         @if (getLogInUser()->hasRole('patient'))
-                            {{ Form::open(['route' => ['patients.appointments.update', $appointment->id], 'id' => 'addAppointmentForm']) }}
+                            {{ Form::open([
+                                'route' => ['patients.appointments.update', $appointment->id],
+                                'id' => 'addAppointmentForm',
+                                'data-draft-get-url' => route('patients.appointments.draft.get', $appointment->id),
+                                'data-draft-save-url' => route('patients.appointments.draft.save', $appointment->id),
+                            ]) }}
                         @else((getLogInUser()->hasRole('doctor')))
                             {{ Form::open(['route' => ['doctors.appointments.update', $appointment->id], 'id' => 'addAppointmentForm']) }}
                         @endif
@@ -69,6 +74,9 @@
                         {{ Form::open(['route' => ['appointments.update', $appointment->id], 'id' => 'addAppointmentForm']) }}
                     @endif
                     @method('PUT')
+                    @if (getLogInUser()->hasRole('patient'))
+                        <input type="hidden" id="appointment_id_for_draft" value="{{ $appointment->id }}">
+                    @endif
 
                     <!-- STEP 1: CLIENT DETAILS -->
                     <div class="form-step active" id="step1">

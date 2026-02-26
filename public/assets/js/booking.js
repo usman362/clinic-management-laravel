@@ -12,6 +12,99 @@
         const $progressBar = $('.progress-indicator');
         const $notification = $('#notification');
 
+        var draftGetUrl = $form.data('draft-get-url');
+        var draftSaveUrl = $form.data('draft-save-url');
+        var useDraft = !!(draftGetUrl && draftSaveUrl);
+        var saveDraftTimer;
+
+        function getDraftPayload() {
+            var form = $form[0];
+            var data = {
+                currentStep: currentStep,
+                first_name: (form.querySelector('#first_name') || {}).value,
+                last_name: (form.querySelector('#last_name') || {}).value,
+                address: (form.querySelector('#address') || {}).value,
+                dob: (form.querySelector('#dob') || {}).value,
+                tax_code: (form.querySelector('#tax_code') || {}).value,
+                school_name: (form.querySelector('#school_name') || {}).value,
+                school_grade: (form.querySelector('#school_grade') || {}).value,
+                consentConfirmed: $('#consentConfirmed').is(':checked'),
+                assessmentInfoAccepted: $('#assessmentInfoAccepted').is(':checked'),
+                paymentAcknowledged: $('#paymentAcknowledged').is(':checked'),
+                documentationPolicy: $('#documentationPolicy').is(':checked'),
+                appointments: []
+            };
+            $('.appointments-section').each(function () {
+                var $s = $(this);
+                data.appointments.push({
+                    date: $s.find('.appointmentDate').val(),
+                    from_time: $s.find('.timeSlot').val(),
+                    to_time: $s.find('.toTime').val()
+                });
+            });
+            return data;
+        }
+
+        function saveDraft() {
+            if (!useDraft) return;
+            var payload = getDraftPayload();
+            $.ajax({
+                url: draftSaveUrl,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ form_data: payload }),
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'), 'Accept': 'application/json' }
+            });
+        }
+
+        function applyDraftData(data) {
+            if (!data) return;
+            try {
+                if (data.currentStep != null && data.currentStep >= 0 && data.currentStep < $steps.length) {
+                    currentStep = data.currentStep;
+                }
+                var form = $form[0];
+                ['first_name', 'last_name', 'address', 'dob', 'tax_code', 'school_name', 'school_grade'].forEach(function (id) {
+                    var el = form.querySelector('#' + id);
+                    if (el && data[id] != null) el.value = data[id];
+                });
+                if (data.consentConfirmed) $('#consentConfirmed').prop('checked', true);
+                if (data.assessmentInfoAccepted) $('#assessmentInfoAccepted').prop('checked', true);
+                if (data.paymentAcknowledged) $('#paymentAcknowledged').prop('checked', true);
+                if (data.documentationPolicy) $('#documentationPolicy').prop('checked', true);
+                if (data.appointments && data.appointments.length) {
+                    $('.appointments-section').each(function (i) {
+                        var d = data.appointments[i];
+                        if (!d) return;
+                        var $s = $(this);
+                        if (d.date) $s.find('.appointmentDate').val(d.date);
+                        if (d.from_time) $s.find('.timeSlot').val(d.from_time);
+                        if (d.to_time) $s.find('.toTime').val(d.to_time);
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function restoreDraft(done) {
+            if (!useDraft) { if (done) done(); return; }
+            $.ajax({
+                url: draftGetUrl,
+                method: 'GET',
+                dataType: 'json',
+                headers: { 'Accept': 'application/json' }
+            }).done(function (res) {
+                var data = (res && res.data) ? res.data : null;
+                applyDraftData(data);
+                if (done) done();
+            }).fail(function () { if (done) done(); });
+        }
+
+        function scheduleSaveDraft() {
+            if (!useDraft) return;
+            clearTimeout(saveDraftTimer);
+            saveDraftTimer = setTimeout(saveDraft, 400);
+        }
+
         /* ==========================
             STEP DISPLAY
         ========================== */
@@ -133,6 +226,7 @@
             if (currentStep < $steps.length - 1) {
                 currentStep++;
                 showStep(currentStep);
+                saveDraft();
             }
         });
 
@@ -141,6 +235,7 @@
             if (currentStep > 0) {
                 currentStep--;
                 showStep(currentStep);
+                saveDraft();
             }
         });
 
@@ -160,9 +255,20 @@
         });
 
         /* ==========================
-            INIT
+            DRAFT: restore then bind save (patient edit only, AJAX)
         ========================== */
-        showStep(currentStep);
+        if (useDraft) {
+            $form.find('#first_name, #last_name, #address, #dob, #tax_code, #school_name, #school_grade').on('input change', scheduleSaveDraft);
+            $form.find('.appointmentDate, .timeSlot, .toTime').on('change', scheduleSaveDraft);
+            $form.find('#consentConfirmed, #assessmentInfoAccepted, #paymentAcknowledged, #documentationPolicy').on('change', scheduleSaveDraft);
+        }
+
+        /* ==========================
+            INIT: restore draft then show step
+        ========================== */
+        restoreDraft(function () {
+            showStep(currentStep);
+        });
     }
 
     /* ==========================

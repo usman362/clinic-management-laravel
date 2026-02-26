@@ -6,6 +6,7 @@ use App\Events\DeleteAppointmentFromGoogleCalendar;
 use App\Http\Requests\CreateAppointmentRequest;
 use App\Http\Requests\CreateFrontAppointmentRequest;
 use App\Models\Appointment;
+use App\Models\AppointmentDraft;
 use App\Models\Doctor;
 use App\Models\Document;
 use App\Models\Notification;
@@ -299,6 +300,11 @@ class AppointmentController extends AppBaseController
         $input = $request->all();
         $appointment = $this->appointmentRepository->update($input, $id);
 
+        if (getLogInUser()->hasRole('patient')) {
+            AppointmentDraft::where('user_id', getLogInUser()->id)
+                ->where('appointment_id', $id)
+                ->delete();
+        }
 
         $url = route('appointments.index');
 
@@ -311,6 +317,39 @@ class AppointmentController extends AppBaseController
         ];
 
         return $this->sendResponse($data, __('messages.flash.appointment_create'));
+    }
+
+    /**
+     * Get saved draft for patient appointment edit (AJAX).
+     */
+    public function getDraft($id): JsonResponse
+    {
+        $user = getLogInUser();
+        if (! $user->hasRole('patient') || ! $user->patient) {
+            return $this->sendError(__('messages.common.unauthorized'), 403);
+        }
+        $appointment = Appointment::where('id', $id)->where('patient_id', $user->patient->id)->firstOrFail();
+        $draft = AppointmentDraft::where('user_id', $user->id)->where('appointment_id', $id)->first();
+        return $this->sendResponse($draft ? $draft->form_data : null, __('messages.flash.retrieve'));
+    }
+
+    /**
+     * Save draft for patient appointment edit (AJAX). Step-wise data is merged.
+     */
+    public function saveDraft(Request $request, $id): JsonResponse
+    {
+        $user = getLogInUser();
+        if (! $user->hasRole('patient') || ! $user->patient) {
+            return $this->sendError(__('messages.common.unauthorized'), 403);
+        }
+        $appointment = Appointment::where('id', $id)->where('patient_id', $user->patient->id)->firstOrFail();
+        $payload = $request->validate(['form_data' => 'required|array']);
+        $formData = $payload['form_data'];
+        AppointmentDraft::updateOrCreate(
+            ['user_id' => $user->id, 'appointment_id' => $id],
+            ['form_data' => $formData]
+        );
+        return $this->sendResponse(null, __('Draft saved.'));
     }
 
     /**
