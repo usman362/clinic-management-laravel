@@ -267,7 +267,7 @@ return [
         'cancelled_appointment' => '¡Cita cancelada!',
         'are_you_sure_cancel' => '¿Estás seguro de que quieres cancelar esto?',
         'has_cancel' => ' has been Cancelled.',
-        'no' => 'No, Cancelar',
+        'no' => 'Backar',
         'yes' => '¡Sí, eliminar!',
         'select_country' => 'Seleccionar país',
         'select_state' => 'Seleccione estado',

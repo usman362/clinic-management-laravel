@@ -25,7 +25,7 @@ return [
     'cancelled_appointment' => '¡Cita Cancelada!',
     'are_you_sure' => '¿Estás seguro de querer eliminar esto?',
     'are_you_sure_cancel' => '¿Estás seguro de querer cancelar esto?',
-    'no' => 'No, Cancelar',
+    'no' => 'Backar',
     'yes' => 'Sí, ¡Eliminar!',
     'error' => 'Error',
     'ok' => 'Aceptar',

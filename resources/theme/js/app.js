@@ -93,8 +93,8 @@
                         title: "Delete !",
                         text: "Are you sure want to delete this user ?",
                         buttons: {
-                            confirm: "Yes, Delete",
-                            cancel: "No, Cancel"
+                            confirm: "Cancel the Appointment",
+                            cancel: "Back"
                         },
                         showCloseButton: true,
                         showCancelButton: true,
