@@ -44,14 +44,18 @@ class AppServiceProvider extends ServiceProvider
         $setting = Setting::pluck('value', 'key')->toArray();
         if ($setting) {
             config([
-                'mail.mailer' => $setting->mail_mailer ?? '',
-                'mail.host' => $setting->mail_host ?? '',
-                'mail.port' => $setting->mail_port ?? '',
-                'mail.username' => $setting->mail_username ?? '',
-                'mail.password' => $setting->mail_password ?? '',
-                'mail.encryption' => $setting->mail_encryption ?? '',
-                'mail.from.address' => $setting->mail_from_address ?? '',
-                'mail.from.name' => $setting->mail_from_name ?? '',
+                'mail.mailer' => $setting['mail_mailer'] ?? '',
+                'mail.host' => $setting['mail_host'] ?? '',
+                'mail.port' => $setting['mail_port'] ?? '',
+                'mail.username' => $setting['mail_username'] ?? '',
+                'mail.password' => $setting['mail_password'] ?? '',
+                'mail.encryption' => $setting['mail_encryption'] ?? '',
+                'mail.from.address' => ! empty($setting['mail_from_address'] ?? '')
+                    ? $setting['mail_from_address']
+                    : env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+                'mail.from.name' => ! empty($setting['mail_from_name'] ?? '')
+                    ? $setting['mail_from_name']
+                    : env('MAIL_FROM_NAME', 'Example'),
             ]);
         }
         Paginator::useBootstrap();
