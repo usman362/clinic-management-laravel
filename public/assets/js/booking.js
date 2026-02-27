@@ -57,6 +57,28 @@
             });
         }
 
+        function updateStep6ChildDetails(data) {
+            if (!data) {
+                var form = $form[0];
+                data = {
+                    first_name: (form.querySelector('#first_name') || {}).value,
+                    last_name: (form.querySelector('#last_name') || {}).value,
+                    address: (form.querySelector('#address') || {}).value,
+                    dob: (form.querySelector('#dob') || {}).value,
+                    tax_code: (form.querySelector('#tax_code') || {}).value,
+                    school_name: (form.querySelector('#school_name') || {}).value,
+                    school_grade: (form.querySelector('#school_grade') || {}).value
+                };
+            }
+            var name = [data.first_name, data.last_name].filter(Boolean).join(' ');
+            $('.client_name').text(name);
+            $('.client_address').text(data.address || '');
+            $('.client_dob').text(data.dob || '');
+            $('.client_tax_code').text(data.tax_code || '');
+            $('.client_school').text(data.school_name || '');
+            $('.client_grade').text(data.school_grade || '');
+        }
+
         function applyDraftData(data) {
             if (!data) return;
             try {
@@ -72,7 +94,9 @@
                 if (data.assessmentInfoAccepted) $('#assessmentInfoAccepted').prop('checked', true);
                 if (data.paymentAcknowledged) $('#paymentAcknowledged').prop('checked', true);
                 if (data.documentationPolicy) $('#documentationPolicy').prop('checked', true);
+                updateStep6ChildDetails(data);
                 if (data.appointments && data.appointments.length) {
+                    var pendingSlots = [];
                     $('.appointments-section').each(function (i) {
                         var d = data.appointments[i];
                         if (!d) return;
@@ -80,7 +104,47 @@
                         if (d.date) $s.find('.appointmentDate').val(d.date);
                         if (d.from_time) $s.find('.timeSlot').val(d.from_time);
                         if (d.to_time) $s.find('.toTime').val(d.to_time);
+                        if (d.date && d.from_time && d.to_time) {
+                            $s.find('.date-time').text(d.date + ' ' + d.from_time + '-' + d.to_time);
+                            pendingSlots.push({ $section: $s, date: d.date, from_time: d.from_time, to_time: d.to_time });
+                        }
                     });
+                    if (pendingSlots.length) {
+                        pendingSlots.forEach(function (p) {
+                            p.$section.find('.appointmentDate').trigger('change');
+                        });
+                        var elapsed = 0;
+                        var interval = setInterval(function () {
+                            elapsed += 300;
+                            pendingSlots = pendingSlots.filter(function (p) {
+                                var $slotData = p.$section.find('.appointment-slot-data');
+                                var $slots = $slotData.find('.time-slot');
+                                if ($slots.length === 0) return true;
+                                p.$section.find('.timeSlot').val(p.from_time);
+                                p.$section.find('.toTime').val(p.to_time);
+                                p.$section.find('.date-time').text(p.date + ' ' + p.from_time + '-' + p.to_time);
+                                var slotId = p.from_time + ' - ' + p.to_time;
+                                var slotIdAlt = p.from_time + '-' + p.to_time;
+                                function norm(s) { return (s || '').replace(/\s+/g, ' ').trim(); }
+                                p.$section.find('.time-slot').removeClass('activeSlot');
+                                var $match = p.$section.find('.time-slot[data-id="' + slotId + '"]');
+                                if (!$match.length) {
+                                    $slots.each(function () {
+                                        var id = $(this).attr('data-id') || $(this).data('id') || '';
+                                        if (norm(id) === norm(slotId) || norm(id) === norm(slotIdAlt) || (id.indexOf(p.from_time) !== -1 && id.indexOf(p.to_time) !== -1)) {
+                                            $match = $(this);
+                                            return false;
+                                        }
+                                    });
+                                }
+                                if ($match && $match.length) $match.addClass('activeSlot');
+                                var dateId = p.$section.find('.date_id').val();
+                                if (dateId) $('#' + dateId).text(p.date + ' ' + p.from_time + '-' + p.to_time);
+                                return false;
+                            });
+                            if (pendingSlots.length === 0 || elapsed > 10000) clearInterval(interval);
+                        }, 300);
+                    }
                 }
             } catch (e) {}
         }
@@ -122,6 +186,10 @@
 
             const progress = (stepIndex / ($steps.length - 1)) * 100;
             $progressBar.css('width', progress + '%');
+
+            if (stepIndex === 5) {
+                updateStep6ChildDetails();
+            }
         }
 
         /* ==========================
