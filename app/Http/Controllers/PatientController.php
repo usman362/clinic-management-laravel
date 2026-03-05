@@ -100,12 +100,32 @@ class PatientController extends AppBaseController
         $patient = $this->patientRepository->getPatientData($patient);
         $appointmentStatus = Appointment::ALL_STATUS;
         $todayDate = Carbon::now()->format('Y-m-d');
-        $data['todayAppointmentCount'] = Appointment::wherePatientId($patient['id'])->where('date', '=',
-            $todayDate)->count();
-        $data['upcomingAppointmentCount'] = Appointment::wherePatientId($patient['id'])->where('date', '>',
-            $todayDate)->count();
-        $data['completedAppointmentCount'] = Appointment::wherePatientId($patient['id'])->where('date', '<',
-            $todayDate)->count();
+
+        // Use the same semantics as the client dashboard so counters and tables stay consistent:
+        // - Today appointments: all non-cancelled appointments for today
+        // - Upcoming appointments: future-dated, non-cancelled appointments
+        // - Completed appointments: appointments that are actually checked out (past + today)
+        $todayCompleted = Appointment::wherePatientId($patient['id'])
+            ->whereDate('date', '=', $todayDate)
+            ->whereStatus(Appointment::CHECK_OUT)
+            ->count();
+
+        $data['todayAppointmentCount'] = Appointment::wherePatientId($patient['id'])
+            ->whereDate('date', '=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED])
+            ->count();
+
+        $data['upcomingAppointmentCount'] = Appointment::wherePatientId($patient['id'])
+            ->where('date', '>', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED])
+            ->count();
+
+        $pastCompletedAppointmentCount = Appointment::wherePatientId($patient['id'])
+            ->where('date', '<', $todayDate)
+            ->whereStatus(Appointment::CHECK_OUT)
+            ->count();
+
+        $data['completedAppointmentCount'] = $pastCompletedAppointmentCount + $todayCompleted;
 
         return view('patients.show', compact('patient', 'appointmentStatus', 'data'));
     }
@@ -228,7 +248,7 @@ class PatientController extends AppBaseController
 
         $path = $file->store('documents/user_' . Auth::id(), 'public');
 
-        Document::create([
+        $document = Document::create([
             'user_id' => $id,
             'uploaded_by' => Auth::id(),
             'title' => $request->title,
@@ -238,7 +258,9 @@ class PatientController extends AppBaseController
             'size' => round($file->getSize() / 1024), // KB
         ]);
 
-        return back()->with('success', 'Document uploaded successfully.');
+        return redirect()
+            ->route('patients.show', ['patient' => $id, 'tab' => 'documents'])
+            ->with('success', 'Document uploaded successfully.');
     }
 
     /**
@@ -254,8 +276,11 @@ class PatientController extends AppBaseController
             Storage::disk('public')->delete($document->path);
         }
 
+        $patientId = $document->user_id;
         $document->delete();
 
-        return back()->with('success', 'Document deleted successfully.');
+        return redirect()
+            ->route('patients.show', ['patient' => $patientId, 'tab' => 'documents'])
+            ->with('success', 'Document deleted successfully.');
     }
 }

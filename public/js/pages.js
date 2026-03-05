@@ -2924,20 +2924,12 @@
                     n = e.find("td:eq(3)").text();
                 $(".degree").val(t), $(".university").val(a), $(".year").val(n).trigger("change"), d = !0, $(".showQualification").slideToggle(500)
             })), listenSubmit("#editDoctorForm", (function (e) {
-                var t = $("#twitterUrl").val(),
-                    a = $("#linkedinUrl").val(),
-                    n = $("#instagramUrl").val(),
-                    i = new RegExp(/^(https?:\/\/)?((m{1}\.)?)?((w{2,3}\.)?)twitter.[a-z]{2,3}\/?.*/i),
-                    r = new RegExp(/^(https?:\/\/)?((w{2,3}\.)?)linkedin\.[a-z]{2,3}\/?.*/i),
-                    s = new RegExp(/^(https?:\/\/)?((m{1}\.)?)?((w{2,3}\.)?)instagram.[a-z]{2,3}\/?.*/i);
-                if (!("" == t || !!t.match(i))) return displayErrorMessage(Lang.get("js.valid_twitter")), !1;
-                if (!("" == a || !!a.match(r))) return displayErrorMessage(Lang.get("js.valid_linkedin")), !1;
-                if (!("" == n || !!n.match(s))) return displayErrorMessage(Lang.get("js.valid_instagram")), !1;
+                
                 if ("" !== $("#error-msg").text()) return $("#phoneNumber").focus(), displayErrorMessage(Lang.get("js.contact_number") + $("#error-msg").text()), !1;
                 e.preventDefault();
                 var o = new FormData($(this)[0]),
                     d = $("#editDoctorId").val();
-                o.append("qualifications", JSON.stringify(c)), $.ajax({
+                $.ajax({
                     url: route("doctors.update", d),
                     type: "POST",
                     data: o,

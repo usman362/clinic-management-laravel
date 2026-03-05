@@ -15,6 +15,16 @@
         var draftGetUrl = $form.data('draft-get-url');
         var draftSaveUrl = $form.data('draft-save-url');
         var useDraft = !!(draftGetUrl && draftSaveUrl);
+        var bookingMode = ($form.data('booking-mode') || 'edit').toString();
+        var profileChild = {
+            first_name: $form.data('profile-first-name') || '',
+            last_name: $form.data('profile-last-name') || '',
+            address: $form.data('profile-address') || '',
+            dob: $form.data('profile-dob') || '',
+            tax_code: $form.data('profile-tax-code') || '',
+            school_name: $form.data('profile-school-name') || '',
+            school_grade: $form.data('profile-school-grade') || '',
+        };
         var saveDraftTimer;
 
         function getDraftPayload() {
@@ -55,6 +65,18 @@
                 data: JSON.stringify({ form_data: payload }),
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'), 'Accept': 'application/json' }
             });
+        }
+
+        function applyProfileChildToForm() {
+            var form = $form[0];
+            ['first_name', 'last_name', 'address', 'dob', 'tax_code', 'school_name', 'school_grade'].forEach(function (id) {
+                var el = form.querySelector('#' + id);
+                if (!el) return;
+                if (!el.value && profileChild[id] != null && profileChild[id] !== '') {
+                    el.value = profileChild[id];
+                }
+            });
+            updateStep6ChildDetails();
         }
 
         function updateStep6ChildDetails(data) {
@@ -150,7 +172,15 @@
         }
 
         function restoreDraft(done) {
-            if (!useDraft) { if (done) done(); return; }
+            if (!useDraft) {
+                // No server-side draft: initialize from profile, and skip details step for rebook mode
+                applyProfileChildToForm();
+                if (bookingMode === 'rebook') {
+                    currentStep = 1;
+                }
+                if (done) done();
+                return;
+            }
             $.ajax({
                 url: draftGetUrl,
                 method: 'GET',
@@ -158,9 +188,24 @@
                 headers: { 'Accept': 'application/json' }
             }).done(function (res) {
                 var data = (res && res.data) ? res.data : null;
-                applyDraftData(data);
+                if (data) {
+                    applyDraftData(data);
+                } else {
+                    // No existing draft for this appointment: use profile defaults
+                    applyProfileChildToForm();
+                    if (bookingMode === 'rebook') {
+                        currentStep = 1;
+                    }
+                }
                 if (done) done();
-            }).fail(function () { if (done) done(); });
+            }).fail(function () {
+                // On error, still initialize from profile
+                applyProfileChildToForm();
+                if (bookingMode === 'rebook') {
+                    currentStep = 1;
+                }
+                if (done) done();
+            });
         }
 
         function scheduleSaveDraft() {

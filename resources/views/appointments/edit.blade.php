@@ -66,6 +66,14 @@
                                 'id' => 'addAppointmentForm',
                                 'data-draft-get-url' => route('patients.appointments.draft.get', $appointment->id),
                                 'data-draft-save-url' => route('patients.appointments.draft.save', $appointment->id),
+                                'data-booking-mode' => $bookingMode ?? 'edit',
+                                'data-profile-first-name' => optional($appointment->patient->user)->first_name,
+                                'data-profile-last-name' => optional($appointment->patient->user)->last_name,
+                                'data-profile-address' => optional($appointment->patient->address)->address1,
+                                'data-profile-dob' => optional($appointment->patient->user)->dob,
+                                'data-profile-tax-code' => optional($appointment->patient->address)->tax_code,
+                                'data-profile-school-name' => optional($appointment->patient->address)->school_name,
+                                'data-profile-school-grade' => optional($appointment->patient->address)->school_grade,
                             ]) }}
                         @else((getLogInUser()->hasRole('doctor')))
                             {{ Form::open(['route' => ['doctors.appointments.update', $appointment->id], 'id' => 'addAppointmentForm']) }}

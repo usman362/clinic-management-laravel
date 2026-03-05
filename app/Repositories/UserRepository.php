@@ -110,7 +110,6 @@ class UserRepository extends BaseRepository
         $addressInputArray = Arr::only($input,
             ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code']);
         $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
-        $qualificationArray = json_decode($input['qualifications'], true);
         $specialization = $input['specializations'];
         try {
             DB::beginTransaction();
@@ -121,24 +120,6 @@ class UserRepository extends BaseRepository
             $doctor->user->address()->update($addressInputArray);
             $doctor->update($doctorArray);
             $doctor->specializations()->sync($specialization);
-
-            if (count($qualificationArray) >= 0) {
-                if (isset($input['deletedQualifications'])) {
-                    Qualification::whereIn('id', explode(',', $input['deletedQualifications']))->delete();
-                }
-
-                foreach ($qualificationArray as $qualifications) {
-                    if ($qualifications == null) {
-                        continue;
-                    }
-                    if (isset($qualifications['id'])) {
-                        $doctor->user->qualifications()->where('id', $qualifications['id'])->update($qualifications);
-                    } else {
-                        unset($qualifications['id']);
-                        $doctor->user->qualifications()->create($qualifications);
-                    }
-                }
-            }
 
             if (isset($input['profile']) && ! empty('profile')) {
                 $doctor->user->clearMediaCollection(User::PROFILE);

@@ -194,43 +194,45 @@
                 $comments = \App\Models\PatientComment::with(['patient', 'owner'])
                     ->where('patient_id', $patient->id)
                     ->get();
-
+            
                 $documents = \App\Models\Document::with(['user', 'owner'])
                     ->where('user_id', $patient->id)
                     ->get();
+            
+                $activeTab = request('tab', 'overview');
             @endphp
             <div class="mt-7">
                 <ul class="nav nav-tabs mb-sm-7 mb-5 pb-1 overflow-auto flex-nowrap text-nowrap" id="myTab"
                     role="tablist">
                     <li class="nav-item position-relative me-7 mb-3" role="presentation">
-                        <button class="nav-link active p-0" id="overview-tab" data-bs-toggle="tab"
+                        <button class="nav-link p-0 {{ $activeTab === 'overview' ? 'active' : '' }}" id="overview-tab" data-bs-toggle="tab"
                             data-bs-target="#overview" type="button" role="tab" aria-controls="overview"
                             aria-selected="true">
                             {{ __('messages.common.overview') }}
                         </button>
                     </li>
                     <li class="nav-item position-relative me-7 mb-3" role="presentation">
-                        <button class="nav-link p-0" id="appointments-tab" data-bs-toggle="tab"
+                        <button class="nav-link p-0 {{ $activeTab === 'appointments' ? 'active' : '' }}" id="appointments-tab" data-bs-toggle="tab"
                             data-bs-target="#appointments" type="button" role="tab" aria-controls="appointments"
                             aria-selected="false">
                             {{ __('messages.appointments') }}
                         </button>
                     </li>
                     <li class="nav-item position-relative me-7 mb-3" role="presentation">
-                        <button class="nav-link p-0" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments"
+                        <button class="nav-link p-0 {{ $activeTab === 'comments' ? 'active' : '' }}" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments"
                             type="button" role="tab" aria-controls="comments" aria-selected="false">
                             {{ __('Comments') }}({{ $comments->count() }})
                         </button>
                     </li>
                     <li class="nav-item position-relative me-7 mb-3" role="presentation">
-                        <button class="nav-link p-0" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents"
+                        <button class="nav-link p-0 {{ $activeTab === 'documents' ? 'active' : '' }}" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents"
                             type="button" role="tab" aria-controls="documents" aria-selected="false">
                             {{ __('Documents') }}
                         </button>
                     </li>
                 </ul>
                 <div class="tab-content" id="myTabContent">
-                    <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                    <div class="tab-pane fade {{ $activeTab === 'overview' ? 'show active' : '' }}" id="overview" role="tabpanel" aria-labelledby="overview-tab">
                         <div class="card">
                             <div class="card-body">
                                 <div class="row">
@@ -240,10 +242,10 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="appointments" role="tabpanel" aria-labelledby="appointments-tab">
+                    <div class="tab-pane fade {{ $activeTab === 'appointments' ? 'show active' : '' }}" id="appointments" role="tabpanel" aria-labelledby="appointments-tab">
                         <livewire:patient-show-page-appointment-table :patientId="$patient->id" />
                     </div>
-                    <div class="tab-pane fade" id="comments" role="tabpanel" aria-labelledby="comments-tab">
+                    <div class="tab-pane fade {{ $activeTab === 'comments' ? 'show active' : '' }}" id="comments" role="tabpanel" aria-labelledby="comments-tab">
                         <div class="be-comment-block">
                             @forelse ($comments as $comment)
                                 <div class="be-comment">
@@ -289,7 +291,7 @@
                             @endif
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="documents" role="tabpanel" aria-labelledby="documents-tab">
+                    <div class="tab-pane fade {{ $activeTab === 'documents' ? 'show active' : '' }}" id="documents" role="tabpanel" aria-labelledby="documents-tab">
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="mb-0">Documents</h5>

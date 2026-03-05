@@ -274,7 +274,14 @@ class AppointmentController extends AppBaseController
         $docServices = DB::table('service_doctor')->where('service_id', $appointment->service_id)->pluck('doctor_id');
         $doctors = Doctor::whereIn('id', $docServices)->with('user')->get()->where('user.status', User::ACTIVE)->pluck('user.full_name', 'id');
         $fullDoctors = Doctor::whereIn('id', $docServices)->with('user')->get();
-        return view('appointments.edit', compact('data', 'appointment', 'doctors', 'fullDoctors'));
+
+        // Determine booking mode for patient (normal edit vs rebook of a cancelled appointment)
+        $bookingMode = 'edit';
+        if (getLogInUser()->hasRole('patient') && $appointment->status === Appointment::CANCELLED) {
+            $bookingMode = 'rebook';
+        }
+
+        return view('appointments.edit', compact('data', 'appointment', 'doctors', 'fullDoctors', 'bookingMode'));
     }
 
     public function update(Request $request, $id)
