@@ -25,6 +25,7 @@ Route::prefix('patients')->name('patients.')->middleware('auth', 'xss', 'checkUs
     Route::resource('appointments', AppointmentController::class)->except(['index']);
     Route::get('appointments/{id}/draft', [AppointmentController::class, 'getDraft'])->name('appointments.draft.get');
     Route::post('appointments/{id}/draft', [AppointmentController::class, 'saveDraft'])->name('appointments.draft.save');
+    Route::get('book/{token}', [AppointmentController::class, 'bookByToken'])->name('appointments.book-by-token');
     Route::post('documents/consent', [AppointmentController::class, 'storeConsentDocument'])->name('documents.consent.store');
     Route::get('appointment-pdf/{id}',
         [AppointmentController::class, 'appointmentPdf'])->name('appointmentPdf');

@@ -48,14 +48,15 @@ class PatientDashboardSidebarTable extends Component
             ->whereNotIn('status', [Appointment::CANCELLED])
             ->count();
 
-        // Total = all appointments for patient (excluding cancelled)
+        // Total = real confirmed appointments (excludes cancelled and unfinished booking drafts)
         $this->totalAppointmentCount = Appointment::wherePatientId($patientId)
-            ->whereNotIn('status', [Appointment::CANCELLED])
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
-        // Pending = not yet booked (package slots awaiting booking)
+        // Pending = upcoming confirmed appointments not yet attended
         $this->pendingAppointmentCount = Appointment::wherePatientId($patientId)
-            ->whereStatus(Appointment::BOOKING_PENDING)
+            ->where('date', '>=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING, Appointment::CHECK_OUT])
             ->count();
 
         // Past completed = only CHECK_OUT status (actually attended), not just past date

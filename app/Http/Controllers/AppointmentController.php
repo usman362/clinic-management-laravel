@@ -113,6 +113,7 @@ class AppointmentController extends AppBaseController
             'path' => $path,
             'mime_type' => $file->getClientMimeType(),
             'size' => (int) round($file->getSize() / 1024),
+            'doctor_id' => $request->input('doctor_id'),
         ]);
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -260,6 +261,16 @@ class AppointmentController extends AppBaseController
         }
     }
 
+    /**
+     * Patient booking via token URL (appointment_unique_id).
+     * Resolves the token to the actual appointment and delegates to edit().
+     */
+    public function bookByToken(string $token): \Illuminate\View\View
+    {
+        $appointment = Appointment::where('appointment_unique_id', $token)->firstOrFail();
+        return $this->edit($appointment->id);
+    }
+
     public function edit($id): \Illuminate\View\View
     {
         $appointment = Appointment::findOrFail($id);
@@ -271,9 +282,21 @@ class AppointmentController extends AppBaseController
         }
 
         $data = $this->appointmentRepository->getData();
+
+        // Collect all doctor IDs from every appointment in this package (relation_id group)
+        $packageDoctorIds = Appointment::where('relation_id', $appointment->relation_id)
+            ->whereNotNull('doctor_id')
+            ->pluck('doctor_id')
+            ->unique();
         $docServices = DB::table('service_doctor')->where('service_id', $appointment->service_id)->pluck('doctor_id');
         $doctors = Doctor::whereIn('id', $docServices)->with('user')->get()->where('user.status', User::ACTIVE)->pluck('user.full_name', 'id');
-        $fullDoctors = Doctor::whereIn('id', $docServices)->with('user')->get();
+        // Include all package doctors for consent forms (only those with a jotform_link)
+        $fullDoctors = Doctor::whereIn('id', $packageDoctorIds)
+            ->whereNotNull('jotform_link')
+            ->where('jotform_link', '!=', '')
+            ->with('user')
+            ->get()
+            ->unique('id');
 
         // Determine booking mode for patient (normal edit vs rebook of a cancelled appointment)
         $bookingMode = 'edit';

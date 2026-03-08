@@ -71,6 +71,7 @@ class PatientFeedbackBookingsTable extends LivewireTableComponent
             'services',
             'transaction',
             'doctor.reviews',
+            'patient.user',
         ])->where('appointments.appointment_type','feedback')->where('patient_id', getLoginUser()->patient->id)->select('appointments.*');
 
         $query->whereIn('appointments.id', function ($q) {

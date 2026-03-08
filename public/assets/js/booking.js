@@ -359,12 +359,35 @@
 
             e.preventDefault();
 
-            showNotification('Booking completed successfully.');
+            var $btn = $(this).find('.submitAppointmentBtn');
+            $btn.prop('disabled', true).text('Saving…');
 
-            setTimeout(() => {
-                console.log('Booking flow finished');
-                // this.submit(); // uncomment when backend ready
-            }, 1500);
+            var formData = $(this).serialize();
+
+            $.ajax({
+                url: $(this).attr('action'),
+                method: 'POST',
+                data: formData,
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                success: function (res) {
+                    if (res && res.data && res.data.url) {
+                        showNotification('Booking completed successfully.');
+                        setTimeout(function () { window.location.href = res.data.url; }, 800);
+                    } else {
+                        showNotification('Booking saved.');
+                        $btn.prop('disabled', false).text('Finish');
+                    }
+                },
+                error: function (xhr) {
+                    var msg = 'An error occurred. Please try again.';
+                    try {
+                        var resp = JSON.parse(xhr.responseText);
+                        if (resp && resp.message) msg = resp.message;
+                    } catch (ex) {}
+                    showNotification(msg);
+                    $btn.prop('disabled', false).text('Finish');
+                }
+            });
         });
 
         /* ==========================

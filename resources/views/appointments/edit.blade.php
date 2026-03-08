@@ -256,15 +256,19 @@
                             To complete your booking, you must complete the consent form
                         </p>
 
-                        <!-- Embedded JotForm -->
+                        <!-- Embedded JotForm — one per doctor in the package -->
                         <div class="consent-form-wrapper">
-                            @foreach ($fullDoctors as $doctor)
-                                <h2 class="h2 fw-bold mb-4 mt-4">
-                                    {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}</h2>
+                            @forelse ($fullDoctors as $doctor)
+                                <h5 class="fw-bold mb-2 mt-4">
+                                    Consent for {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}</h5>
                                 <iframe src="{{ $doctor->jotform_link }}" width="100%" height="500" frameborder="0"
                                     scrolling="auto">
                                 </iframe>
-                            @endforeach
+                            @empty
+                                <div class="alert alert-info">
+                                    No consent forms are required for this booking.
+                                </div>
+                            @endforelse
                         </div>
 
 
@@ -273,13 +277,12 @@
                             <p style="font-size: 13px;color:#6c757d">• Authorization for personal data processing</p>
                             <p style="font-size: 13px;color:#6c757d">• Agreement to terms of service</p>
                             <p style="font-size: 13px;color:#6c757d">• Privacy policy acknowledgment</p>
-                            <p style="font-size: 13px;color:#6c757d">• Privacy policy acknowledgment</p>
                         </div>
 
                         <div class="form-check mt-4 mb-3">
                             <input class="form-check-input" type="checkbox" id="consentConfirmed">
                             <label class="form-check-label" for="consentConfirmed">
-                                I contim that I have read and accepted the consent form
+                                I confirm that I have read and accepted the consent form
                             </label>
                             <p style="font-size: 13px;color:#6c757d">By checking this box, you declare that you have
                                 understood

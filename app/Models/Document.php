@@ -17,6 +17,7 @@ class Document extends Model
         'path',
         'mime_type',
         'size',
+        'doctor_id',
     ];
 
     public function user()

@@ -77,6 +77,10 @@ class UserRepository extends BaseRepository
         $password = 'user12345';
         $addressInputArray = Arr::only($input,
             ['address1', 'address2', 'country_id', 'city_id', 'state_id', 'postal_code']);
+        if (!empty($input['jotform_link']) && str_contains($input['jotform_link'], '<iframe')) {
+            preg_match('/src=["\']([^"\']+)["\']/', $input['jotform_link'], $matches);
+            $input['jotform_link'] = $matches[1] ?? $input['jotform_link'];
+        }
         $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
         $specialization = $input['specializations'];
         try {
@@ -109,17 +113,27 @@ class UserRepository extends BaseRepository
     {
         $addressInputArray = Arr::only($input,
             ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code']);
+        if (!empty($input['jotform_link']) && str_contains($input['jotform_link'], '<iframe')) {
+            preg_match('/src=["\']([^"\']+)["\']/', $input['jotform_link'], $matches);
+            $input['jotform_link'] = $matches[1] ?? $input['jotform_link'];
+        }
         $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
-        $specialization = $input['specializations'];
+        $specialization = $input['specializations'] ?? [];
         try {
             DB::beginTransaction();
             $input['email'] = setEmailLowerCase($input['email']);
             $input['status'] = (isset($input['status'])) ? 1 : 0;
             $input['type'] = User::DOCTOR;
             $doctor->user->update($input);
-            $doctor->user->address()->update($addressInputArray);
+            if ($doctor->user->address) {
+                $doctor->user->address()->update($addressInputArray);
+            } else {
+                $doctor->user->address()->create($addressInputArray);
+            }
             $doctor->update($doctorArray);
-            $doctor->specializations()->sync($specialization);
+            if (!empty($specialization)) {
+                $doctor->specializations()->sync($specialization);
+            }
 
             if (isset($input['profile']) && ! empty('profile')) {
                 $doctor->user->clearMediaCollection(User::PROFILE);
@@ -186,7 +200,12 @@ class UserRepository extends BaseRepository
                }
             }elseif ($user->hasRole('doctor')) {
                $doctor =  Doctor::where('user_id',$user->id)->first();
-               $doctor->jotform_link = $userInput['jotform_link'];
+               $jotformValue = $userInput['jotform_link'] ?? '';
+               if (!empty($jotformValue) && str_contains($jotformValue, '<iframe')) {
+                   preg_match('/src=["\']([^"\']+)["\']/', $jotformValue, $matches);
+                   $jotformValue = $matches[1] ?? $jotformValue;
+               }
+               $doctor->jotform_link = $jotformValue;
                $doctor->save();
                $userInput['type'] = User::DOCTOR;
                $userInput['email'] = setEmailLowerCase($userInput['email']);

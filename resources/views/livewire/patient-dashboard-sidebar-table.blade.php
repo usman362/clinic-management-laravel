@@ -72,7 +72,7 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="d-flex flex-column">
-                                            <a href="{{route('patients.appointments.edit',$appointment->id)}}"
+                                            <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
                                                 New Booking – Action Required
                                             </a>
@@ -82,15 +82,15 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="d-flex flex-column">
-                                            <a href="{{route('patients.appointments.edit',$appointment->id)}}"
+                                            <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
-                                                {{route('patients.appointments.edit',$appointment->id)}}
+                                                {{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}
                                             </a>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="mb-1 fs-6 text-muted fw-bold text-center">
-                                    <a href="{{route('patients.appointments.edit',$appointment->id)}}" class="badge bg-light-info">
+                                    <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}" class="badge bg-light-info">
                                         <i class="fa fa-edit"></i>
                                     </a>
                                 </td>
@@ -132,7 +132,7 @@
                                                 class="">
                                         </div>
                                         <div class="d-flex flex-column">
-                                            <a href="{{ route('patients.doctor.detail', $appointment->doctor_id) }}"
+                                            <a href="{{ route('patients.appointment.detail', $appointment->id) }}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
                                                 {{ $appointment->doctor->user->fullname }}</a>
                                             <span
@@ -185,7 +185,7 @@
                                                 class="user-img">
                                         </div>
                                         <div class="d-flex flex-column">
-                                            <a href="{{ route('patients.doctor.detail', $appointment->doctor_id) }}"
+                                            <a href="{{ route('patients.appointment.detail', $appointment->id) }}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
                                                 {{ $appointment->doctor->user->fullname }}</a>
                                             <span

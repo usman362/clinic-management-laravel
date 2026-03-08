@@ -163,11 +163,8 @@ class DoctorSessionController extends AppBaseController
         $timezone_offset_minutes = $request->get('timezone_offset_minutes');
         $doctor_holiday = DoctorHoliday::where('doctor_id', $doctorId)->where('date', $holidaydate)->get();
         $service = Service::find($request->appointmentServiceId);
-        if($service){
-            $duration = $service->duration;
-        }else{
-            $duration = 0;
-        }
+        $duration = ($service && $service->duration > 0) ? $service->duration : 0;
+
         if (! $doctor_holiday->count() == 0) {
             return $this->sendError(__('messages.flash.doctor_not_available'));
         }
@@ -203,9 +200,9 @@ class DoctorSessionController extends AppBaseController
             // convert 12 hours to 24 hours
             $startTime = date('H:i', strtotime($doctorWeekDaySession->full_start_time));
             $endTime = date('H:i', strtotime($doctorWeekDaySession->full_end_time));
-            // dd($doctorSession->session_meeting_time);
-            // $slots = $this->getTimeSlot($doctorSession->session_meeting_time, $startTime, $endTime);
-            $slots = $this->getTimeSlot($duration, $startTime, $endTime);
+            // Use service duration; fall back to doctor session's configured meeting time, then 30 min default
+            $slotDuration = $duration > 0 ? $duration : (($doctorSession->session_meeting_time > 0) ? $doctorSession->session_meeting_time : 30);
+            $slots = $this->getTimeSlot($slotDuration, $startTime, $endTime);
             $gap = $doctorSession->session_gap;
             $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
             foreach ($slots as $key => $slot) {
@@ -309,7 +306,8 @@ class DoctorSessionController extends AppBaseController
                 $doctorSession = $doctorWeekDaySession->doctorSession;
                 $startTime = date('H:i', strtotime($doctorWeekDaySession->full_start_time));
                 $endTime = date('H:i', strtotime($doctorWeekDaySession->full_end_time));
-                $slots = $this->getTimeSlot($duration, $startTime, $endTime);
+                $slotDuration = $duration > 0 ? $duration : (($doctorSession->session_meeting_time > 0) ? $doctorSession->session_meeting_time : 30);
+                $slots = $this->getTimeSlot($slotDuration, $startTime, $endTime);
                 $gap = $doctorSession->session_gap;
                 $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
 

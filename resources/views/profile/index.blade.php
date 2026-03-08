@@ -90,7 +90,7 @@
                     <div class="row mb-5">
                         <label class="col-lg-4 form-label required">{{ __('messages.user.email') . ':' }}</label>
                         <div class="col-lg-8">
-                            {{ Form::email('email', $user->email, ['class' => 'form-control', 'placeholder' => __('messages.user.email'), 'required']) }}
+                            {{ Form::text('email', $user->email, ['class' => 'form-control', 'placeholder' => __('messages.user.email'), 'required', 'autocomplete' => 'email']) }}
                         </div>
                     </div>
 

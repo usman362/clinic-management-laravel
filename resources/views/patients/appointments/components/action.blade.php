@@ -1,12 +1,12 @@
 <div class="d-flex justify-content-center">
     @if ($row->status === 5)
-    <a href="{{ route('patients.appointments.edit', $row->id) }}" class="btn px-1 text-primary fs-3"
+    <a href="{{ route('patients.appointments.book-by-token', $row->appointment_unique_id) }}" class="btn px-1 text-primary fs-3"
         data-bs-toggle="tooltip" data-bs-original-title="{{ __('messages.common.view') }}">
         <i class="fas fa-edit"></i>
     </a>
     @endif
     @if ($row->status === $cancel)
-    <a href="{{ route('patients.appointments.edit', $row->id) }}" class="btn px-1 text-success fs-3"
+    <a href="{{ route('patients.appointments.book-by-token', $row->appointment_unique_id) }}" class="btn px-1 text-success fs-3"
         data-bs-toggle="tooltip" data-bs-original-title="{{ __('messages.appointment.rebook_appointment') }}"
         title="{{ __('messages.appointment.rebook_appointment') }}">
         <i class="fas fa-calendar-plus"></i>

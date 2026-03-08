@@ -112,32 +112,24 @@
     </li>
 @endrole
 @role('patient')
-    {{-- <li
-        class="nav-item {{ Request::is('patients/appointments*', 'patients/patient-appointments-calendar*', 'patients/doctors*') ? 'active' : '' }}">
+    <li class="nav-item {{ Request::is('patients/appointments*', 'patients/patient-appointments-calendar*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.patient-appointments-index') }}" data-turbo="false">
             <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
             <span class="aside-menu-title">{{ __('messages.appointment.appointments') }}</span>
         </a>
-    </li> --}}
-    <li class="nav-item {{ Request::is('patients/pending-bookings*') ? 'active' : '' }}">
-        <a class="nav-link d-flex align-items-center py-4" aria-current="page"
-            href="{{ route('patients.patient-bookings-pending') }}" data-turbo="false">
-            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
-            <span class="aside-menu-title">{{ __('Pending Bookings') }}</span>
-        </a>
     </li>
-    <li class="nav-item {{ Request::is('patients/confirmed-bookings*') ? 'active' : '' }}">
+    <li class="nav-item {{ Request::is('patients/pending-bookings*', 'patients/confirmed-bookings*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.patient-bookings-confirmed') }}" data-turbo="false">
-            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
-            <span class="aside-menu-title">{{ __('Confirmed Bookings') }}</span>
+            <span class="aside-menu-icon pe-3"><i class="fas fa-box-open"></i></span>
+            <span class="aside-menu-title">{{ __('Packages') }}</span>
         </a>
     </li>
     <li class="nav-item {{ Request::is('patients/feedback-bookings*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"
             href="{{ route('patients.patient-bookings-feedback') }}" data-turbo="false">
-            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
+            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-check"></i></span>
             <span class="aside-menu-title">{{ __('Feedback Bookings') }}</span>
         </a>
     </li>

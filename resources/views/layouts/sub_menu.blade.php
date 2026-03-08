@@ -39,33 +39,21 @@
     </li>
 @endrole
 @role('patient')
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/dashboard*') ? 'd-none' : '' }}">
+    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0">
         <a class="nav-link p-0 {{ Request::is('patients/dashboard*') ? 'active' : '' }}"
             href="{{ route('patients.dashboard') }}">{{ __('messages.dashboard') }}</a>
     </li>
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/appointments*','patients/patient-appointments-calendar*','patients/prescription-medicine-show*') ? 'd-none' : '' }}">
-        <a class="nav-link p-0 {{ Request::is('patients/appointments*','patients/patient-appointments-calendar*','patients/prescription-medicine-show*') ? 'active' : '' }}"
-            href="{{ route('patients.patient-appointments-index') }}">{{ __('messages.appointments') }}</a>
+    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0">
+        <a class="nav-link p-0 {{ Request::is('patients/pending-bookings*','patients/confirmed-bookings*') ? 'active' : '' }}"
+            href="{{ route('patients.patient-bookings-confirmed') }}">{{ __('Packages') }}</a>
     </li>
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/patient-visits*') ? 'd-none' : '' }}">
-        <a class="nav-link p-0 {{ Request::is('patients/patient-visits*') ? 'active' : '' }}"
-            href="{{ route('patients.patient.visits.index') }}">{{ __('messages.visits') }}</a>
+    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0">
+        <a class="nav-link p-0 {{ Request::is('patients/feedback-bookings*') ? 'active' : '' }}"
+            href="{{ route('patients.patient-bookings-feedback') }}">{{ __('Feedback Bookings') }}</a>
     </li>
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/transactions*') ? 'd-none' : '' }}">
-        <a class="nav-link p-0 {{ Request::is('patients/transactions*') ? 'active' : '' }}"
-            href="{{ route('patients.transactions') }}">{{ __('messages.transactions') }}</a>
-    </li>
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/connect-google-calendar*') ? 'd-none' : '' }}">
-        <a class="nav-link p-0 {{ Request::is('patients/connect-google-calendar*') ? 'active' : '' }}"
-            href="{{ route('patients.googleCalendar.index') }}">{{ __('messages.setting.connect_google_calendar') }}</a>
-    </li>
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/reviews*') ? 'd-none' : '' }}">
-        <a class="nav-link p-0 {{ Request::is('patients/reviews*') ? 'active' : '' }}"
-            href="{{ route('patients.reviews.index') }}">{{ __('messages.reviews') }}</a>
-    </li>
-    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 {{ !Request::is('patients/live-consultations*') ? 'd-none' : '' }}">
-        <a class="nav-link p-0 {{ Request::is('patients/live-consultations*') ? 'active' : '' }}"
-            href="{{ route('patients.live-consultations.index') }}">{{ __('messages.live_consultations') }}</a>
+    <li class="nav-item position-relative mx-xl-3 mb-3 mb-xl-0">
+        <a class="nav-link p-0 {{ Request::is('profile/edit*') ? 'active' : '' }}"
+            href="{{ route('profile.setting') }}">{{ __('messages.user.account_setting') }}</a>
     </li>
 @endrole
 @can('manage_staff')

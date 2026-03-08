@@ -26,8 +26,7 @@ class UpdateUserProfileRequest extends FormRequest
             'first_name' => 'required',
             'last_name' => 'required',
             'time_zone' => 'required',
-            // Allow "+" and other valid characters in email, consistent with front-facing forms
-            'email' => 'required|unique:users,email,'.$id.'|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix',
+            'email' => 'required|regex:/^[^@\s]+@[^@\s]+\.[^@\s]+$/i|unique:users,email,'.$id,
             'image' => 'nullable|mimes:jpeg,jpg,png|max:2000',
             // 'contact' => 'required',
         ];

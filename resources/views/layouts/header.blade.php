@@ -7,7 +7,7 @@
         <div class="container-fluid">
             <div class="navbar-collapse">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    {{-- @include('layouts.sub_menu') --}}
+                    @include('layouts.sub_menu')
                 </ul>
             </div>
         </div>
