@@ -26,6 +26,7 @@
             school_grade: $form.data('profile-school-grade') || '',
         };
         var saveDraftTimer;
+        var isRestoringDraft = false;
 
         function getDraftPayload() {
             var form = $form[0];
@@ -104,6 +105,9 @@
         function applyDraftData(data) {
             if (!data) return;
             try {
+                isRestoringDraft = true;
+                clearTimeout(saveDraftTimer);
+
                 if (data.currentStep != null && data.currentStep >= 0 && data.currentStep < $steps.length) {
                     currentStep = data.currentStep;
                 }
@@ -164,11 +168,22 @@
                                 if (dateId) $('#' + dateId).text(p.date + ' ' + p.from_time + '-' + p.to_time);
                                 return false;
                             });
-                            if (pendingSlots.length === 0 || elapsed > 10000) clearInterval(interval);
+                            if (pendingSlots.length === 0 || elapsed > 10000) {
+                                clearInterval(interval);
+                                // Restoration complete: re-enable draft saving and persist current state
+                                isRestoringDraft = false;
+                                if (useDraft) saveDraft();
+                            }
                         }, 300);
+                    } else {
+                        isRestoringDraft = false;
                     }
+                } else {
+                    isRestoringDraft = false;
                 }
-            } catch (e) {}
+            } catch (e) {
+                isRestoringDraft = false;
+            }
         }
 
         function restoreDraft(done) {
@@ -209,7 +224,7 @@
         }
 
         function scheduleSaveDraft() {
-            if (!useDraft) return;
+            if (!useDraft || isRestoringDraft) return;
             clearTimeout(saveDraftTimer);
             saveDraftTimer = setTimeout(saveDraft, 400);
         }
