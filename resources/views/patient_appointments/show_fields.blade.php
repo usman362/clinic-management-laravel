@@ -48,11 +48,6 @@
                             <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.appointment.service') }}:</label>
                             <span class="fs-4 text-gray-800">{{$appointment['data']->services->name}}</span>
                         </div>
-                        <div class="col-md-6 d-flex flex-column mb-md-10 mb-5">
-                            <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.doctor_appointment.amount') }}:</label>
-
-                            <span class="fs-4 text-gray-800">{{ getCurrencyFormat(getCurrencyCode(),$appointment['data']->payable_amount)}}</span>
-                        </div>
                         <div class="col-md-6 d-flex flex-column mb-5">
                             <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.appointment.status') }}:</label>
                             <span class="fs-4 text-gray-800">

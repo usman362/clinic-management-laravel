@@ -40,12 +40,6 @@
                             </div>
                         </div>
                         <div class="row mb-7">
-                            <label class="col-lg-4 fw-bold text-muted">{{ __('messages.doctor_appointment.amount') }}</label>
-                            <div class="col-lg-8 fv-row">
-                                <span class="fw-bolder fs-6 bold"><i class="fas fa-dollar-sign text-dark"></i> {{$appointment['data']->payable_amount}}</span>
-                            </div>
-                        </div>
-                        <div class="row mb-7">
                             <label class="col-lg-4 fw-bold text-muted">{{ __('messages.patient.registered_on') }}</label>
                             <div class="col-lg-8">
                                 <span class="fw-bolder fs-6 text-gray-800 me-2 " data-bs-toggle="tooltip"

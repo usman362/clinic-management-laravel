@@ -42,9 +42,8 @@
                     <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.service')}}:</label>
                     <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_service"></span></div>
                 </div>
-                <div class="d-flex align-items-center mt-3">
-                    <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.payable_amount')}}:</label>
-                    <div class="fs-6 fw-bold ms-3"><span>$</span><span class="ms-1" data-calendar="event_amount"></span></div>
+                <div class="d-none">
+                    <span data-calendar="event_amount"></span>
                 </div>
                 <div class="d-flex align-items-center mt-4">
                     <label for="" {{ $styleCss }}="width: 170px">{{__('messages.appointment.status')}}:</label>

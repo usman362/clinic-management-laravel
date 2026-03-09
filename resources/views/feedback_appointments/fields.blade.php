@@ -47,14 +47,7 @@
                     @endrole
 
 
-                    <div class="col-lg-12 col-sm-12 mb-5">
-                        {{ Form::label('Charge', __('messages.appointment.charge') . ':', ['class' => 'form-label required']) }}
-                        <div class="input-group">
-                            {{ Form::text('appointments[0][charge]', null, ['class' => 'form-control appointment-charge', 'placeholder' => __('messages.doctor.select_date'), 'id' => 'chargeId', 'required', 'placeholder' => __('messages.appointment.charge'), 'readonly']) }}
-                            <div class="input-group-text"> <a class="fw-bolder text-gray-500 text-decoration-none">{{ getCurrencyIcon() }}</a>
-                            </div>
-                        </div>
-                    </div>
+                    {{ Form::hidden('appointments[0][charge]', null, ['class' => 'appointment-charge', 'id' => 'chargeId']) }}
 
                     @php $styleCss = 'style'; @endphp
 
@@ -112,15 +105,7 @@
     @endif
 
 
-    <div class="col-lg-6 col-sm-12 mb-5">
-        {{ Form::label('Total Payable Amount', __('messages.appointment.total_payable_amount') . ':', ['class' => 'form-label required']) }}
-        <div class="input-group">
-            {{ Form::text('payable_amount', null, ['class' => 'form-control', 'placeholder' => __('messages.appointment.total_payable_amount'), 'id' => 'payableAmount', 'required', 'placeholder' => __('messages.appointment.total_payable_amount'), 'readonly']) }}
-            <div class="input-group-text">
-                <a class="fw-bolder text-gray-500 text-decoration-none">{{ getCurrencyIcon() }}</a>
-            </div>
-        </div>
-    </div>
+    {{ Form::hidden('payable_amount', null, ['id' => 'payableAmount']) }}
 
     <div class="d-flex">
         {{ Form::button(__('messages.common.save'), ['type' => 'submit', 'class' => 'btn btn-primary me-2 submitAppointmentBtn']) }}
