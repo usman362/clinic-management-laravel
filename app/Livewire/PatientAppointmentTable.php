@@ -72,7 +72,10 @@ class PatientAppointmentTable extends LivewireTableComponent
             'services',
             'transaction',
             'doctor.reviews',
-        ])->where('appointments.status','!=',5)->where('patient_id', getLoginUser()->patient->id)->select('appointments.*');
+        ])->where('appointments.appointment_type', 'assessment')
+          ->where('patient_id', getLoginUser()->patient->id)
+          ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
+          ->select('appointments.*');
 
         $query->when(
             $this->statusFilter != '' && $this->statusFilter != Appointment::ALL_STATUS,
@@ -83,15 +86,10 @@ class PatientAppointmentTable extends LivewireTableComponent
             }
         );
 
-        if ($this->dateFilter != '' && $this->dateFilter != getWeekDate()) {
+        if ($this->dateFilter != '') {
             $timeEntryDate = explode(' - ', $this->dateFilter);
             $startDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
-            $endDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
-            $query->whereBetween('appointments.date', [$startDate, $endDate]);
-        } else {
-            $timeEntryDate = explode(' - ', getWeekDate());
-            $startDate = Carbon::parse($timeEntryDate[0])->format('Y-m-d');
-            $endDate = Carbon::parse($timeEntryDate[1])->format('Y-m-d');
+            $endDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[1])->format('Y-m-d');
             $query->whereBetween('appointments.date', [$startDate, $endDate]);
         }
 

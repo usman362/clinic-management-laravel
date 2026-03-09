@@ -79,6 +79,8 @@ class Appointment extends Model
         'to_time_type',
         'payment_type',
         'payment_method',
+        'relation_id',
+        'appointment_type',
     ];
 
     protected $casts = [
@@ -254,6 +256,12 @@ class Appointment extends Model
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class, 'patient_id');
+    }
+
+    /** The Package this appointment belongs to. */
+    public function package(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'relation_id', 'relation_id');
     }
 
     /**

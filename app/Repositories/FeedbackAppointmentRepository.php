@@ -10,6 +10,7 @@ use App\Mail\PatientAppointmentBookMail;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Notification;
+use App\Models\Package;
 use App\Models\Patient;
 use App\Models\Service;
 use App\Models\Transaction;
@@ -17,6 +18,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -70,6 +72,19 @@ class FeedbackAppointmentRepository extends BaseRepository
         try {
             DB::beginTransaction();
             $relation_id = uniqid('appt_');
+
+            // Create the first-class Package record for this feedback package
+            Package::create([
+                'relation_id'      => $relation_id,
+                'patient_id'       => $input['patient_id'],
+                'created_by'       => Auth::id(),
+                'appointment_type' => 'feedback',
+                'description'      => $input['description'] ?? null,
+                'payable_amount'   => $input['payable_amount'] ?? null,
+                'payment_type'     => $input['payment_type'] ?? null,
+                'payment_method'   => $input['payment_method'] ?? null,
+            ]);
+
             foreach ($input['appointments'] as $key => $appt) {
                 $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
                 $fromTime = explode(' ', ($appt['from_time'] ?? ''));

@@ -102,6 +102,8 @@ class AppointmentTable extends LivewireTableComponent
         $query->whereIn('appointments.id', function ($q) {
             $q->selectRaw('MAX(appointments.id)')
             ->from('appointments')
+            ->where('appointment_type', 'assessment')
+            ->where('status', '!=', Appointment::CANCELLED)
             ->groupBy('appointments.relation_id');
         });
         return $query->select('appointments.*');

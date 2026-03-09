@@ -7,6 +7,9 @@
                         aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                {{-- Hidden elements required by pages.js calendar event handler --}}
+                <input type="hidden" data-calendar="event_status">
+                <span class="d-none" data-calendar="event_amount"></span>
                 <div class="d-flex">
                     <div class="mb-1">
                         <div class="d-flex align-items-center">

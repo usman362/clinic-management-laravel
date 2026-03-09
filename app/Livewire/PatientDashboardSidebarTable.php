@@ -35,32 +35,38 @@ class PatientDashboardSidebarTable extends Component
         $patientId = getLogInUser()->patient->id;
 
         $todayCompleted = Appointment::wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->where('date', '=', $todayDate)
             ->whereStatus(Appointment::CHECK_OUT)
             ->count();
 
         $this->todayAppointmentCount = Appointment::wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->where('date', '=', $todayDate)
             ->count();
 
         $this->upcomingAppointmentCount = Appointment::wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->where('date', '>', $todayDate)
             ->whereNotIn('status', [Appointment::CANCELLED])
             ->count();
 
         // Total = real confirmed appointments (excludes cancelled and unfinished booking drafts)
         $this->totalAppointmentCount = Appointment::wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
         // Pending = upcoming confirmed appointments not yet attended
         $this->pendingAppointmentCount = Appointment::wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->where('date', '>=', $todayDate)
             ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING, Appointment::CHECK_OUT])
             ->count();
 
         // Past completed = only CHECK_OUT status (actually attended), not just past date
         $this->pastCompletedAppointmentCount = Appointment::wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->where('date', '<', $todayDate)
             ->whereStatus(Appointment::CHECK_OUT)
             ->count();

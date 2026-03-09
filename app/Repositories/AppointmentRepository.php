@@ -11,6 +11,7 @@ use App\Models\AdminEmail;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Notification;
+use App\Models\Package;
 use App\Models\Patient;
 use App\Models\Service;
 use App\Models\Transaction;
@@ -72,6 +73,19 @@ class AppointmentRepository extends BaseRepository
         try {
             DB::beginTransaction();
             $relation_id = uniqid('appt_');
+
+            // Create the first-class Package record for this booking group
+            Package::create([
+                'relation_id'      => $relation_id,
+                'patient_id'       => $input['patient_id'],
+                'created_by'       => Auth::id(),
+                'appointment_type' => $input['appointment_type'] ?? 'assessment',
+                'description'      => $input['description'] ?? null,
+                'payable_amount'   => $input['payable_amount'] ?? null,
+                'payment_type'     => $input['payment_type'] ?? null,
+                'payment_method'   => $input['payment_method'] ?? null,
+            ]);
+
             foreach ($input['appointments'] as $key => $appt) {
                 $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
                 $fromTime = explode(' ', ($appt['from_time'] ?? ''));
@@ -201,8 +215,8 @@ class AppointmentRepository extends BaseRepository
                 // $appointment->appointment_unique_id = $input['appointment_unique_id'];
                 $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
                 $input['patient_name'] = $patient->user->full_name;
-                $input['original_from_time'] = $fromTime[0] . ' ' . $fromTime[1];
-                $input['original_to_time'] = $toTime[0] . ' ' . $toTime[1];
+                $input['original_from_time'] = ($fromTime[0] ?? '') . ' ' . ($fromTime[1] ?? '');
+                $input['original_to_time'] = ($toTime[0] ?? '') . ' ' . ($toTime[1] ?? '');
                 $service = Service::whereId($appointment->service_id)->first();
                 $input['service'] = $service->name;
                 $input['date'] = $appt['date'];
@@ -287,10 +301,10 @@ class AppointmentRepository extends BaseRepository
             $input['original_to_time'] = $input['to_time'];
             $fromTime = explode(' ', $input['from_time']);
             $toTime = explode(' ', $input['to_time']);
-            $input['from_time'] = $fromTime[0];
-            $input['from_time_type'] = $fromTime[1];
-            $input['to_time'] = $toTime[0];
-            $input['to_time_type'] = $toTime[1];
+            $input['from_time'] = $fromTime[0] ?? '';
+            $input['from_time_type'] = $fromTime[1] ?? '';
+            $input['to_time'] = $toTime[0] ?? '';
+            $input['to_time_type'] = $toTime[1] ?? '';
             $input['status'] = Appointment::BOOKED;
             $input['payment_type'] = Appointment::MANUALLY;
             $appointment = Appointment::create($input);
@@ -440,7 +454,7 @@ class AppointmentRepository extends BaseRepository
     {
         $patientId = getLogInUser()->patient->id;
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['doctor.user', 'user'])->where('status', '!=', '5')->where('patient_id', $patientId)->get();
+        $appointments = Appointment::with(['doctor.user', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->get();
         // dd($appointments);
         $data = [];
         $count = 0;
@@ -456,8 +470,8 @@ class AppointmentRepository extends BaseRepository
             $data[$key]['description'] = $appointment->description;
             $data[$key]['status'] = $appointment->status;
             $data[$key]['amount'] = $appointment->payable_amount;
-            $data[$key]['uId'] = $appointment->appointment_unique_id;
-            $data[$key]['service'] = $appointment->services->name;
+            $data[$key]['uId'] = $appointment->appointment_unique_id ?? '';
+            $data[$key]['service'] = optional($appointment->services)->name ?? '';
             $data[$key]['end'] = $end->toDateTimeString();
             $data[$key]['color'] = '#FFF';
             $data[$key]['className'] = [getStatusClassName($appointment->status), 'text-white'];
