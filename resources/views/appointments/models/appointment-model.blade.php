@@ -45,6 +45,14 @@
                     <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.service')}}:</label>
                     <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_service"></span></div>
                 </div>
+                <div class="d-flex align-items-center mt-3 calendar-detail-row">
+                    <label {{ $styleCss }}="width: 125px"><i class="fas fa-map-marker-alt me-1"></i> Location:</label>
+                    <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_location"></span></div>
+                </div>
+                <div class="d-flex align-items-start mt-3 calendar-detail-row">
+                    <label {{ $styleCss }}="width: 125px"><i class="fas fa-info-circle me-1"></i> Instructions:</label>
+                    <div class="fs-6 ms-3"><span class="ms-1" data-calendar="event_instructions"></span></div>
+                </div>
             </div>
         </div>
     </div>

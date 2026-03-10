@@ -328,6 +328,12 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
         'feedbackpackage-details/{id}',
         [FeedbackAppointmentController::class, 'packageDetails']
     )->name('feedbackpackage.details');
+
+    Route::get(
+        'feedback/send-from-package/{packageId}',
+        [FeedbackAppointmentController::class, 'sendFromPackage']
+    )->name('feedback.send-from-package');
+
     Route::middleware('permission:manage_appointments')->group(function () {
         Route::resource('appointments', AppointmentController::class);
         Route::resource('feedback-appointments', FeedbackAppointmentController::class);

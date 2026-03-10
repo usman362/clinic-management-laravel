@@ -48,10 +48,19 @@ class PatientShowPageAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
-        $query = Appointment::with('doctor')->where('patient_id', '=', $this->patientId)->select('appointments.*');
+        $query = Appointment::with('doctor')
+            ->where('patient_id', '=', $this->patientId)
+            ->where('appointments.appointment_type', 'assessment')
+            ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
+            ->select('appointments.*');
 
         if (getLogInUser()->hasRole('doctor')) {
-            $query = Appointment::with(['doctor.user', 'doctor.reviews'])->where('patient_id', '=', $this->patientId)->whereDoctorId(getLogInUser()->doctor->id)->select('appointments.*');
+            $query = Appointment::with(['doctor.user', 'doctor.reviews'])
+                ->where('patient_id', '=', $this->patientId)
+                ->where('appointments.appointment_type', 'assessment')
+                ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
+                ->whereDoctorId(getLogInUser()->doctor->id)
+                ->select('appointments.*');
         }
 
         $query->when($this->statusFilter != '' && $this->statusFilter != Appointment::ALL_STATUS,

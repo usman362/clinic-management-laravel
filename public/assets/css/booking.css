@@ -217,25 +217,25 @@
             visibility: visible;
         }
 
-        /* Appointment date calendar: available = primary, unavailable = grey */
-        /* .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled) {
-            background: rgba(13, 110, 253, 0.2);
-            color: #0a58ca;
+        /* Appointment date calendar: available dates = green, unavailable = grey */
+        .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled) {
+            background: rgba(16, 185, 129, 0.2);
+            color: #047857;
+            border-radius: 4px;
+            font-weight: 600;
         }
         .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled):hover {
-            background: rgba(13, 110, 253, 0.35);
-        } */
-
-        .flatpickr-day {
-            background: rgba(13, 110, 253, 0.2) !important;
-            color: #0a58ca !important;
-            border-radius: unset !important;
-            margin-bottom: unset !important;
+            background: rgba(16, 185, 129, 0.4);
+            color: #065f46;
         }
-
-        .flatpickr-day.flatpickr-disabled {
-            background: #e9ecef !important;
-            color: #adb5bd !important;
+        .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled).selected,
+        .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled).selected:hover {
+            background: #10b981;
+            color: #ffffff;
+        }
+        .flatpickr-appointment-available-dates.flatpickr-calendar .flatpickr-day.flatpickr-disabled {
+            background: #f3f4f6;
+            color: #adb5bd;
             cursor: not-allowed;
-            opacity: 0.9;
+            opacity: 0.7;
         }

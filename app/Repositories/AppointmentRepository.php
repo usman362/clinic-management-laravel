@@ -200,6 +200,10 @@ class AppointmentRepository extends BaseRepository
                         $input['to_time'] = $appointment->to_time;
                         $input['to_time_type'] = $appointment->to_time_type;
                     }
+                    // Map 'address' form field to 'address1' column
+                    if (isset($input['address']) && !isset($input['address1'])) {
+                        $input['address1'] = $input['address'];
+                    }
                     $addressInputArray = Arr::only(
                         $input,
                         ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code', 'tax_code', 'school_name', 'school_grade']
@@ -465,8 +469,7 @@ class AppointmentRepository extends BaseRepository
     {
         $patientId = getLogInUser()->patient->id;
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['doctor.user', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->get();
-        // dd($appointments);
+        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->get();
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
@@ -481,15 +484,43 @@ class AppointmentRepository extends BaseRepository
             } catch (\Exception $e) {
                 continue;
             }
+
+            // Build location from doctor's user address
+            $location = '';
+            $doctorUser = optional(optional($appointment->doctor)->user);
+            $address = $doctorUser->address ?? null;
+            if ($address) {
+                $cityName = '';
+                if ($address->city_id) {
+                    $city = \App\Models\City::find($address->city_id);
+                    $cityName = $city ? $city->name : '';
+                }
+                $parts = array_filter([
+                    $address->address1 ?? '',
+                    $address->address2 ?? '',
+                    $cityName,
+                    $address->postal_code ?? '',
+                ]);
+                $location = implode(', ', $parts);
+            }
+
+            // Build instructions from service description + appointment description
+            $instructions = optional($appointment->services)->short_description ?? '';
+            if (!empty($appointment->description)) {
+                $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
+            }
+
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
-            $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
+            $data[$index]['doctorName'] = $doctorUser->full_name ?? '';
             $data[$index]['start'] = $start->toDateTimeString();
             $data[$index]['description'] = $appointment->description;
             $data[$index]['status'] = $appointment->status;
             $data[$index]['amount'] = $appointment->payable_amount;
             $data[$index]['uId'] = $appointment->appointment_unique_id ?? '';
             $data[$index]['service'] = optional($appointment->services)->name ?? '';
+            $data[$index]['location'] = $location;
+            $data[$index]['instructions'] = $instructions;
             $data[$index]['end'] = $end->toDateTimeString();
             $data[$index]['color'] = '#FFF';
             $data[$index]['className'] = [getStatusClassName($appointment->status), 'text-white'];

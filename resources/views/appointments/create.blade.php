@@ -112,7 +112,7 @@
                             <!-- Embedded JotForm – one per doctor with a Jotform link -->
                             <div class="mb-4 consent-form-wrapper">
                                 @forelse(($data['doctorsWithJotform'] ?? []) as $doctor)
-                                    <div class="mb-4">
+                                    <div class="mb-4" data-doctor-id="{{ $doctor->id }}">
                                         <h6 class="fw-bold mb-2">{{ $doctor->user->first_name }} {{ $doctor->user->last_name }}</h6>
                                         <iframe src="{{ $doctor->jotform_link }}" width="100%" height="500"
                                             frameborder="0" title="Consent form - {{ $doctor->user->full_name }}">

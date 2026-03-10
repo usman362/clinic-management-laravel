@@ -14,6 +14,8 @@ let data = {
     amount: 0,
     service: '',
     doctorName: '',
+    location: '',
+    instructions: '',
 }
 
 // View event variables
@@ -24,7 +26,9 @@ let viewEventName, viewEventDescription, viewEventStatus, viewStartDate,
     viewDeleteButton,
     viewService,
     viewUId,
-    viewAmount
+    viewAmount,
+    viewLocation,
+    viewInstructions
 
 function loadPatientAppointmentCalendar () {
     if (!$('#appointmentCalendar').length) {
@@ -87,6 +91,8 @@ const initCalendarApp = function () {
                 uId: arg.event.extendedProps.uId,
                 service: arg.event.extendedProps.service,
                 doctorName: arg.event.extendedProps.doctorName,
+                location: arg.event.extendedProps.location,
+                instructions: arg.event.extendedProps.instructions,
             })
 
             // Show popover preview
@@ -109,6 +115,8 @@ const initCalendarApp = function () {
                 uId: arg.event.extendedProps.uId,
                 service: arg.event.extendedProps.service,
                 doctorName: arg.event.extendedProps.doctorName,
+                location: arg.event.extendedProps.location,
+                instructions: arg.event.extendedProps.instructions,
             })
             handleViewEvent()
         },
@@ -138,6 +146,10 @@ const init = () => {
         '[data-calendar="event_start_date"]')
     viewEndDate = viewElement.querySelector(
         '[data-calendar="event_end_date"]')
+    viewLocation = viewElement.querySelector(
+        '[data-calendar="event_location"]')
+    viewInstructions = viewElement.querySelector(
+        '[data-calendar="event_instructions"]')
 }
 
 // Format FullCalendar responses
@@ -152,6 +164,8 @@ const formatArgs = (res) => {
     data.uId = res.uId
     data.service = res.service
     data.doctorName = res.doctorName
+    data.location = res.location || ''
+    data.instructions = res.instructions || ''
 }
 
 // Initialize popovers --- more info: https://getbootstrap.com/docs/4.0/components/popovers/
@@ -215,4 +229,14 @@ const handleViewEvent = () => {
     viewAmount.innerText = addCommas(data.amount)
     viewUId.innerText = data.uId
     viewService.innerText = data.service
+
+    // Populate location and instructions
+    if (viewLocation) {
+        viewLocation.innerText = data.location || 'N/A'
+        viewLocation.closest('.calendar-detail-row').style.display = data.location ? '' : 'none'
+    }
+    if (viewInstructions) {
+        viewInstructions.innerText = data.instructions || 'N/A'
+        viewInstructions.closest('.calendar-detail-row').style.display = data.instructions ? '' : 'none'
+    }
 }

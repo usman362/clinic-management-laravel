@@ -179,6 +179,10 @@ class FeedbackAppointmentRepository extends BaseRepository
                     $appointment->from_time_type = $input['from_time_type'];
                     $appointment->to_time = $input['to_time'];
                     $appointment->to_time_type = $input['to_time_type'];
+                    // Map 'address' form field to 'address1' column
+                    if (isset($input['address']) && !isset($input['address1'])) {
+                        $input['address1'] = $input['address'];
+                    }
                     $addressInputArray = Arr::only(
                         $input,
                         ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code', 'tax_code', 'school_name', 'school_grade']

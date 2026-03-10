@@ -146,7 +146,14 @@
                             appointments</p>
 
                         <div class="appointments-wrapper">
-                            @foreach (\App\Models\Appointment::where('relation_id', $appointment->relation_id)->get() as $key => $relation)
+                            @php
+                                // In rebook mode, only show the specific cancelled appointment being rebooked
+                                // In normal edit mode, show all appointments in the package
+                                $appointmentsToShow = ($bookingMode ?? 'edit') === 'rebook'
+                                    ? collect([$appointment])
+                                    : \App\Models\Appointment::where('relation_id', $appointment->relation_id)->get();
+                            @endphp
+                            @foreach ($appointmentsToShow as $key => $relation)
                                 <div class="appointments-section mb-4" data-index="{{ $key }}">
                                     <input type="hidden" class="date_id" value="date-time{{$relation->id}}">
                                     <div class="card-body" style="border: 1px solid #eff3f7;border-radius: 12px;">
@@ -259,11 +266,13 @@
                         <!-- Embedded JotForm — one per doctor in the package -->
                         <div class="consent-form-wrapper">
                             @forelse ($fullDoctors as $doctor)
+                                <div data-doctor-id="{{ $doctor->id }}">
                                 <h5 class="fw-bold mb-2 mt-4">
                                     Consent for {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}</h5>
                                 <iframe src="{{ $doctor->jotform_link }}" width="100%" height="500" frameborder="0"
                                     scrolling="auto">
                                 </iframe>
+                                </div>
                             @empty
                                 <div class="alert alert-info">
                                     No consent forms are required for this booking.
@@ -484,7 +493,7 @@
                             style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
                             <h2 class="h3 fw-bold mb-4">Booked Appointments</h2>
 
-                            @foreach (\App\Models\Appointment::where('relation_id', $appointment->relation_id)->get() as $key => $relation)
+                            @foreach ($appointmentsToShow as $key => $relation)
                                 <div class="mt-4 container"
                                     style="background-color: #eaecef;border-radius: 13px;padding-top: 15px;padding-bottom: 15px;">
                                     <div class="row">

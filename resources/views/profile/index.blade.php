@@ -143,7 +143,12 @@
                                 {{ Form::label('jotform_link', __('Jotform Embed Link') . ':', ['class' => 'form-label']) }}
                             </div>
                             <div class="col-md-8">
-                                {{ Form::text('jotform_link', !empty(\App\Models\Doctor::where('user_id', auth()->id())->first()) ? \App\Models\Doctor::where('user_id', auth()->id())->first()->jotform_link : null, ['class' => 'form-control', 'placeholder' => __('Jotform Embed Link'), 'id' => 'jotform_link']) }}
+                                {{ Form::text('jotform_link', !empty(\App\Models\Doctor::where('user_id', auth()->id())->first()) ? \App\Models\Doctor::where('user_id', auth()->id())->first()->jotform_link : null, ['class' => 'form-control jotform-link-input', 'placeholder' => 'https://form.jotform.com/...  or paste full <iframe> code', 'id' => 'jotform_link']) }}
+                                <div class="form-text text-muted mt-1">
+                                    <small><strong>How to get the link:</strong> In JotForm, open your form &rarr; click <strong>Publish</strong> &rarr; copy the <strong>Form URL</strong> (e.g. <code>https://form.jotform.com/12345678</code>).
+                                    You can also paste the full <code>&lt;iframe&gt;</code> embed code and the URL will be extracted automatically.
+                                    <br><em>Tip:</em> Use the direct form URL (not the "edit" link) so patients are not asked to log in.</small>
+                                </div>
                             </div>
                         </div>
                     @endif

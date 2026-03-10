@@ -152,6 +152,8 @@ listenClick('.copy-btn', function () {
                     attr('name', `startTimes[${currentDay}][]`)
                 $cloneEle2.find('select[name^="endTimes"]').
                     attr('name', `endTimes[${currentDay}][]`)
+                $cloneEle2.find('select[name^="slotDurations"]').
+                    attr('name', `slotDurations[${currentDay}][]`)
                 $(weekEle).find('.unavailable-time').html('')
                 $cloneEle2.find('.error-msg').html('')
                 $(weekEle).find('.session-times').html($cloneEle2.html())
@@ -195,7 +197,7 @@ listenClick('.deleteBtn', function () {
     if ($(this).
         closest('.weekly-row').
         find('.session-times').
-        find('select').length == 2) {
+        find('select').length <= 3) {
         let dayChk = $(this).
             closest('.weekly-row').
             find('input[name="checked_week_days[]"')

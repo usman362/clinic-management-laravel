@@ -169,6 +169,7 @@ class AppointmentTable extends LivewireTableComponent
                 ->searchable(),
             Column::make(__('Package Link'), 'id')->view('appointments.components.appointment_link'),
             Column::make(__('Total Appointments'), 'id')->view('appointments.components.appointment_count'),
+            Column::make(__('Feedback'), 'id')->view('appointments.components.feedback_status'),
             // Column::make(__('messages.appointment.status'), 'status')->view('appointments.components.status'),
             // Column::make(
             //     __('messages.appointment.appointment_at'),

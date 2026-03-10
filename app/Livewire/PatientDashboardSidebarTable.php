@@ -43,12 +43,13 @@ class PatientDashboardSidebarTable extends Component
         $this->todayAppointmentCount = Appointment::wherePatientId($patientId)
             ->where('appointment_type', 'assessment')
             ->where('date', '=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
         $this->upcomingAppointmentCount = Appointment::wherePatientId($patientId)
             ->where('appointment_type', 'assessment')
             ->where('date', '>', $todayDate)
-            ->whereNotIn('status', [Appointment::CANCELLED])
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
         // Total = real confirmed appointments (excludes cancelled and unfinished booking drafts)
@@ -72,17 +73,22 @@ class PatientDashboardSidebarTable extends Component
             ->count();
 
         $this->completedAppointmentCount = $this->pastCompletedAppointmentCount + $todayCompleted;
+
+        // Today appointments list: match todayAppointmentCount filter (assessment, not cancelled/booking_pending)
         $this->todayAppointment = Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
-            ->whereStatus(Appointment::BOOKED)
+            ->where('appointment_type', 'assessment')
             ->where('date', '=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->orderBy('created_at', 'DESC')
             ->get();
 
+        // Upcoming appointments list: match upcomingAppointmentCount filter (assessment, future, not cancelled/booking_pending)
         $this->upcomingAppointment = Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
-            ->whereStatus(Appointment::BOOKED)
+            ->where('appointment_type', 'assessment')
             ->where('date', '>', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->get();
 
         $this->pendingAppointments =  Appointment::with(['patient.user', 'doctor.user', 'services'])

@@ -78,9 +78,9 @@ function loadPatientPanelAppointmentFilterData() {
     // cb(patientPanelApptmentStart, patientPanelApptmentEnd);
     patientDatePicker.on("apply.daterangepicker", function (ev, picker) {
         let date =
-            picker.startDate.format("DD/MM/YYYY") +
+            picker.startDate.format("YYYY-MM-DD") +
             " - " +
-            picker.endDate.format("DD/MM/YYYY");
+            picker.endDate.format("YYYY-MM-DD");
         Livewire.dispatch("changeDateFilter", { date: date });
 
         patientPanelApptmentStart = picker.startDate;
@@ -101,10 +101,10 @@ listenClick("#patientPanelApptmentResetFilter", function () {
     $("#patientAppointmentStatus").val(1).trigger("change");
     $("#patientAppointmentDate")
         .data("daterangepicker")
-        .setStartDate(moment().startOf("week").format("MM/DD/YYYY"));
+        .setStartDate(moment().startOf("week").format("YYYY-MM-DD"));
     $("#patientAppointmentDate")
         .data("daterangepicker")
-        .setEndDate(moment().endOf("week").format("MM/DD/YYYY"));
+        .setEndDate(moment().endOf("week").format("YYYY-MM-DD"));
     hideDropdownManually($("#patientPanelApptFilterBtn"), $(".dropdown-menu"));
 });
 

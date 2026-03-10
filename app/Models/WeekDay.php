@@ -55,6 +55,7 @@ class WeekDay extends Model
         'end_time',
         'start_time_type',
         'end_time_type',
+        'session_meeting_time',
     ];
 
     /**
@@ -71,6 +72,7 @@ class WeekDay extends Model
         'end_time' => 'string',
         'start_time_type' => 'string',
         'end_time_type' => 'string',
+        'session_meeting_time' => 'integer',
     ];
 
     public function getFullStartTimeAttribute()

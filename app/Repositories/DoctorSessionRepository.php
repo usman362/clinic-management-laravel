@@ -124,10 +124,14 @@ class DoctorSessionRepository extends BaseRepository
         /** @var DoctorSession $doctorSession */
         $startTimeArr = $input['startTimes'][$day] ?? [];
         $endTimeArr = $input['endTimes'][$day] ?? [];
+        $slotDurations = $input['slotDurations'][$day] ?? [];
         if (count($startTimeArr) != 0 && count($endTimeArr) != 0) {
             foreach ($startTimeArr as $key => $startTime) {
                 $startTimeData = explode(' ', $startTime);
                 $endTimeData = explode(' ', $endTimeArr[$key]);
+                $meetingTime = isset($slotDurations[$key]) && $slotDurations[$key] !== '' && $slotDurations[$key] !== null
+                    ? (int) $slotDurations[$key]
+                    : null;
                 $doctorSession->sessionWeekDays()->create([
                     'doctor_id' => $doctorSession->doctor_id,
                     'doctor_session_id' => $doctorSession->id,
@@ -136,6 +140,7 @@ class DoctorSessionRepository extends BaseRepository
                     'start_time_type' => $startTimeData[1],
                     'end_time' => $endTimeData[0],
                     'end_time_type' => $endTimeData[1],
+                    'session_meeting_time' => $meetingTime,
                 ]);
             }
         }

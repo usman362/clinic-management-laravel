@@ -353,6 +353,10 @@
 
             if (currentStep < $steps.length - 1) {
                 currentStep++;
+                // In rebook mode, skip steps 3-5 (consent, booking info, payment) — jump from step 2 to step 6
+                if (bookingMode === 'rebook' && currentStep >= 2 && currentStep <= 4) {
+                    currentStep = 5;
+                }
                 showStep(currentStep);
                 saveDraft();
             }
@@ -362,6 +366,10 @@
 
             if (currentStep > 0) {
                 currentStep--;
+                // In rebook mode, skip steps 3-5 going backwards — jump from step 6 back to step 2
+                if (bookingMode === 'rebook' && currentStep >= 2 && currentStep <= 4) {
+                    currentStep = 1;
+                }
                 showStep(currentStep);
                 saveDraft();
             }
@@ -413,6 +421,65 @@
             $form.find('.appointmentDate, .timeSlot, .toTime').on('change', scheduleSaveDraft);
             $form.find('#consentConfirmed, #assessmentInfoAccepted, #paymentAcknowledged, #documentationPolicy').on('change', scheduleSaveDraft);
         }
+
+        /* ==========================
+            JOTFORM postMessage LISTENER
+            Detects when the JotForm iframe submission completes
+            and auto-checks the consent checkbox.
+        ========================== */
+        window.addEventListener('message', function (event) {
+            // JotForm sends a postMessage with submission data on completion
+            // The origin will be from jotform.com or a custom domain
+            if (!event.origin || event.origin.indexOf('jotform') === -1) {
+                return;
+            }
+
+            var data = event.data;
+            if (typeof data === 'string') {
+                try { data = JSON.parse(data); } catch (e) { return; }
+            }
+
+            // JotForm sends messages with action: 'submission-completed' or
+            // a 'formData' payload once the form is submitted
+            if (data && (data.action === 'submission-completed' || data.formData || data.submissionID)) {
+                // Auto-check the consent checkbox
+                if (!$('#consentConfirmed').is(':checked')) {
+                    $('#consentConfirmed').prop('checked', true).trigger('change');
+                }
+
+                // Notify the user
+                showNotification('Consent form signed successfully!');
+
+                // Optionally POST the consent to our authenticated endpoint
+                var appointmentId = $('#appointment_id_for_draft').val();
+                var doctorIds = [];
+                $('.consent-form-wrapper iframe').each(function () {
+                    var src = $(this).attr('src') || '';
+                    // Try to get the doctor_id from a data attribute on the parent
+                    var doctorId = $(this).closest('[data-doctor-id]').data('doctor-id');
+                    if (doctorId) doctorIds.push(doctorId);
+                });
+
+                if (appointmentId && doctorIds.length > 0) {
+                    $.ajax({
+                        url: '/api/consent-webhook',
+                        type: 'POST',
+                        data: {
+                            appointment_id: appointmentId,
+                            doctor_id: doctorIds[0],
+                        },
+                        success: function (result) {
+                            console.log('Consent webhook recorded:', result);
+                        },
+                        error: function (xhr) {
+                            console.warn('Consent webhook failed:', xhr.responseText);
+                        }
+                    });
+                }
+
+                scheduleSaveDraft();
+            }
+        });
 
         /* ==========================
             INIT: restore draft then show step

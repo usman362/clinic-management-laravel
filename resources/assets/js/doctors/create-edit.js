@@ -368,3 +368,20 @@ listenClick('.removeAvatarIcon', function () {
     $('#bgImage').css('background-image', 'url(' + backgroundImg + ')')
     $('#removeAvatar').remove()
 })
+
+// JotForm link auto-parse: extract URL from pasted <iframe> embed code
+$(document).on('paste input', '.jotform-link-input, #jotform_link', function () {
+    var input = $(this)
+    setTimeout(function () {
+        var val = input.val().trim()
+        if (val.indexOf('<iframe') !== -1) {
+            var match = val.match(/src=["']([^"']+)["']/)
+            if (match && match[1]) {
+                input.val(match[1])
+                if (typeof displaySuccessMessage === 'function') {
+                    displaySuccessMessage('URL extracted from iframe embed code.')
+                }
+            }
+        }
+    }, 50)
+})

@@ -13,13 +13,6 @@ Livewire.hook("element.init", () => {
     if ($(".patient-show-apptment-status-change").length) {
         $(".patient-show-apptment-status-change").select2();
     }
-
-    if (
-        patientShowApptmentStart != undefined &&
-        patientShowApptmentEnd != undefined
-    ) {
-        cb(patientShowApptmentStart, patientShowApptmentEnd);
-    }
 });
 
 function loadPatientShowAppointmentDate() {
@@ -95,6 +88,18 @@ function loadPatientShowAppointmentDate() {
     );
 
     // cb(patientShowApptmentStart, patientShowApptmentEnd);
+
+    $("#patientShowPageAppointmentDate").on("apply.daterangepicker", function (ev, picker) {
+        let date =
+            picker.startDate.format("YYYY-MM-DD") +
+            " - " +
+            picker.endDate.format("YYYY-MM-DD");
+        $(this).val(date);
+        Livewire.dispatch("changeDateFilter", { date: date });
+
+        patientShowApptmentStart = picker.startDate;
+        patientShowApptmentEnd = picker.endDate;
+    });
 }
 function cb(start, end) {
     $("#patientShowPageAppointmentDate").val(
@@ -130,14 +135,12 @@ listenChange(".patient-show-apptment-status-change", function () {
 });
 
 listenClick("#patientAppointmentResetFilter", function () {
-    $("#patientShowPageAppointmentStatus").val(1).trigger("change");
-    $("#patientShowPageAppointmentDate")
-        .val(
-            moment().startOf("week").format("MM/DD/YYYY") +
-                " - " +
-                moment().endOf("week").format("MM/DD/YYYY")
-        )
-        .trigger("change");
+    // Reset status to ALL
+    $("#patientShowPageAppointmentStatus").val(0).trigger("change");
+    // Clear date filter
+    $("#patientShowPageAppointmentDate").val("");
+    Livewire.dispatch("changeDateFilter", { date: "" });
+    Livewire.dispatch("changeStatusFilter", { status: 0 });
 });
 
 listenChange("#patientShowPageAppointmentDate", function () {

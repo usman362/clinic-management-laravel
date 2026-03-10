@@ -86,6 +86,7 @@ class AppointmentController extends AppBaseController
             'file' => 'required|file|mimes:pdf|max:10240', // 10MB for PDF
             'title' => 'nullable|string|max:255',
             'doctor_id' => 'nullable|exists:doctors,id',
+            'appointment_id' => 'nullable|exists:appointments,id',
         ]);
 
         $user = getLogInUser();
@@ -114,6 +115,7 @@ class AppointmentController extends AppBaseController
             'mime_type' => $file->getClientMimeType(),
             'size' => (int) round($file->getSize() / 1024),
             'doctor_id' => $request->input('doctor_id'),
+            'appointment_id' => $request->input('appointment_id'),
         ]);
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -914,5 +916,91 @@ class AppointmentController extends AppBaseController
         $pdf = Pdf::loadView('appointment_pdf.invoice', ['datas' => $datas]);
 
         return $pdf->download('invoice.pdf');
+    }
+
+    /**
+     * Public webhook endpoint for JotForm to call after a consent form is signed.
+     *
+     * JotForm should POST to: POST {APP_URL}/api/consent-webhook
+     *
+     * Accepted parameters (query string or form fields):
+     *   - appointment_id : the appointment's ID
+     *   - doctor_id      : the doctor's ID
+     *
+     * Optional:
+     *   - file : a PDF file (multipart upload)
+     *   - rawRequest / formData : JotForm's raw submission JSON
+     *
+     * If no PDF file is attached, a simple placeholder document record is created
+     * so the system can track that consent was given.
+     */
+    public function consentWebhook(Request $request): JsonResponse
+    {
+        // Accept appointment_id and doctor_id from either query params or form fields
+        $appointmentId = $request->input('appointment_id', $request->query('appointment_id'));
+        $doctorId = $request->input('doctor_id', $request->query('doctor_id'));
+
+        if (! $appointmentId || ! $doctorId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing required parameters: appointment_id and doctor_id.',
+            ], 422);
+        }
+
+        // Look up the appointment
+        $appointment = Appointment::with('patient.user')
+            ->where('id', $appointmentId)
+            ->where('doctor_id', $doctorId)
+            ->first();
+
+        if (! $appointment || ! $appointment->patient) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Appointment not found or does not match the given doctor.',
+            ], 404);
+        }
+
+        $userId = $appointment->patient->user_id;
+        $doctor = Doctor::with('user')->find($doctorId);
+        $title = 'Consent Form';
+        if ($doctor && $doctor->user) {
+            $title = 'Consent Form - ' . $doctor->user->full_name;
+        }
+
+        // Handle file upload if a PDF was attached
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $path = $file->store('documents/user_' . $userId, 'public');
+
+            Document::create([
+                'user_id'        => $userId,
+                'uploaded_by'    => $userId,
+                'title'          => $title,
+                'type'           => 'consent',
+                'path'           => $path,
+                'mime_type'      => $file->getClientMimeType(),
+                'size'           => (int) round($file->getSize() / 1024),
+                'doctor_id'      => $doctorId,
+                'appointment_id' => $appointment->id,
+            ]);
+        } else {
+            // No file attached — create a record marking consent was signed
+            Document::create([
+                'user_id'        => $userId,
+                'uploaded_by'    => $userId,
+                'title'          => $title . ' (signed)',
+                'type'           => 'consent',
+                'path'           => '',
+                'mime_type'      => 'application/pdf',
+                'size'           => 0,
+                'doctor_id'      => $doctorId,
+                'appointment_id' => $appointment->id,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Consent document recorded successfully.',
+        ]);
     }
 }

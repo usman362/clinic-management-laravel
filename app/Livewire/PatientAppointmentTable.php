@@ -88,8 +88,8 @@ class PatientAppointmentTable extends LivewireTableComponent
 
         if ($this->dateFilter != '') {
             $timeEntryDate = explode(' - ', $this->dateFilter);
-            $startDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');
-            $endDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[1])->format('Y-m-d');
+            $startDate = Carbon::parse($timeEntryDate[0])->format('Y-m-d');
+            $endDate = Carbon::parse($timeEntryDate[1])->format('Y-m-d');
             $query->whereBetween('appointments.date', [$startDate, $endDate]);
         }
 

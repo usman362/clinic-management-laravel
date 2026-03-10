@@ -8,6 +8,7 @@ use App\Http\Requests\CreateFrontAppointmentRequest;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Notification;
+use App\Models\Package;
 use App\Models\Patient;
 use App\Models\Service;
 use App\Models\Transaction;
@@ -774,6 +775,99 @@ class FeedbackAppointmentController extends AppBaseController
                     'checkOut' => Appointment::CHECK_OUT,
                     'cancel' => Appointment::CANCELLED,
                 ]);
+        }
+    }
+
+    /**
+     * Create a feedback package from an existing assessment package.
+     * Pre-fills patient and doctor(s) from the assessment package.
+     */
+    public function sendFromPackage($packageId): RedirectResponse
+    {
+        $assessmentPkg = Package::with(['appointments.doctor.user', 'patient.user'])->findOrFail($packageId);
+
+        if ($assessmentPkg->appointment_type !== 'assessment') {
+            Flash::error('Only assessment packages can have feedback packages created.');
+            return redirect()->back();
+        }
+
+        // Check if feedback package already exists
+        if ($assessmentPkg->feedbackPackages()->exists()) {
+            Flash::warning('A feedback package has already been created for this assessment package.');
+            return redirect()->back();
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $relationId = uniqid('appt_');
+
+            // Create the feedback Package record
+            $feedbackPkg = Package::create([
+                'relation_id'       => $relationId,
+                'patient_id'        => $assessmentPkg->patient_id,
+                'created_by'        => \Auth::id(),
+                'appointment_type'  => 'feedback',
+                'description'       => 'Feedback for: ' . ($assessmentPkg->description ?? 'Assessment Package'),
+                'payable_amount'    => $assessmentPkg->payable_amount,
+                'payment_type'      => $assessmentPkg->payment_type,
+                'payment_method'    => $assessmentPkg->payment_method,
+                'parent_package_id' => $assessmentPkg->id,
+            ]);
+
+            // Mark feedback as sent on the assessment package
+            $assessmentPkg->update(['feedback_sent_at' => now()]);
+
+            // Create one feedback appointment per unique doctor in the assessment package
+            $doctorIds = $assessmentPkg->assessmentAppointments
+                ->pluck('doctor_id')
+                ->unique();
+
+            foreach ($doctorIds as $doctorId) {
+                // Find a representative appointment to inherit the service
+                $refAppt = $assessmentPkg->assessmentAppointments
+                    ->where('doctor_id', $doctorId)
+                    ->first();
+
+                Appointment::create([
+                    'doctor_id'             => $doctorId,
+                    'patient_id'            => $assessmentPkg->patient_id,
+                    'date'                  => '',
+                    'description'           => $feedbackPkg->description,
+                    'status'                => Appointment::BOOKING_PENDING,
+                    'relation_id'           => $relationId,
+                    'service_id'            => $refAppt->service_id ?? null,
+                    'appointment_unique_id' => strtoupper(Appointment::generateAppointmentUniqueId()),
+                    'appointment_type'      => 'feedback',
+                    'from_time'             => '',
+                    'from_time_type'        => '',
+                    'to_time'               => '',
+                    'to_time_type'          => '',
+                    'payable_amount'        => $assessmentPkg->payable_amount,
+                    'payment_type'          => $assessmentPkg->payment_type,
+                    'payment_method'        => $assessmentPkg->payment_method,
+                ]);
+            }
+
+            // Notify the patient
+            $patient = Patient::whereId($assessmentPkg->patient_id)->with('user')->first();
+            if ($patient && $patient->user) {
+                Notification::create([
+                    'title' => 'A feedback package has been created for you. Please book your feedback appointment(s).',
+                    'type'  => Notification::BOOKED,
+                    'user_id' => $patient->user->id,
+                ]);
+            }
+
+            DB::commit();
+
+            Flash::success('Feedback package created successfully. The patient has been notified.');
+            return redirect()->route('feedbackpackage.details', $feedbackPkg->appointments()->first()->id ?? $packageId);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Flash::error('Failed to create feedback package: ' . $e->getMessage());
+            return redirect()->back();
         }
     }
 }

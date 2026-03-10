@@ -18,6 +18,7 @@ class Document extends Model
         'mime_type',
         'size',
         'doctor_id',
+        'appointment_id',
     ];
 
     public function user()
@@ -27,6 +28,16 @@ class Document extends Model
 
     public function owner()
     {
-        return $this->belongsTo(User::class,'uploaded_by');
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function doctor()
+    {
+        return $this->belongsTo(Doctor::class);
+    }
+
+    public function appointment()
+    {
+        return $this->belongsTo(Appointment::class);
     }
 }
