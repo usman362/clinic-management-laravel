@@ -27,7 +27,7 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 
-    <link href="{{ mix('css/front-third-party.css') }}" rel="stylesheet" type="text/css">
+    <link href="{{ asset('css/front-third-party.css') }}" rel="stylesheet" type="text/css">
     <link href="{{ mix('css/front-pages.css') }}" rel="stylesheet" type="text/css">
     <link rel="stylesheet" type="text/css"
         href="{{ asset('assets/css/bootstrap-datepicker/bootstrap-datepicker.css') }}">
@@ -37,7 +37,7 @@
     <title>@yield('front-title') | {{ getAppName() }}</title>
     <script src="{{ asset('messages.js') }}"></script>
     <script src="{{ asset('assets/front/vendor/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ mix('js/front-third-party.js') }}"></script>
+    <script src="{{ asset('js/front-third-party.js') }}"></script>
     <script src="{{ mix('js/front-pages.js') }}"></script>
     <script src="{{ asset('assets/js/bootstrap-datepicker/bootstrap-datepicker.js') }}"></script>
     <!-- JavaScript Bundle with Popper -->

@@ -30,5 +30,5 @@
     <script>
         let recordsURL = {{url('doctors/appointments')}};
     </script>
-    <script src="{{mix('assets/js/doctor_appointments/doctor_appointments.js')}}"></script>
+    {{-- doctor_appointments.js is bundled in pages.js (loaded by layouts.app) --}}
 @endsection

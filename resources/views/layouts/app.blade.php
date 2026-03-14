@@ -183,7 +183,7 @@
     @livewireScripts
     <script src="https://js.stripe.com/v3/"></script>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <script src="{{ mix('js/third-party.js') }}"></script>
+    <script src="{{ asset('js/third-party.js') }}"></script>
     <script src="{{ mix('js/pages.js') }}"></script>
     @php
         $bloodGroupArr = json_encode(App\Models\Doctor::BLOOD_GROUP_ARRAY);

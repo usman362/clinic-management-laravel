@@ -46,7 +46,7 @@
     </footer>
     <!-- Scripts -->
     <script src="{{ asset('backend/js/vendor.js') }}"></script>
-    <script src="{{ mix('assets/js/auto_fill/auto_fill.js') }}"></script>
+    <script src="{{ asset('assets/js/auto_fill/auto_fill.js') }}"></script>
     {{-- <script src="{{ asset('backend/js/3rd-party-custom.js') }}"></script> --}}
     <script src="{{ mix('js/custom-auth.js') }}"></script>
     <script src='https://www.google.com/recaptcha/api.js'></script>

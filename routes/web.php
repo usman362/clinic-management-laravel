@@ -162,6 +162,7 @@ Route::get('doctor-session-time', [DoctorSessionController::class, 'getDoctorSes
 Route::get('doctor-available-dates', [DoctorSessionController::class, 'getDoctorAvailableDates'])->name('doctor-available-dates');
 Route::get('get-service', [ServiceController::class, 'getService'])->name('get-service');
 Route::get('get-charge', [ServiceController::class, 'getCharge'])->name('get-charge');
+Route::get('get-doctors-by-service', [ServiceController::class, 'getDoctorsByService'])->name('get-doctors-by-service');
 Route::post(
     'front-appointment-book',
     [AppointmentController::class, 'frontAppointmentBook']

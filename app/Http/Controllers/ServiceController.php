@@ -140,6 +140,38 @@ class ServiceController extends AppBaseController
     }
 
     /**
+     * Return doctors linked to a given service (via service_doctor pivot).
+     * Used by the admin "Create Booking Package" form to populate the doctor dropdown.
+     */
+    public function getDoctorsByService(Request $request): JsonResponse
+    {
+        $serviceId = $request->service_id;
+        $service = Service::find($serviceId);
+
+        if (! $service) {
+            return $this->sendError('Service not found.');
+        }
+
+        $doctorIds = DB::table('service_doctor')
+            ->where('service_id', $serviceId)
+            ->pluck('doctor_id');
+
+        $doctors = Doctor::with('user')->whereIn('id', $doctorIds)->get();
+
+        $result = $doctors->map(function ($doctor) {
+            return [
+                'id'   => $doctor->id,
+                'name' => $doctor->user->first_name . ' ' . $doctor->user->last_name,
+            ];
+        });
+
+        return $this->sendResponse([
+            'doctors'  => $result,
+            'service'  => $service,
+        ], __('messages.flash.retrieve'));
+    }
+
+    /**
      * @return mixed
      */
     public function changeServiceStatus(Request $request)
