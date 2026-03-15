@@ -205,6 +205,13 @@ listenSubmit('#addAppointmentForm', function (e) {
         success: function (mainResult) {
             if (mainResult.success) {
 
+                // If the response includes a redirect URL (e.g. package creation), go there directly
+                if (mainResult.data.url) {
+                    displaySuccessMessage(mainResult.message);
+                    window.location.replace(mainResult.data.url);
+                    return;
+                }
+
                 let appID = mainResult.data.appointmentId;
 
                 //displaySuccessMessage(mainResult.message);

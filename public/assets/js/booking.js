@@ -1,5 +1,29 @@
 (function ($) {
 
+    /* ── Inject available-dates CSS ── */
+    var _sid = 'appointment-available-dates-style';
+    if (!document.getElementById(_sid)) {
+        var _css = document.createElement('style');
+        _css.id = _sid;
+        _css.textContent = [
+            /* Available dates — solid green */
+            '.flatpickr-appointment-available-dates .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay){background:#28a745 !important;color:#fff !important;border-color:#218838 !important;font-weight:600}',
+            /* Available dates — hover: darker green */
+            '.flatpickr-appointment-available-dates .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):hover{background:#1e7e34 !important;color:#fff !important;border-color:#1c7430 !important;box-shadow:0 2px 8px rgba(40,167,69,.45)}',
+            /* Selected date — dark green with ring */
+            '.flatpickr-appointment-available-dates .flatpickr-day.selected,.flatpickr-appointment-available-dates .flatpickr-day.selected:hover{background:#155724 !important;color:#fff !important;border-color:#155724 !important;box-shadow:0 0 0 3px rgba(40,167,69,.35)}',
+            /* Unavailable / disabled dates — red */
+            '.flatpickr-appointment-available-dates .flatpickr-day.flatpickr-disabled{background:#fddede !important;color:#c0392b !important;border-color:#f5c6cb !important;text-decoration:line-through;cursor:not-allowed !important;opacity:1 !important}',
+            '.flatpickr-appointment-available-dates .flatpickr-day.flatpickr-disabled:hover{background:#f8b4b4 !important;color:#922b21 !important;border-color:#e74c3c !important;cursor:not-allowed !important}',
+            /* Today ring */
+            '.flatpickr-appointment-available-dates .flatpickr-day.today:not(.flatpickr-disabled){border:2px solid #ffc107 !important}',
+            '.flatpickr-appointment-available-dates .flatpickr-day.today.flatpickr-disabled{border:2px solid #e74c3c !important}',
+            /* Prev/next month ghost */
+            '.flatpickr-appointment-available-dates .flatpickr-day.prevMonthDay,.flatpickr-appointment-available-dates .flatpickr-day.nextMonthDay{background:transparent !important;color:#d5d5d5 !important;border-color:transparent !important;text-decoration:none !important}'
+        ].join('');
+        document.head.appendChild(_css);
+    }
+
     let currentStep = 0;
 
     function initAppointmentForm() {
@@ -478,6 +502,182 @@
                 }
 
                 scheduleSaveDraft();
+            }
+        });
+
+        /* ==========================
+            TIME SLOT LOADING (per appointment section)
+        ========================== */
+        function getSessionTimeUrl() {
+            var routeFn = typeof route === 'function' ? route : (window.route || function () { return ''; });
+            var ur = (typeof userRole !== 'undefined') ? userRole : '';
+            var dr = (typeof doctorRole !== 'undefined') ? doctorRole : '';
+            if (ur && ur !== '' && ur !== '0' && ur !== 'false') return routeFn('patients.doctor-session-time');
+            if (dr && dr !== '' && dr !== '0' && dr !== 'false') return routeFn('doctors.doctor-session-time');
+            return routeFn('doctor-session-time');
+        }
+
+        $(document).off('change.slotLoad').on('change.slotLoad', '.appointmentDate', function () {
+            var $section = $(this).closest('.appointments-section');
+            if (!$section.length) return;
+
+            var selectedDate = $(this).val();
+            var doctorId = $section.find('.adminAppointmentDoctorId').val();
+            var serviceId = $section.find('.appointmentServiceId').val();
+            var $slotData = $section.find('.appointment-slot-data');
+            var $noSlot = $section.find('.no-time-slot');
+            var $timeOver = $section.find('.doctor-time-over');
+            var $timeSlot = $section.find('.timeSlot');
+            var $toTime = $section.find('.toTime');
+            var $dateTime = $section.find('.date-time');
+
+            // Clear previous slots
+            $slotData.html('');
+            $noSlot.removeClass('d-none');
+            $timeOver.addClass('d-none');
+            $timeSlot.val('');
+            $toTime.val('');
+            $dateTime.text('Date & Time not selected');
+
+            if (!selectedDate || !doctorId) return;
+
+            var tz = new Date().getTimezoneOffset();
+            tz = tz === 0 ? 0 : -tz;
+
+            $.ajax({
+                url: getSessionTimeUrl(),
+                type: 'GET',
+                data: {
+                    adminAppointmentDoctorId: doctorId,
+                    appointmentServiceId: serviceId || '',
+                    date: selectedDate,
+                    timezone_offset_minutes: tz
+                },
+                success: function (result) {
+                    if (!result.success) return;
+
+                    var slots = result.data['slots'] || [];
+                    var bookedSlots = result.data['bookedSlot'] || [];
+
+                    if (slots.length === 0) {
+                        $noSlot.removeClass('d-none');
+                        if (bookedSlots && bookedSlots.length > 0) {
+                            $noSlot.addClass('d-none');
+                            $timeOver.removeClass('d-none');
+                        }
+                        return;
+                    }
+
+                    $noSlot.addClass('d-none');
+                    $timeOver.addClass('d-none');
+
+                    $.each(slots, function (index, value) {
+                        var isBooked = (bookedSlots && $.inArray(value, bookedSlots) !== -1);
+                        var cls = 'time-slot col-lg-2' + (isBooked ? ' bookedSlot' : '');
+                        $slotData.append('<span class="' + cls + '" data-id="' + value + '">' + value + '</span>');
+                    });
+                },
+                error: function () {
+                    $noSlot.removeClass('d-none');
+                    $timeOver.addClass('d-none');
+                }
+            });
+        });
+
+        /* Time slot click handler (per section) */
+        $(document).off('click.slotSelect').on('click.slotSelect', '.time-slot:not(.bookedSlot)', function () {
+            var $section = $(this).closest('.appointments-section');
+            $section.find('.time-slot').removeClass('activeSlot');
+            $(this).addClass('activeSlot');
+
+            var fromToTime = $(this).attr('data-id').split('-');
+            var fromTime = (fromToTime[0] || '').trim();
+            var toTime = (fromToTime[1] || '').trim();
+            $section.find('.timeSlot').val(fromTime);
+            $section.find('.toTime').val(toTime);
+
+            // Update the summary card
+            var selectedDate = $section.find('.appointmentDate').val();
+            $section.find('.date-time').text(selectedDate + ' ' + fromTime + '-' + toTime);
+
+            scheduleSaveDraft();
+        });
+
+        /* ==========================
+            INIT FLATPICKR + AVAILABLE DATES
+        ========================== */
+        var lang = $('.currentLanguage').val() || 'en';
+        var tzOffset = new Date().getTimezoneOffset();
+        tzOffset = tzOffset === 0 ? 0 : -tzOffset;
+        var rangeStart = new Date();
+        var rangeEnd = new Date();
+        rangeEnd.setDate(rangeEnd.getDate() + 90);
+        var rangeStartStr = rangeStart.toISOString().slice(0, 10);
+        var rangeEndStr = rangeEnd.toISOString().slice(0, 10);
+
+        function getAvailDatesUrl() {
+            var routeFn = typeof route === 'function' ? route : (window.route || function () { return ''; });
+            var ur = (typeof userRole !== 'undefined') ? userRole : '';
+            var dr = (typeof doctorRole !== 'undefined') ? doctorRole : '';
+            if (ur && ur !== '' && ur !== '0' && ur !== 'false') return routeFn('patients.doctor-available-dates');
+            if (dr && dr !== '' && dr !== '0' && dr !== 'false') return routeFn('doctors.doctor-available-dates');
+            return routeFn('doctor-available-dates');
+        }
+
+        function fetchAvailableDates(inputEl) {
+            var fp = inputEl._flatpickr;
+            if (!fp) return;
+            var $section = $(inputEl).closest('.appointments-section');
+            if (!$section.length) $section = $(inputEl).closest('form');
+            var doctorId = $section.find('.adminAppointmentDoctorId').val();
+            var serviceId = $section.find('.appointmentServiceId').val();
+            if (!doctorId) return;
+
+            $.ajax({
+                url: getAvailDatesUrl(),
+                type: 'GET',
+                data: {
+                    adminAppointmentDoctorId: doctorId,
+                    appointmentServiceId: serviceId || '',
+                    start_date: rangeStartStr,
+                    end_date: rangeEndStr,
+                    timezone_offset_minutes: tzOffset
+                },
+                success: function (result) {
+                    if (result.success && result.data && result.data.dates && result.data.dates.length) {
+                        fp.config.enable = result.data.dates;
+                        fp._availableDates = result.data.dates;
+                    } else {
+                        fp.config.enable = [];
+                        fp._availableDates = [];
+                    }
+                    fp.redraw();
+                    if (fp.calendarContainer) {
+                        fp.calendarContainer.classList.add('flatpickr-appointment-available-dates');
+                    }
+                }
+            });
+        }
+
+        $('.appointmentDate').each(function () {
+            var inputEl = this;
+            if (!inputEl._flatpickr) {
+                $(inputEl).flatpickr({
+                    locale: lang,
+                    minDate: new Date(),
+                    disableMobile: true,
+                    dateFormat: 'Y-m-d',
+                    onOpen: function () {
+                        if (inputEl._flatpickr && inputEl._flatpickr.calendarContainer) {
+                            inputEl._flatpickr.calendarContainer.classList.add('flatpickr-appointment-available-dates');
+                        }
+                        fetchAvailableDates(inputEl);
+                    },
+                    onReady: function () {
+                        // Fetch available dates immediately after init
+                        setTimeout(function () { fetchAvailableDates(inputEl); }, 200);
+                    }
+                });
             }
         });
 

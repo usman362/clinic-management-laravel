@@ -4088,6 +4088,13 @@ listenSubmit('#addAppointmentForm', function (e) {
     contentType: false,
     success: function success(mainResult) {
       if (mainResult.success) {
+        // If the response includes a redirect URL (e.g. package creation), go there directly
+        if (mainResult.data.url) {
+          displaySuccessMessage(mainResult.message);
+          window.location.replace(mainResult.data.url);
+          return;
+        }
+
         var appID = mainResult.data.appointmentId; //displaySuccessMessage(mainResult.message);
 
         $('#addAppointmentForm')[0].reset();

@@ -1,8 +1,38 @@
 /**
- * Calendar me available dates green, unavailable dates disabled dikhane ke liye.
+ * Calendar: available dates green, unavailable dates disabled/red.
  * Standalone script - appointment create/edit pages par load hota hai.
  */
 (function () {
+
+    /* ── Inject CSS once ── */
+    var styleId = 'appointment-available-dates-style';
+    if (!document.getElementById(styleId)) {
+        var css = document.createElement('style');
+        css.id = styleId;
+        css.textContent = [
+            /* Available dates — solid green */
+            '.flatpickr-appointment-available-dates .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay){background:#28a745 !important;color:#fff !important;border-color:#218838 !important;font-weight:600}',
+            /* Available dates — hover: darker green */
+            '.flatpickr-appointment-available-dates .flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay):hover{background:#1e7e34 !important;color:#fff !important;border-color:#1c7430 !important;box-shadow:0 2px 8px rgba(40,167,69,.45)}',
+            /* Selected date — dark green with ring */
+            '.flatpickr-appointment-available-dates .flatpickr-day.selected,.flatpickr-appointment-available-dates .flatpickr-day.selected:hover{background:#155724 !important;color:#fff !important;border-color:#155724 !important;box-shadow:0 0 0 3px rgba(40,167,69,.35)}',
+            /* Unavailable / disabled dates — red */
+            '.flatpickr-appointment-available-dates .flatpickr-day.flatpickr-disabled{background:#fddede !important;color:#c0392b !important;border-color:#f5c6cb !important;text-decoration:line-through;cursor:not-allowed !important;opacity:1 !important}',
+            '.flatpickr-appointment-available-dates .flatpickr-day.flatpickr-disabled:hover{background:#f8b4b4 !important;color:#922b21 !important;border-color:#e74c3c !important;cursor:not-allowed !important}',
+            /* Today ring */
+            '.flatpickr-appointment-available-dates .flatpickr-day.today:not(.flatpickr-disabled){border:2px solid #ffc107 !important}',
+            '.flatpickr-appointment-available-dates .flatpickr-day.today.flatpickr-disabled{border:2px solid #e74c3c !important}',
+            /* Prev/next month ghost */
+            '.flatpickr-appointment-available-dates .flatpickr-day.prevMonthDay,.flatpickr-appointment-available-dates .flatpickr-day.nextMonthDay{background:transparent !important;color:#d5d5d5 !important;border-color:transparent !important;text-decoration:none !important}',
+            /* Legend row */
+            '.appointment-date-legend{display:flex;gap:16px;align-items:center;margin-top:4px;font-size:12px}',
+            '.appointment-date-legend .legend-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:4px}',
+            '.appointment-date-legend .legend-available{background:#28a745}',
+            '.appointment-date-legend .legend-unavailable{background:#c0392b}'
+        ].join('');
+        document.head.appendChild(css);
+    }
+
     function initAppointmentAvailableDates() {
         if (!window.$ || !window.$.fn || !document.querySelector('.appointmentDate')) return;
 
@@ -38,7 +68,10 @@
             if (!doctorId) {
                 fp.config.enable = undefined;
                 fp.config.disable = undefined;
+                fp._availableDates = null;
                 fp.redraw();
+                // Remove legend if no doctor
+                $input.closest('.appointments-section').find('.appointment-date-legend').remove();
                 return;
             }
 
@@ -65,13 +98,28 @@
                     if (fp.calendarContainer) {
                         fp.calendarContainer.classList.add('flatpickr-appointment-available-dates');
                     }
+                    // Add legend below the date input if not present
+                    addLegend($input);
                 },
                 error: function () {
                     fp.config.enable = undefined;
                     fp.config.disable = undefined;
+                    fp._availableDates = null;
                     fp.redraw();
                 }
             });
+        }
+
+        function addLegend($input) {
+            var $wrapper = $input.closest('.col-lg-12, .col-md-12, .col-sm-12, .mb-5, .mb-3');
+            if (!$wrapper.length) $wrapper = $input.parent();
+            if ($wrapper.find('.appointment-date-legend').length) return;
+            $wrapper.append(
+                '<div class="appointment-date-legend mt-1">' +
+                '<span><span class="legend-dot legend-available"></span> Available</span>' +
+                '<span><span class="legend-dot legend-unavailable"></span> Unavailable</span>' +
+                '</div>'
+            );
         }
 
         function hookFlatpickrOpen(inputEl) {
@@ -96,16 +144,16 @@
             });
         }
 
-        // Pehle run: flatpickr init ke baad (delay se)
+        // First run after flatpickr init (with delay)
         setTimeout(runHook, 600);
 
-        // Jab date field pe focus ho to fetch karein taake calendar open hote hi data ready ho
+        // On date field focus — fetch so calendar is ready when opened
         $(document).on('focus', '.appointmentDate', function () {
             hookFlatpickrOpen(this);
             applyAvailableDatesToPicker(this);
         });
 
-        // Doctor/Service change pe us section ka calendar update
+        // Doctor/Service change — update that section's calendar
         $(document).on('change', '.adminAppointmentDoctorId, .appointmentServiceId', function () {
             var section = $(this).closest('.appointments-section');
             if (!section.length) return;
