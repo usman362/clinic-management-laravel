@@ -571,7 +571,7 @@ class AppointmentRepository extends BaseRepository
     public function showAppointment($input): array
     {
 
-        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'services'])->findOrFail($input['id']);
+        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'doctor.user.address', 'services'])->findOrFail($input['id']);
 
         $data['transactionStatus'] = Transaction::whereAppointmentId($data['data']->appointment_unique_id)->exists();
 
@@ -580,7 +580,7 @@ class AppointmentRepository extends BaseRepository
 
     public function showDoctorAppointment($appointment): array
     {
-        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'services'])->findOrFail($appointment->id);
+        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'doctor.user.address', 'services'])->findOrFail($appointment->id);
 
         return $data;
     }

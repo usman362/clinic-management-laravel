@@ -291,18 +291,8 @@ class DashboardRepository
 
         $patientappointments = Appointment::with(['patient.user', 'user', 'services'])
             ->where('patient_id', $patientId)
-            ->whereStatus(Appointment::CHECK_OUT)
+            ->whereYear('created_at', Carbon::now()->year)
             ->select(DB::raw('MONTH(date) as month,appointments.*'))->get();
-
-
-        $transactions = Transaction::with(['user', 'appointment'])
-            ->whereHas('appointment', function ($query) use ($patientId) {
-                $query->where('patient_id', $patientId);
-            })
-            ->whereStatus('1')
-            ->select(DB::raw('MONTH(created_at) as month,transactions.*'))
-            ->get();
-
 
         $months = [
             1 => __('messages.months.jan'),
@@ -322,15 +312,12 @@ class DashboardRepository
         $monthWiseRecords = [];
         $monthWiseRecords1 = [];
 
-
         foreach ($months as $month => $monthName) {
-            $monthWiseRecords[$monthName] = $patientappointments->where('month', $month)
-                ->sum('payable_amount');
+            $monthWiseRecords[$monthName] = $patientappointments->where('month', $month)->count();
         }
 
         foreach ($months as $month => $monthName) {
-            $monthWiseRecords1[$monthName] = $transactions->where('month', $month)
-                ->sum('amount');
+            $monthWiseRecords1[$monthName] = 0;
         }
 
         return [$monthWiseRecords, $monthWiseRecords1];

@@ -3735,6 +3735,16 @@ var data = {
 /* View event elements */
 
 var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewPatientName, viewEndDate, viewModal, viewService, viewUId, viewAmount;
+
+/* Forward declaration for hidePopovers used in calendar event handlers */
+var popoverState = false;
+var popover;
+var hidePopovers = function hidePopovers() {
+  if (popoverState) {
+    popover.dispose();
+    popoverState = false;
+  }
+};
 /* -------------------------------------------------
  | BOOTSTRAP
  -------------------------------------------------*/

@@ -34,6 +34,39 @@ let viewEventName,
     viewUId,
     viewAmount
 
+/* Popover state */
+let popover = null
+let popoverState = false
+
+const hidePopovers = () => {
+    if (popoverState) {
+        popover.dispose()
+        popoverState = false
+    }
+}
+
+const initPopovers = (el) => {
+    hidePopovers()
+
+    const startDate = moment(data.startDate).utc().format('DD MMM, YYYY - h:mm A')
+    const endDate = moment(data.endDate).utc().format('DD MMM, YYYY - h:mm A')
+    const popoverHtml = '<div class="fw-bolder mb-2"><b>Doctor</b>: ' + data.doctorName +
+        '</div><div class="fs-7"><span class="fw-bold">Start:</span> ' + startDate +
+        '</div><div class="fs-7 mb-4"><span class="fw-bold">End:</span> ' + endDate + '</div>'
+
+    popover = new bootstrap.Popover(el, {
+        title: data.eventName,
+        content: popoverHtml,
+        html: true,
+        placement: 'top',
+        trigger: 'manual',
+        container: 'body',
+    })
+
+    popover.show()
+    popoverState = true
+}
+
 /* -------------------------------------------------
  | BOOTSTRAP
  -------------------------------------------------*/
