@@ -204,40 +204,14 @@ class Appointment extends Model
     ];
 
 
-    protected static function booted()
-    {
-        static::updated(function ($appointment) {
-            // Sirf tab jab status change hua aur ab CHECK_OUT hai
-            if ($appointment->status == Appointment::CHECK_OUT) {
-
-                // Prevent duplicate feedback record
-                // $exists = Appointment::where('relation_id', $appointment->relation_id)
-                //     ->where('status', 5)
-                //     ->exists();
-
-                // if (! $exists) {
-
-                    $feedback = $appointment->replicate();
-
-                    $feedback->status = 5; // feedback default status
-                    $feedback->appointment_type = 'feedback'; // optional but recommended
-                    $feedback->appointment_unique_id = strtoupper(Appointment::generateAppointmentUniqueId());
-
-                    $feedback->save();
-                // }
-            }
-        });
-    }
+    // Feedback appointments are created manually by admin via "Send Feedback" button.
+    // No auto-creation on CHECK_OUT.
 
     public static function generateAppointmentUniqueId(): string
     {
-        $appointmentUniqueId = Str::random(10);
-        while (true) {
-            $isExist = self::whereAppointmentUniqueId($appointmentUniqueId)->exists();
-            if ($isExist) {
-                self::generateAppointmentUniqueId();
-            }
-            break;
+        $appointmentUniqueId = strtoupper(Str::random(10));
+        while (self::whereAppointmentUniqueId($appointmentUniqueId)->exists()) {
+            $appointmentUniqueId = strtoupper(Str::random(10));
         }
 
         return $appointmentUniqueId;
