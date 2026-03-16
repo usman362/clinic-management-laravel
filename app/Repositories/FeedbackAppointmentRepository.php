@@ -388,7 +388,8 @@ class FeedbackAppointmentRepository extends BaseRepository
     {
         $doctorId = getLogInUser()->doctor->id;
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['patient.user', 'user'])->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
+        $appointments = Appointment::with(['patient.user', 'user', 'user.address', 'services'])
+            ->where('appointment_type', 'feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
@@ -403,6 +404,32 @@ class FeedbackAppointmentRepository extends BaseRepository
             } catch (\Exception $e) {
                 continue;
             }
+
+            // Build location from doctor's own address
+            $location = '';
+            $doctorUser = getLogInUser();
+            $address = $doctorUser->address ?? null;
+            if ($address) {
+                $cityName = '';
+                if ($address->city_id) {
+                    $city = \App\Models\City::find($address->city_id);
+                    $cityName = $city ? $city->name : '';
+                }
+                $parts = array_filter([
+                    $address->address1 ?? '',
+                    $address->address2 ?? '',
+                    $cityName,
+                    $address->postal_code ?? '',
+                ]);
+                $location = implode(', ', $parts);
+            }
+
+            // Build instructions
+            $instructions = optional($appointment->services)->short_description ?? '';
+            if (!empty($appointment->description)) {
+                $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
+            }
+
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
             $data[$index]['patientName'] = optional(optional($appointment->patient)->user)->full_name ?? '';
@@ -412,6 +439,8 @@ class FeedbackAppointmentRepository extends BaseRepository
             $data[$index]['amount'] = $appointment->payable_amount;
             $data[$index]['uId'] = $appointment->appointment_unique_id ?? '';
             $data[$index]['service'] = optional($appointment->services)->name ?? '';
+            $data[$index]['location'] = $location;
+            $data[$index]['instructions'] = $instructions;
             $data[$index]['end'] = $end->toDateTimeString();
             $data[$index]['color'] = '#FFF';
             $data[$index]['className'] = [getStatusClassName($appointment->status), 'text-white'];
@@ -425,7 +454,8 @@ class FeedbackAppointmentRepository extends BaseRepository
     {
         $patientId = getLogInUser()->patient->id;
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['doctor.user', 'user'])->where('status', '!=', '5')->where('patient_id', $patientId)->get();
+        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])
+            ->where('appointment_type', 'feedback')->where('status', '!=', '5')->where('patient_id', $patientId)->get();
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
@@ -440,6 +470,32 @@ class FeedbackAppointmentRepository extends BaseRepository
             } catch (\Exception $e) {
                 continue;
             }
+
+            // Build location from doctor's user address
+            $location = '';
+            $doctorUser = optional(optional($appointment->doctor)->user);
+            $address = $doctorUser->address ?? null;
+            if ($address) {
+                $cityName = '';
+                if ($address->city_id) {
+                    $city = \App\Models\City::find($address->city_id);
+                    $cityName = $city ? $city->name : '';
+                }
+                $parts = array_filter([
+                    $address->address1 ?? '',
+                    $address->address2 ?? '',
+                    $cityName,
+                    $address->postal_code ?? '',
+                ]);
+                $location = implode(', ', $parts);
+            }
+
+            // Build instructions
+            $instructions = optional($appointment->services)->short_description ?? '';
+            if (!empty($appointment->description)) {
+                $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
+            }
+
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
             $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
@@ -449,6 +505,8 @@ class FeedbackAppointmentRepository extends BaseRepository
             $data[$index]['amount'] = $appointment->payable_amount;
             $data[$index]['uId'] = $appointment->appointment_unique_id ?? '';
             $data[$index]['service'] = optional($appointment->services)->name ?? '';
+            $data[$index]['location'] = $location;
+            $data[$index]['instructions'] = $instructions;
             $data[$index]['end'] = $end->toDateTimeString();
             $data[$index]['color'] = '#FFF';
             $data[$index]['className'] = [getStatusClassName($appointment->status), 'text-white'];
