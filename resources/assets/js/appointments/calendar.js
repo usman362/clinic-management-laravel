@@ -20,6 +20,8 @@ let data = {
     amount: 0,
     service: '',
     doctorName: '',
+    location: '',
+    instructions: '',
 }
 
 /* View event elements */
@@ -32,7 +34,9 @@ let viewEventName,
     viewModal,
     viewService,
     viewUId,
-    viewAmount
+    viewAmount,
+    viewLocation,
+    viewInstructions
 
 /* Popover state */
 let popover = null
@@ -189,6 +193,8 @@ const initModal = () => {
     viewService = el.querySelector('[data-calendar="event_service"]')
     viewStartDate = el.querySelector('[data-calendar="event_start_date"]')
     viewEndDate = el.querySelector('[data-calendar="event_end_date"]')
+    viewLocation = el.querySelector('[data-calendar="event_location"]')
+    viewInstructions = el.querySelector('[data-calendar="event_instructions"]')
 }
 
 const showEventModal = () => {
@@ -216,6 +222,16 @@ const showEventModal = () => {
         : String(data.eventStatus) === cancel ? Lang.get('js.cancelled')
         : ''
     viewEventStatus.innerText = statusLabel
+
+    // Populate location and instructions
+    if (viewLocation) {
+        viewLocation.innerText = data.location || 'N/A'
+        viewLocation.closest('.calendar-detail-row').style.display = data.location ? '' : 'none'
+    }
+    if (viewInstructions) {
+        viewInstructions.innerText = data.instructions || 'N/A'
+        viewInstructions.closest('.calendar-detail-row').style.display = data.instructions ? '' : 'none'
+    }
 }
 
 /* -------------------------------------------------
@@ -234,4 +250,6 @@ function formatArgs (event) {
     data.uId = ep.uId || event.uId
     data.service = ep.service || event.service
     data.doctorName = ep.doctorName || event.doctorName
+    data.location = ep.location || event.location || ''
+    data.instructions = ep.instructions || event.instructions || ''
 }

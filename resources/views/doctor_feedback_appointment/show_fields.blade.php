@@ -40,6 +40,30 @@
                             </div>
                         </div>
                         <div class="row mb-7">
+                            <label class="col-lg-4 fw-bold text-muted">{{ __('messages.setting.address') }}</label>
+                            <div class="col-lg-8 fv-row">
+                                <span class="fw-bolder fs-6 text-gray-800">
+                                    @php
+                                        $doctorAddress = $appointment['data']->doctor->user->address ?? null;
+                                        $addressParts = [];
+                                        if ($doctorAddress) {
+                                            if (!empty($doctorAddress->address1)) $addressParts[] = $doctorAddress->address1;
+                                            if (!empty($doctorAddress->address2)) $addressParts[] = $doctorAddress->address2;
+                                        }
+                                    @endphp
+                                    {{ count($addressParts) > 0 ? implode(', ', $addressParts) : __('messages.common.n/a') }}
+                                </span>
+                            </div>
+                        </div>
+                        @if(!empty($appointment['data']->description))
+                        <div class="row mb-7">
+                            <label class="col-lg-4 fw-bold text-muted">{{ __('messages.appointment.description') }}</label>
+                            <div class="col-lg-8 fv-row">
+                                <span class="fw-bolder fs-6 text-gray-800">{{ $appointment['data']->description }}</span>
+                            </div>
+                        </div>
+                        @endif
+                        <div class="row mb-7">
                             <label class="col-lg-4 fw-bold text-muted">{{ __('messages.patient.registered_on') }}</label>
                             <div class="col-lg-8">
                                 <span class="fw-bolder fs-6 text-gray-800 me-2 " data-bs-toggle="tooltip"

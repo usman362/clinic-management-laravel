@@ -3730,11 +3730,13 @@ var data = {
   endDate: '',
   amount: 0,
   service: '',
-  doctorName: ''
+  doctorName: '',
+  location: '',
+  instructions: ''
 };
 /* View event elements */
 
-var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewPatientName, viewEndDate, viewModal, viewService, viewUId, viewAmount;
+var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewPatientName, viewEndDate, viewModal, viewService, viewUId, viewAmount, viewLocation, viewInstructions;
 
 /* Forward declaration for hidePopovers used in calendar event handlers */
 var popoverState = false;
@@ -3867,6 +3869,8 @@ var initModal = function initModal() {
   viewService = el.querySelector('[data-calendar="event_service"]');
   viewStartDate = el.querySelector('[data-calendar="event_start_date"]');
   viewEndDate = el.querySelector('[data-calendar="event_end_date"]');
+  viewLocation = el.querySelector('[data-calendar="event_location"]');
+  viewInstructions = el.querySelector('[data-calendar="event_instructions"]');
 };
 
 var showEventModal = function showEventModal() {
@@ -3884,6 +3888,8 @@ var showEventModal = function showEventModal() {
   var cancel = $('#cancelCalenderConst').val();
   var statusLabel = String(data.eventStatus) === book ? Lang.get('js.booked') : String(data.eventStatus) === checkIn ? Lang.get('js.check_in') : String(data.eventStatus) === checkOut ? Lang.get('js.check_out') : String(data.eventStatus) === cancel ? Lang.get('js.cancelled') : '';
   viewEventStatus.innerText = statusLabel;
+  if (viewLocation) { viewLocation.innerText = data.location || 'N/A'; viewLocation.closest('.calendar-detail-row').style.display = data.location ? '' : 'none'; }
+  if (viewInstructions) { viewInstructions.innerText = data.instructions || 'N/A'; viewInstructions.closest('.calendar-detail-row').style.display = data.instructions ? '' : 'none'; }
 };
 /* -------------------------------------------------
  | HELPERS
@@ -3903,6 +3909,8 @@ function formatArgs(event) {
   data.uId = ep.uId || event.uId;
   data.service = ep.service || event.service;
   data.doctorName = ep.doctorName || event.doctorName;
+  data.location = ep.location || event.location || '';
+  data.instructions = ep.instructions || event.instructions || '';
 }
 
 /***/ }),
@@ -7490,10 +7498,12 @@ var data = {
   endDate: '',
   amount: 0,
   service: '',
-  patientName: ''
+  patientName: '',
+  location: '',
+  instructions: ''
 }; // View event variables
 
-var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewEndDate, viewModal, viewService, viewUId, viewAmount;
+var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewEndDate, viewModal, viewService, viewUId, viewAmount, viewLocation, viewInstructions;
 
 function loadDoctorAppointmentCalendar() {
   initCalendarApp();
@@ -7557,7 +7567,9 @@ var initCalendarApp = function initCalendarApp() {
         amount: arg.event.extendedProps.amount,
         uId: arg.event.extendedProps.uId,
         service: arg.event.extendedProps.service,
-        patientName: arg.event.extendedProps.patientName
+        patientName: arg.event.extendedProps.patientName,
+        location: arg.event.extendedProps.location,
+        instructions: arg.event.extendedProps.instructions
       }); // Show popover preview
 
       initPopovers(arg.el);
@@ -7579,7 +7591,9 @@ var initCalendarApp = function initCalendarApp() {
         amount: arg.event.extendedProps.amount,
         uId: arg.event.extendedProps.uId,
         service: arg.event.extendedProps.service,
-        patientName: arg.event.extendedProps.patientName
+        patientName: arg.event.extendedProps.patientName,
+        location: arg.event.extendedProps.location,
+        instructions: arg.event.extendedProps.instructions
       });
       handleViewEvent();
     }
@@ -7602,6 +7616,8 @@ var init = function init() {
   viewService = viewElement.querySelector('[data-calendar="event_service"]');
   viewStartDate = viewElement.querySelector('[data-calendar="event_start_date"]');
   viewEndDate = viewElement.querySelector('[data-calendar="event_end_date"]');
+  viewLocation = viewElement.querySelector('[data-calendar="event_location"]');
+  viewInstructions = viewElement.querySelector('[data-calendar="event_instructions"]');
 }; // Format FullCalendar responses
 
 
@@ -7615,6 +7631,8 @@ var formatArgs = function formatArgs(res) {
   data.uId = res.uId;
   data.service = res.service;
   data.patientName = res.patientName;
+  data.location = res.location || '';
+  data.instructions = res.instructions || '';
 }; // Initialize popovers --- more info: https://getbootstrap.com/docs/4.0/components/popovers/
 
 
@@ -7670,6 +7688,16 @@ var handleViewEvent = function handleViewEvent() {
   viewAmount.innerText = addCommas(data.amount);
   viewUId.innerText = data.uId;
   viewService.innerText = data.service;
+
+  // Populate location and instructions
+  if (viewLocation) {
+    viewLocation.innerText = data.location || 'N/A';
+    viewLocation.closest('.calendar-detail-row').style.display = data.location ? '' : 'none';
+  }
+  if (viewInstructions) {
+    viewInstructions.innerText = data.instructions || 'N/A';
+    viewInstructions.closest('.calendar-detail-row').style.display = data.instructions ? '' : 'none';
+  }
 };
 
 listenChange('.doctor-apptnt-calendar-status-change', function () {
@@ -20200,11 +20228,13 @@ var doctorFeedbackAppointmentCalendar;
 var feedbackData = {
     id: '', uId: '', eventName: '', eventDescription: '', eventStatus: '',
     startDate: '', endDate: '', amount: 0, service: '', patientName: '',
+    location: '', instructions: '',
 };
 
 var feedbackViewEventName, feedbackViewEventDescription, feedbackViewEventStatus,
     feedbackViewStartDate, feedbackViewEndDate, feedbackViewModal,
-    feedbackViewService, feedbackViewUId, feedbackViewAmount;
+    feedbackViewService, feedbackViewUId, feedbackViewAmount,
+    feedbackViewLocation, feedbackViewInstructions;
 
 function loadDoctorFeedbackAppointmentCalendar() {
     initFeedbackCalendarApp();
@@ -20237,7 +20267,8 @@ var initFeedbackCalendarApp = function() {
             feedbackFormatArgs({ id: arg.event.id, title: arg.event.title, startStr: arg.event.startStr, endStr: arg.event.endStr,
                 description: arg.event.extendedProps.description, status: arg.event.extendedProps.status,
                 amount: arg.event.extendedProps.amount, uId: arg.event.extendedProps.uId,
-                service: arg.event.extendedProps.service, patientName: arg.event.extendedProps.patientName });
+                service: arg.event.extendedProps.service, patientName: arg.event.extendedProps.patientName,
+                location: arg.event.extendedProps.location, instructions: arg.event.extendedProps.instructions });
             initFeedbackPopovers(arg.el);
         },
         eventMouseLeave: function() { hideFeedbackPopovers(); },
@@ -20247,7 +20278,8 @@ var initFeedbackCalendarApp = function() {
             feedbackFormatArgs({ id: arg.event.id, title: arg.event.title, startStr: arg.event.startStr, endStr: arg.event.endStr,
                 description: arg.event.extendedProps.description, status: arg.event.extendedProps.status,
                 amount: arg.event.extendedProps.amount, uId: arg.event.extendedProps.uId,
-                service: arg.event.extendedProps.service, patientName: arg.event.extendedProps.patientName });
+                service: arg.event.extendedProps.service, patientName: arg.event.extendedProps.patientName,
+                location: arg.event.extendedProps.location, instructions: arg.event.extendedProps.instructions });
             handleFeedbackViewEvent();
         },
     });
@@ -20266,12 +20298,15 @@ var initFeedbackModal = function() {
     feedbackViewService = viewElement.querySelector('[data-calendar="event_service"]');
     feedbackViewStartDate = viewElement.querySelector('[data-calendar="event_start_date"]');
     feedbackViewEndDate = viewElement.querySelector('[data-calendar="event_end_date"]');
+    feedbackViewLocation = viewElement.querySelector('[data-calendar="event_location"]');
+    feedbackViewInstructions = viewElement.querySelector('[data-calendar="event_instructions"]');
 };
 
 var feedbackFormatArgs = function(res) {
     feedbackData.id = res.id; feedbackData.eventName = res.title; feedbackData.eventStatus = res.status;
     feedbackData.startDate = res.startStr; feedbackData.endDate = res.endStr; feedbackData.amount = res.amount;
     feedbackData.uId = res.uId; feedbackData.service = res.service; feedbackData.patientName = res.patientName;
+    feedbackData.location = res.location || ''; feedbackData.instructions = res.instructions || '';
 };
 
 var initFeedbackPopovers = function(element) {
@@ -20314,6 +20349,8 @@ var handleFeedbackViewEvent = function() {
     if (feedbackViewAmount) { feedbackViewAmount.innerText = addCommas(feedbackData.amount); }
     feedbackViewUId.innerText = feedbackData.uId;
     feedbackViewService.innerText = feedbackData.service;
+    if (feedbackViewLocation) { feedbackViewLocation.innerText = feedbackData.location || 'N/A'; feedbackViewLocation.closest('.calendar-detail-row').style.display = feedbackData.location ? '' : 'none'; }
+    if (feedbackViewInstructions) { feedbackViewInstructions.innerText = feedbackData.instructions || 'N/A'; feedbackViewInstructions.closest('.calendar-detail-row').style.display = feedbackData.instructions ? '' : 'none'; }
 };
 
 listenChange('.doctor-feedback-apptnt-calendar-status-change', function() {

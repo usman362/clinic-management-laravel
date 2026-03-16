@@ -446,7 +446,7 @@ class FeedbackAppointmentRepository extends BaseRepository
     public function getCalendar(): array
     {
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['doctor.user', 'user'])
+        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])
             ->where('appointment_type', 'feedback')->where('status', '!=', '5')->get();
         $data = [];
         $count = 0;
@@ -455,6 +455,32 @@ class FeedbackAppointmentRepository extends BaseRepository
             $endTime = $appointment->to_time . ' ' . $appointment->to_time_type;
             $start = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $startTime);
             $end = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $endTime);
+
+            // Build location from doctor's user address
+            $location = '';
+            $doctorUser = optional(optional($appointment->doctor)->user);
+            $address = $doctorUser->address ?? null;
+            if ($address) {
+                $cityName = '';
+                if ($address->city_id) {
+                    $city = \App\Models\City::find($address->city_id);
+                    $cityName = $city ? $city->name : '';
+                }
+                $parts = array_filter([
+                    $address->address1 ?? '',
+                    $address->address2 ?? '',
+                    $cityName,
+                    $address->postal_code ?? '',
+                ]);
+                $location = implode(', ', $parts);
+            }
+
+            // Build instructions
+            $instructions = optional($appointment->services)->short_description ?? '';
+            if (!empty($appointment->description)) {
+                $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
+            }
+
             $data[$key]['id'] = $appointment->id;
             $data[$key]['title'] = $startTime . '-' . $endTime;
             $data[$key]['doctorName'] = $appointment->doctor->user->full_name;
@@ -465,6 +491,8 @@ class FeedbackAppointmentRepository extends BaseRepository
             $data[$key]['amount'] = $appointment->payable_amount;
             $data[$key]['uId'] = $appointment->appointment_unique_id;
             $data[$key]['service'] = $appointment->services->name;
+            $data[$key]['location'] = $location;
+            $data[$key]['instructions'] = $instructions;
             $data[$key]['end'] = $end->toDateTimeString();
             $data[$key]['color'] = '#FFF';
             $data[$key]['className'] = [getStatusClassName($appointment->status), 'text-white'];
@@ -476,7 +504,7 @@ class FeedbackAppointmentRepository extends BaseRepository
     public function showAppointment($input): array
     {
 
-        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'services'])->findOrFail($input['id']);
+        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'doctor.user.address', 'services'])->findOrFail($input['id']);
 
         $data['transactionStatus'] = Transaction::whereAppointmentId($data['data']->appointment_unique_id)->exists();
 
@@ -485,7 +513,7 @@ class FeedbackAppointmentRepository extends BaseRepository
 
     public function showDoctorAppointment($appointment): array
     {
-        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'services'])->findOrFail($appointment->id);
+        $data['data'] = Appointment::with(['patient.user', 'doctor.user', 'doctor.user.address', 'services'])->findOrFail($appointment->id);
 
         return $data;
     }

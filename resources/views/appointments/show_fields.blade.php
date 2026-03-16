@@ -89,7 +89,26 @@
                             <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.appointment.service') }}:</label>
                             <span class="fs-4 text-gray-800">{{$appointment['data']->services->name}}</span>
                         </div>
-
+                        <div class="col-md-6 d-flex flex-column mb-md-10 mb-5">
+                            <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.setting.address') }}:</label>
+                            <span class="fs-4 text-gray-800">
+                                @php
+                                    $doctorAddress = $appointment['data']->doctor->user->address ?? null;
+                                    $addressParts = [];
+                                    if ($doctorAddress) {
+                                        if (!empty($doctorAddress->address1)) $addressParts[] = $doctorAddress->address1;
+                                        if (!empty($doctorAddress->address2)) $addressParts[] = $doctorAddress->address2;
+                                    }
+                                @endphp
+                                {{ count($addressParts) > 0 ? implode(', ', $addressParts) : __('messages.common.n/a') }}
+                            </span>
+                        </div>
+                        @if(!empty($appointment['data']->description))
+                        <div class="col-md-12 d-flex flex-column mb-md-10 mb-5">
+                            <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.appointment.description') }}:</label>
+                            <span class="fs-4 text-gray-800">{{ $appointment['data']->description }}</span>
+                        </div>
+                        @endif
                         <div class="col-md-6 d-flex flex-column">
                             <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.doctor.created_at') }}:</label>
                             <span class="fs-4 text-gray-800">

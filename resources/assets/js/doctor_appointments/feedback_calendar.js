@@ -15,6 +15,8 @@ let feedbackData = {
     amount: 0,
     service: '',
     patientName: '',
+    location: '',
+    instructions: '',
 }
 
 // View event variables
@@ -23,7 +25,9 @@ let feedbackViewEventName, feedbackViewEventDescription, feedbackViewEventStatus
     feedbackViewModal,
     feedbackViewService,
     feedbackViewUId,
-    feedbackViewAmount
+    feedbackViewAmount,
+    feedbackViewLocation,
+    feedbackViewInstructions
 
 function loadDoctorFeedbackAppointmentCalendar () {
     initFeedbackCalendarApp()
@@ -85,6 +89,8 @@ const initFeedbackCalendarApp = function () {
                 uId: arg.event.extendedProps.uId,
                 service: arg.event.extendedProps.service,
                 patientName: arg.event.extendedProps.patientName,
+                location: arg.event.extendedProps.location,
+                instructions: arg.event.extendedProps.instructions,
             })
 
             initFeedbackPopovers(arg.el)
@@ -106,6 +112,8 @@ const initFeedbackCalendarApp = function () {
                 uId: arg.event.extendedProps.uId,
                 service: arg.event.extendedProps.service,
                 patientName: arg.event.extendedProps.patientName,
+                location: arg.event.extendedProps.location,
+                instructions: arg.event.extendedProps.instructions,
             })
             handleFeedbackViewEvent()
         },
@@ -134,6 +142,10 @@ const initFeedbackModal = () => {
         '[data-calendar="event_start_date"]')
     feedbackViewEndDate = viewElement.querySelector(
         '[data-calendar="event_end_date"]')
+    feedbackViewLocation = viewElement.querySelector(
+        '[data-calendar="event_location"]')
+    feedbackViewInstructions = viewElement.querySelector(
+        '[data-calendar="event_instructions"]')
 }
 
 const feedbackFormatArgs = (res) => {
@@ -146,6 +158,8 @@ const feedbackFormatArgs = (res) => {
     feedbackData.uId = res.uId
     feedbackData.service = res.service
     feedbackData.patientName = res.patientName
+    feedbackData.location = res.location || ''
+    feedbackData.instructions = res.instructions || ''
 }
 
 const initFeedbackPopovers = (element) => {
@@ -224,6 +238,16 @@ const handleFeedbackViewEvent = () => {
     }
     feedbackViewUId.innerText = feedbackData.uId
     feedbackViewService.innerText = feedbackData.service
+
+    // Populate location and instructions
+    if (feedbackViewLocation) {
+        feedbackViewLocation.innerText = feedbackData.location || 'N/A'
+        feedbackViewLocation.closest('.calendar-detail-row').style.display = feedbackData.location ? '' : 'none'
+    }
+    if (feedbackViewInstructions) {
+        feedbackViewInstructions.innerText = feedbackData.instructions || 'N/A'
+        feedbackViewInstructions.closest('.calendar-detail-row').style.display = feedbackData.instructions ? '' : 'none'
+    }
 }
 
 listenChange('.doctor-feedback-apptnt-calendar-status-change', function () {
