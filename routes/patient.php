@@ -39,6 +39,8 @@ Route::prefix('patients')->name('patients.')->middleware('auth', 'xss', 'checkUs
 
     Route::get('feedback-bookings', [PatientAppointmentController::class, 'feedback_bookings'])->name('patient-bookings-feedback');
 
+    Route::get('feedback-booking-appointments/{id}', [PatientAppointmentController::class, 'feedbackBookingAppointments'])->name('feedback-booking.detail');
+
     Route::get('doctor-session-time',
         [DoctorSessionController::class, 'getDoctorSession'])->name('doctor-session-time');
     Route::get('doctor-available-dates',
@@ -49,6 +51,8 @@ Route::prefix('patients')->name('patients.')->middleware('auth', 'xss', 'checkUs
     //        Route::get('appointment-cancel', [AppointmentController::class, 'cancelStatus'])->name('cancel-status');
     Route::get('patient-appointments-calendar',
         [AppointmentController::class, 'patientAppointmentCalendar'])->name('appointments.calendar');
+    Route::get('patient-feedback-appointments-calendar',
+        [AppointmentController::class, 'patientFeedbackAppointmentCalendar'])->name('feedback_appointments.calendar');
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions');
     Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
     Route::post('appointment-cancel', [AppointmentController::class, 'cancelStatus'])->name('cancel-status');

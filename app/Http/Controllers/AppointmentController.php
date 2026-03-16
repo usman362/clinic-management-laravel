@@ -494,6 +494,21 @@ class AppointmentController extends AppBaseController
     /**
      * @return Application|Factory|View|JsonResponse
      */
+    public function patientFeedbackAppointmentCalendar(Request $request)
+    {
+        if ($request->ajax()) {
+            $input = $request->all();
+            $data = $this->appointmentRepository->getPatientFeedbackAppointmentsCalendar();
+
+            return $this->sendResponse($data, __('messages.flash.patient_appointment'));
+        }
+
+        return view('appointments.patient-feedback-calendar');
+    }
+
+    /**
+     * @return Application|Factory|View|JsonResponse
+     */
     public function appointmentCalendar(Request $request)
     {
         if ($request->ajax()) {

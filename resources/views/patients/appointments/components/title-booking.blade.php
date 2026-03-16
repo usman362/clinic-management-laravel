@@ -32,7 +32,7 @@
     }
 @endphp
 <div class="d-flex flex-column gap-1">
-    <a href="{{ route('patients.booking.detail', $row->relation_id) }}" class="mb-1 text-decoration-none fs-6 fw-semibold">
+    <a href="{{ $isFeedback ? route('patients.feedback-booking.detail', $row->relation_id) : route('patients.booking.detail', $row->relation_id) }}" class="mb-1 text-decoration-none fs-6 fw-semibold">
         {{ $isFeedback ? __('Feedback Package') : __('Package') }} #{{ $row->relation_id }}
     </a>
     <div class="d-flex flex-wrap gap-2 align-items-center">

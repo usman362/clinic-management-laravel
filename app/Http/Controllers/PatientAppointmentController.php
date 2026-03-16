@@ -44,6 +44,11 @@ class PatientAppointmentController extends AppBaseController
         return view('patients.appointments.confirmed-bookings', compact('paymentStatus', 'paymentGateway','logo'));
     }
 
+    public function feedbackBookingAppointments($id): \Illuminate\View\View
+    {
+        return view('patients.appointments.feedback-booking-detail', compact('id'));
+    }
+
     public function feedback_bookings(): \Illuminate\View\View
     {
         $allPaymentStatus = getAllPaymentStatus();

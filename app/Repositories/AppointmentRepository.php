@@ -469,7 +469,71 @@ class AppointmentRepository extends BaseRepository
     {
         $patientId = getLogInUser()->patient->id;
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->get();
+        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->where('appointment_type', 'assessment')->get();
+        $data = [];
+        $index = 0;
+        foreach ($appointments as $appointment) {
+            if (empty($appointment->from_time) || empty($appointment->to_time)) {
+                continue;
+            }
+            $startTime = $appointment->from_time . ' ' . $appointment->from_time_type;
+            $endTime = $appointment->to_time . ' ' . $appointment->to_time_type;
+            try {
+                $start = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $startTime);
+                $end = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $endTime);
+            } catch (\Exception $e) {
+                continue;
+            }
+
+            // Build location from doctor's user address
+            $location = '';
+            $doctorUser = optional(optional($appointment->doctor)->user);
+            $address = $doctorUser->address ?? null;
+            if ($address) {
+                $cityName = '';
+                if ($address->city_id) {
+                    $city = \App\Models\City::find($address->city_id);
+                    $cityName = $city ? $city->name : '';
+                }
+                $parts = array_filter([
+                    $address->address1 ?? '',
+                    $address->address2 ?? '',
+                    $cityName,
+                    $address->postal_code ?? '',
+                ]);
+                $location = implode(', ', $parts);
+            }
+
+            // Build instructions from service description + appointment description
+            $instructions = optional($appointment->services)->short_description ?? '';
+            if (!empty($appointment->description)) {
+                $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
+            }
+
+            $data[$index]['id'] = $appointment->id;
+            $data[$index]['title'] = $startTime . '-' . $endTime;
+            $data[$index]['doctorName'] = $doctorUser->full_name ?? '';
+            $data[$index]['start'] = $start->toDateTimeString();
+            $data[$index]['description'] = $appointment->description;
+            $data[$index]['status'] = $appointment->status;
+            $data[$index]['amount'] = $appointment->payable_amount;
+            $data[$index]['uId'] = $appointment->appointment_unique_id ?? '';
+            $data[$index]['service'] = optional($appointment->services)->name ?? '';
+            $data[$index]['location'] = $location;
+            $data[$index]['instructions'] = $instructions;
+            $data[$index]['end'] = $end->toDateTimeString();
+            $data[$index]['color'] = '#FFF';
+            $data[$index]['className'] = [getStatusClassName($appointment->status), 'text-white'];
+            $index++;
+        }
+
+        return $data;
+    }
+
+    public function getPatientFeedbackAppointmentsCalendar(): array
+    {
+        $patientId = getLogInUser()->patient->id;
+        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->where('appointment_type', 'feedback')->get();
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
