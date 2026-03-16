@@ -17,12 +17,12 @@ class AdminDashboardSidebarTable extends Component
    {
       $todayDate = Carbon::now()->format('Y-m-d');
       $this->upcomingAppointmentCount = Appointment::where('appointment_type', 'assessment')
-         ->where('status', '!=', Appointment::CANCELLED)
+         ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
          ->where('date', '>', $todayDate)
-         ->distinct('relation_id')->count('relation_id');
+         ->count();
       $this->totalAppointmentCount = Appointment::where('appointment_type', 'assessment')
-         ->where('status', '!=', Appointment::CANCELLED)
-         ->distinct('relation_id')->count('relation_id');
+         ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
+         ->count();
    }
 
    public function placeholder()

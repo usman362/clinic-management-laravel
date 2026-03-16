@@ -163,7 +163,12 @@ class DoctorSessionController extends AppBaseController
         $timezone_offset_minutes = $request->get('timezone_offset_minutes');
         $doctor_holiday = DoctorHoliday::where('doctor_id', $doctorId)->where('date', $holidaydate)->get();
         $service = Service::find($request->appointmentServiceId);
-        $duration = ($service && $service->duration > 0) ? $service->duration : 0;
+        // Feedback appointments always have a fixed 60-minute duration
+        if ($request->get('appointment_type') === 'feedback') {
+            $duration = 60;
+        } else {
+            $duration = ($service && $service->duration > 0) ? $service->duration : 0;
+        }
 
         if (! $doctor_holiday->count() == 0) {
             return $this->sendError(__('messages.flash.doctor_not_available'));

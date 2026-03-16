@@ -25,7 +25,9 @@ class Dashboard extends Component
    {
         $this->totalDoctorCount = User::toBase()->whereType(User::DOCTOR)->where('status', User::ACTIVE)->count();
         $this->totalPatientCount = User::toBase()->whereType(User::PATIENT)->count();
-        $this->todayAppointmentCount = Appointment::toBase()->where('date', Carbon::now()->format('Y-m-d'))->whereStatus(Appointment::BOOKED)->count();
+        $this->todayAppointmentCount = Appointment::where('appointment_type', 'assessment')
+            ->where('date', Carbon::now()->format('Y-m-d'))
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
         $this->totalRegisteredPatientCount = User::toBase()->whereType(User::PATIENT)->whereRaw('Date(created_at) = CURDATE()')->count();
    }
 

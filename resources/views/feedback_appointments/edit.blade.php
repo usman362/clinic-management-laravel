@@ -137,11 +137,12 @@
                                     </div>
                                     <h4>{{ $relation->services->name }}</h4>
                                     <h5 class="mb-4" style="color:#6c757d">
-                                        {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . $relation->services->duration . ' min)' }}
+                                        {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (60 min)' }}
                                     </h5>
                                     <div class="row">
 
                                         {{ Form::hidden('appointments[' . $key . '][appointment_id]', $relation->id, ['id' => 'appointment_id']) }}
+                                        {{ Form::hidden('appointments[' . $key . '][appointment_type]', 'feedback', ['class' => 'appointmentType']) }}
                                         @if (getLogInUser()->hasRole('patient'))
                                             <div class="col-lg-12 mb-5 col-sm-12">
                                                 {{ Form::label('Date', __('messages.appointment.date') . ':', ['class' => 'form-label required']) }}
@@ -207,7 +208,7 @@
                                         style="background-color: #eaecef;border-radius: 13px;padding-top: 15px;padding-bottom: 15px;">
                                         <h4>{{ $relation->services->name }}</h4>
                                         <p style="color:#6c757d;font-size:13px" class="m-0">
-                                            {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . $relation->services->duration . ' min)' }}
+                                            {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . '60 min)' }}
                                         </p>
                                         <p style="color:#6c757d;font-size:13px" class="m-0 date-time">Date & Time not
                                             selected</p>
@@ -471,7 +472,7 @@
                                     <div class="col-md-10">
                                         <h4>{{ $relation->services->name }}</h4>
                                         <p style="color:#6c757d;font-size:13px" class="m-0">
-                                            {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . $relation->services->duration . ' min)' }}
+                                            {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . '60 min)' }}
                                         </p>
                                         <p style="color:#6c757d;font-size:13px" class="m-0 date-time">Date & Time not
                                             selected</p>

@@ -809,9 +809,9 @@ class FeedbackAppointmentController extends AppBaseController
                 'created_by'        => \Auth::id(),
                 'appointment_type'  => 'feedback',
                 'description'       => 'Feedback for: ' . ($assessmentPkg->description ?? 'Assessment Package'),
-                'payable_amount'    => $assessmentPkg->payable_amount,
-                'payment_type'      => $assessmentPkg->payment_type,
-                'payment_method'    => $assessmentPkg->payment_method,
+                'payable_amount'    => 0,
+                'payment_type'      => Appointment::PENDING,
+                'payment_method'    => Appointment::MANUALLY,
                 'parent_package_id' => $assessmentPkg->id,
             ]);
 
@@ -843,9 +843,9 @@ class FeedbackAppointmentController extends AppBaseController
                     'from_time_type'        => '',
                     'to_time'               => '',
                     'to_time_type'          => '',
-                    'payable_amount'        => $assessmentPkg->payable_amount,
-                    'payment_type'          => $assessmentPkg->payment_type,
-                    'payment_method'        => $assessmentPkg->payment_method,
+                    'payable_amount'        => 0,
+                    'payment_type'          => Appointment::PENDING,
+                    'payment_method'        => Appointment::MANUALLY,
                 ]);
             }
 

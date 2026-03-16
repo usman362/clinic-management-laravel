@@ -58,21 +58,19 @@ class PatientDashboardSidebarTable extends Component
             ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
-        // Pending = upcoming confirmed appointments not yet attended
+        // Pending = booked or checked-in appointments (not yet completed)
         $this->pendingAppointmentCount = Appointment::wherePatientId($patientId)
             ->where('appointment_type', 'assessment')
-            ->where('date', '>=', $todayDate)
-            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING, Appointment::CHECK_OUT])
+            ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])
             ->count();
 
-        // Past completed = only CHECK_OUT status (actually attended), not just past date
-        $this->pastCompletedAppointmentCount = Appointment::wherePatientId($patientId)
+        // Completed = all CHECK_OUT appointments regardless of date
+        $this->completedAppointmentCount = Appointment::wherePatientId($patientId)
             ->where('appointment_type', 'assessment')
-            ->where('date', '<', $todayDate)
             ->whereStatus(Appointment::CHECK_OUT)
             ->count();
 
-        $this->completedAppointmentCount = $this->pastCompletedAppointmentCount + $todayCompleted;
+        $this->pastCompletedAppointmentCount = $this->completedAppointmentCount;
 
         // Today appointments list: match todayAppointmentCount filter (assessment, not cancelled/booking_pending)
         $this->todayAppointment = Appointment::with(['patient.user', 'doctor.user', 'services'])
@@ -93,10 +91,12 @@ class PatientDashboardSidebarTable extends Component
 
         $this->pendingAppointments =  Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->whereStatus(Appointment::BOOKING_PENDING)
             ->whereIn('appointments.id', function ($q) {
                 $q->selectRaw('MAX(id)')
                     ->from('appointments')
+                    ->where('appointment_type', 'assessment')
                     ->whereStatus(Appointment::BOOKING_PENDING)
                     ->groupBy('relation_id');
             })

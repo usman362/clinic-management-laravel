@@ -31,23 +31,22 @@ class DashboardRepository
             ->paginate(5);
         $data['totalDoctorCount'] = User::toBase()->whereType(User::DOCTOR)->where('status', User::ACTIVE)->count();
         $data['totalPatientCount'] = User::toBase()->whereType(User::PATIENT)->count();
-        $data['totalAppointmentCount'] = Appointment::count();
-        $data['todayAppointmentCount'] = Appointment::toBase()->where('date', Carbon::now()->format('Y-m-d'))->whereStatus(Appointment::BOOKED)->count();
+        $data['totalAppointmentCount'] = Appointment::where('appointment_type', 'assessment')
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
+        $data['todayAppointmentCount'] = Appointment::where('appointment_type', 'assessment')
+            ->where('date', Carbon::now()->format('Y-m-d'))
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
         $data['totalRegisteredPatientCount'] = User::toBase()->whereType(User::PATIENT)->whereRaw('Date(created_at) = CURDATE()')->count();
         $data['servicesArr'] = Service::toBase()->whereStatus(true)->pluck('name', 'id')->toArray();
         $data['serviceCategoriesArr'] = ServiceCategory::toBase()->pluck('name', 'id')->toArray();
         $data['doctorArr'] = Doctor::with('user')->get()->pluck('user.full_name', 'id')->toArray();
 
-        $data['upcomingAppointmentCount'] = Appointment::where(
-            'date',
-            '>',
-            $todayDate
-        )->count();
-        $data['tomorrowAppointmentCount'] = Appointment::where(
-            'date',
-            '',
-            $todayDate
-        )->count();
+        $data['upcomingAppointmentCount'] = Appointment::where('appointment_type', 'assessment')
+            ->where('date', '>', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
+        $data['tomorrowAppointmentCount'] = Appointment::where('appointment_type', 'assessment')
+            ->where('date', '=', Carbon::tomorrow()->format('Y-m-d'))
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
 
         return $data;
     }
@@ -66,20 +65,17 @@ class DashboardRepository
             ->whereDate('date', Carbon::today())
             ->orderBy('date', 'ASC')
             ->paginate(5);
-        $appointments['totalAppointmentCount'] = Appointment::whereDoctorId($doctorId)->whereNotIn(
-            'status',
-            [Appointment::CANCELLED]
-        )->count();
-        $appointments['todayAppointmentCount'] = Appointment::whereDoctorId($doctorId)->where(
-            'date',
-            '=',
-            $todayDate
-        )->whereNotIn('status', [Appointment::CANCELLED])->count();
-        $appointments['upcomingAppointmentCount'] = Appointment::whereDoctorId($doctorId)->where(
-            'date',
-            '>',
-            $todayDate
-        )->whereStatus(Appointment::BOOKED)->count();
+        $appointments['totalAppointmentCount'] = Appointment::whereDoctorId($doctorId)
+            ->where('appointment_type', 'assessment')
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
+        $appointments['todayAppointmentCount'] = Appointment::whereDoctorId($doctorId)
+            ->where('appointment_type', 'assessment')
+            ->where('date', '=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])->count();
+        $appointments['upcomingAppointmentCount'] = Appointment::whereDoctorId($doctorId)
+            ->where('appointment_type', 'assessment')
+            ->where('date', '>', $todayDate)
+            ->whereStatus(Appointment::BOOKED)->count();
 
         return $appointments;
     }
@@ -170,52 +166,65 @@ class DashboardRepository
     {
         $todayDate = Carbon::now()->format('Y-m-d');
         $patientId = getLogInUser()->patient->id;
-        $todayCompleted = Appointment::wherePatientId($patientId)->where(
-            'date',
-            '=',
-            $todayDate
-        )->whereStatus(Appointment::CHECK_OUT)->count();
-        $data['todayAppointmentCount'] = Appointment::wherePatientId($patientId)->where(
-            'date',
-            '=',
-            $todayDate
-        )->count();
-        $data['upcomingAppointmentCount'] = Appointment::wherePatientId($patientId)->where(
-            'date',
-            '>',
-            $todayDate
-        )->whereNotIn('status', [Appointment::CANCELLED])->count();
-        $data['pastCompletedAppointmentCount'] = Appointment::wherePatientId($patientId)->where(
-            'date',
-            '<',
-            $todayDate
-        )->whereStatus(Appointment::CHECK_OUT)->count();
-        $data['pendingAppointmentCount'] = Appointment::wherePatientId($patientId)->whereStatus(Appointment::BOOKING_PENDING)->count();
-        $data['completedAppointmentCount'] = $data['pastCompletedAppointmentCount'] + $todayCompleted;
+
+        // Only count assessment appointments (not feedback)
+        $assessmentBase = Appointment::wherePatientId($patientId)->where('appointment_type', 'assessment');
+
+        $data['todayAppointmentCount'] = (clone $assessmentBase)
+            ->where('date', '=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
+            ->count();
+
+        $data['upcomingAppointmentCount'] = (clone $assessmentBase)
+            ->where('date', '>', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
+            ->count();
+
+        // Completed = all CHECK_OUT regardless of date
+        $data['completedAppointmentCount'] = (clone $assessmentBase)
+            ->whereStatus(Appointment::CHECK_OUT)
+            ->count();
+
+        $data['pastCompletedAppointmentCount'] = $data['completedAppointmentCount'];
+
+        // Pending = booked or checked-in (not yet completed)
+        $data['pendingAppointmentCount'] = (clone $assessmentBase)
+            ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])
+            ->count();
+
+        // Total = all confirmed assessment appointments (excludes cancelled and booking_pending)
+        $data['totalAppointmentCount'] = (clone $assessmentBase)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
+            ->count();
+
         $data['todayAppointment'] = Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
-            ->whereStatus(Appointment::BOOKED)
+            ->where('appointment_type', 'assessment')
             ->where('date', '=', $todayDate)
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->orderBy('created_at', 'DESC')
             ->paginate(10);
 
         $data['upcomingAppointment'] = Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->whereStatus(Appointment::BOOKED)
             ->where('date', '>', $todayDate)
             ->paginate(10);
 
         $data['pendingAppointments'] = Appointment::with(['patient.user', 'doctor.user', 'services'])
-        ->wherePatientId($patientId)
-        ->whereStatus(Appointment::BOOKING_PENDING)
-        ->whereIn('appointments.id', function ($q) {
-            $q->selectRaw('MAX(id)')
-            ->from('appointments')
+            ->wherePatientId($patientId)
+            ->where('appointment_type', 'assessment')
             ->whereStatus(Appointment::BOOKING_PENDING)
-            ->groupBy('relation_id');
-        })
-        ->orderByDesc('appointments.id')
-        ->paginate(10);
+            ->whereIn('appointments.id', function ($q) {
+                $q->selectRaw('MAX(id)')
+                ->from('appointments')
+                ->where('appointment_type', 'assessment')
+                ->whereStatus(Appointment::BOOKING_PENDING)
+                ->groupBy('relation_id');
+            })
+            ->orderByDesc('appointments.id')
+            ->paginate(10);
 
         return $data;
     }

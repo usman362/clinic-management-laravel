@@ -524,6 +524,7 @@
             var selectedDate = $(this).val();
             var doctorId = $section.find('.adminAppointmentDoctorId').val();
             var serviceId = $section.find('.appointmentServiceId').val();
+            var appointmentType = $section.find('.appointmentType').val() || '';
             var $slotData = $section.find('.appointment-slot-data');
             var $noSlot = $section.find('.no-time-slot');
             var $timeOver = $section.find('.doctor-time-over');
@@ -551,7 +552,8 @@
                     adminAppointmentDoctorId: doctorId,
                     appointmentServiceId: serviceId || '',
                     date: selectedDate,
-                    timezone_offset_minutes: tz
+                    timezone_offset_minutes: tz,
+                    appointment_type: appointmentType
                 },
                 success: function (result) {
                     if (!result.success) return;

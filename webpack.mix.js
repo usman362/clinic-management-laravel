@@ -109,6 +109,7 @@ mix.js([
     'resources/assets/js/dashboard/doctor-dashboard.js',
     'resources/assets/js/doctor_appointments/doctor_appointments.js',
     'resources/assets/js/doctor_appointments/calendar.js',
+    'resources/assets/js/doctor_appointments/feedback_calendar.js',
     'resources/assets/js/appointments/patient-calendar.js',
     'resources/assets/js/appointments/calendar.js',
     'resources/assets/js/custom/phone-number-country-code.js',

@@ -283,6 +283,23 @@ class AppointmentController extends AppBaseController
             }
         }
 
+        // Feedback appointments use their own edit view
+        if ($appointment->appointment_type === 'feedback') {
+            $data = $this->appointmentRepository->getData();
+            // Get doctor IDs only from appointments in this feedback package (same relation_id)
+            $packageDoctorIds = Appointment::where('relation_id', $appointment->relation_id)
+                ->whereNotNull('doctor_id')
+                ->pluck('doctor_id')
+                ->unique();
+            $doctors = Doctor::whereIn('id', $packageDoctorIds)->with('user')->get()->where('user.status', User::ACTIVE)->pluck('user.full_name', 'id');
+            $doctorsWithJotform = Doctor::whereIn('id', $packageDoctorIds)->with('user')
+                ->whereHas('user', fn ($q) => $q->where('status', User::ACTIVE))
+                ->whereNotNull('jotform_link')
+                ->where('jotform_link', '!=', '')
+                ->get();
+            return view('feedback_appointments.edit', compact('data', 'appointment', 'doctors', 'doctorsWithJotform'));
+        }
+
         $data = $this->appointmentRepository->getData();
 
         // Collect all doctor IDs from every appointment in this package (relation_id group)
@@ -341,7 +358,11 @@ class AppointmentController extends AppBaseController
         $url = route('appointments.index');
 
         if (getLogInUser()->hasRole('patient')) {
-            $url = route('patients.booking.detail', $appointment->relation_id);
+            if ($appointment->appointment_type === 'feedback') {
+                $url = route('patients.patient-bookings-feedback');
+            } else {
+                $url = route('patients.booking.detail', $appointment->relation_id);
+            }
         }
         $data = [
             'url' => $url,

@@ -44,7 +44,7 @@
                 </div>
                 <div class="d-flex align-items-center mt-4">
                     <label for="" {{ $styleCss }}="width: 170px">{{__('messages.appointment.status')}}:</label>
-                    <select class="form-select-sm form-select-solid form-select doctor-apptnt-calendar-status-change"
+                    <select class="form-select-sm form-select-solid form-select doctor-feedback-apptnt-calendar-status-change"
                             data-control="select2" data-calendar="event_status"
                             data-minimum-results-for-search="Infinity">
                     </select>
