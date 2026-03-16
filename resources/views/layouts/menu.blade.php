@@ -39,25 +39,21 @@
 @endcan --}}
 
 @role('doctor')
-    @can('manage_appointments')
-        <li class="nav-item {{ Request::is('doctors/appointments*', 'doctors/patient*') ? 'active' : '' }}">
-            <a class="nav-link d-flex align-items-center py-4" aria-current="page" href="{{ route('doctors.appointments') }}">
-                <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
-                <span class="aside-menu-title">{{ __('messages.appointment.appointments') }}</span>
-                <span class="d-none">{{ __('messages.appointments') }}</span>
-                <span class="d-none">{{ __('messages.patients') }}</span>
-            </a>
-        </li>
-    @endcan
-    @can('manage_appointments')
-        <li class="nav-item {{ Request::is('doctors/feedback_appointments*', 'doctors/patient*') ? 'active' : '' }}">
-            <a class="nav-link d-flex align-items-center py-4" aria-current="page"
-                href="{{ route('doctors.feedback_appointments') }}">
-                <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
-                <span class="aside-menu-title">{{ __('Feedback Appointments') }}</span>
-            </a>
-        </li>
-    @endcan
+    <li class="nav-item {{ Request::is('doctors/appointments*', 'doctors/patient*') ? 'active' : '' }}">
+        <a class="nav-link d-flex align-items-center py-4" aria-current="page" href="{{ route('doctors.appointments') }}">
+            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
+            <span class="aside-menu-title">{{ __('messages.appointment.appointments') }}</span>
+            <span class="d-none">{{ __('messages.appointments') }}</span>
+            <span class="d-none">{{ __('messages.patients') }}</span>
+        </a>
+    </li>
+    <li class="nav-item {{ Request::is('doctors/feedback_appointments*', 'doctors/patient*') ? 'active' : '' }}">
+        <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+            href="{{ route('doctors.feedback_appointments') }}">
+            <span class="aside-menu-icon pe-3"><i class="fas fa-calendar-alt"></i></span>
+            <span class="aside-menu-title">{{ __('Feedback Appointments') }}</span>
+        </a>
+    </li>
     {{-- @can('manage_transactions')
         <li class="nav-item {{ Request::is('doctors/transactions*') ? 'active' : '' }}">
             <a class="nav-link d-flex align-items-center py-4" aria-current="page" href="{{ route('doctors.transactions') }}">
