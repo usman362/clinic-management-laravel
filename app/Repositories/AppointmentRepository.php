@@ -413,11 +413,19 @@ class AppointmentRepository extends BaseRepository
             ->where('appointment_type', '!=', 'feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
         $data = [];
         $count = 0;
-        foreach ($appointments as $key => $appointment) {
+        $index = 0;
+        foreach ($appointments as $appointment) {
+            if (empty($appointment->date) || empty($appointment->from_time) || empty($appointment->to_time)) {
+                continue;
+            }
             $startTime = $appointment->from_time . ' ' . $appointment->from_time_type;
             $endTime = $appointment->to_time . ' ' . $appointment->to_time_type;
-            $start = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $startTime);
-            $end = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $endTime);
+            try {
+                $start = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $startTime);
+                $end = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $endTime);
+            } catch (\Exception $e) {
+                continue;
+            }
 
             // Build location from doctor's own address
             $location = '';
@@ -444,20 +452,21 @@ class AppointmentRepository extends BaseRepository
                 $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
             }
 
-            $data[$key]['id'] = $appointment->id;
-            $data[$key]['title'] = $startTime . '-' . $endTime;
-            $data[$key]['patientName'] = $appointment->patient->user->full_name;
-            $data[$key]['start'] = $start->toDateTimeString();
-            $data[$key]['description'] = $appointment->description;
-            $data[$key]['status'] = $appointment->status;
-            $data[$key]['amount'] = $appointment->payable_amount;
-            $data[$key]['uId'] = $appointment->appointment_unique_id;
-            $data[$key]['service'] = $appointment->services->name;
-            $data[$key]['location'] = $location;
-            $data[$key]['instructions'] = $instructions;
-            $data[$key]['end'] = $end->toDateTimeString();
-            $data[$key]['color'] = '#FFF';
-            $data[$key]['className'] = [getStatusClassName($appointment->status), 'text-white'];
+            $data[$index]['id'] = $appointment->id;
+            $data[$index]['title'] = $startTime . '-' . $endTime;
+            $data[$index]['patientName'] = optional(optional($appointment->patient)->user)->full_name ?? '';
+            $data[$index]['start'] = $start->toDateTimeString();
+            $data[$index]['description'] = $appointment->description;
+            $data[$index]['status'] = $appointment->status;
+            $data[$index]['amount'] = $appointment->payable_amount;
+            $data[$index]['uId'] = $appointment->appointment_unique_id ?? '';
+            $data[$index]['service'] = optional($appointment->services)->name ?? '';
+            $data[$index]['location'] = $location;
+            $data[$index]['instructions'] = $instructions;
+            $data[$index]['end'] = $end->toDateTimeString();
+            $data[$index]['color'] = '#FFF';
+            $data[$index]['className'] = [getStatusClassName($appointment->status), 'text-white'];
+            $index++;
         }
 
         return $data;
@@ -470,12 +479,19 @@ class AppointmentRepository extends BaseRepository
         $appointments = Appointment::with(['patient.user', 'user', 'user.address', 'services'])
             ->where('appointment_type', 'feedback')->where('status', '!=', '5')->where('doctor_id', $doctorId)->get();
         $data = [];
-        $count = 0;
-        foreach ($appointments as $key => $appointment) {
+        $index = 0;
+        foreach ($appointments as $appointment) {
+            if (empty($appointment->date) || empty($appointment->from_time) || empty($appointment->to_time)) {
+                continue;
+            }
             $startTime = $appointment->from_time . ' ' . $appointment->from_time_type;
             $endTime = $appointment->to_time . ' ' . $appointment->to_time_type;
-            $start = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $startTime);
-            $end = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $endTime);
+            try {
+                $start = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $startTime);
+                $end = Carbon::createFromFormat('Y-m-d h:i A', $appointment->date . ' ' . $endTime);
+            } catch (\Exception $e) {
+                continue;
+            }
 
             // Build location from doctor's own address
             $location = '';
@@ -502,20 +518,21 @@ class AppointmentRepository extends BaseRepository
                 $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
             }
 
-            $data[$key]['id'] = $appointment->id;
-            $data[$key]['title'] = $startTime . '-' . $endTime;
-            $data[$key]['patientName'] = $appointment->patient->user->full_name;
-            $data[$key]['start'] = $start->toDateTimeString();
-            $data[$key]['description'] = $appointment->description;
-            $data[$key]['status'] = $appointment->status;
-            $data[$key]['amount'] = $appointment->payable_amount;
-            $data[$key]['uId'] = $appointment->appointment_unique_id;
-            $data[$key]['service'] = $appointment->services->name;
-            $data[$key]['location'] = $location;
-            $data[$key]['instructions'] = $instructions;
-            $data[$key]['end'] = $end->toDateTimeString();
-            $data[$key]['color'] = '#FFF';
-            $data[$key]['className'] = [getStatusClassName($appointment->status), 'text-white'];
+            $data[$index]['id'] = $appointment->id;
+            $data[$index]['title'] = $startTime . '-' . $endTime;
+            $data[$index]['patientName'] = optional(optional($appointment->patient)->user)->full_name ?? '';
+            $data[$index]['start'] = $start->toDateTimeString();
+            $data[$index]['description'] = $appointment->description;
+            $data[$index]['status'] = $appointment->status;
+            $data[$index]['amount'] = $appointment->payable_amount;
+            $data[$index]['uId'] = $appointment->appointment_unique_id ?? '';
+            $data[$index]['service'] = optional($appointment->services)->name ?? '';
+            $data[$index]['location'] = $location;
+            $data[$index]['instructions'] = $instructions;
+            $data[$index]['end'] = $end->toDateTimeString();
+            $data[$index]['color'] = '#FFF';
+            $data[$index]['className'] = [getStatusClassName($appointment->status), 'text-white'];
+            $index++;
         }
 
         return $data;
@@ -529,7 +546,7 @@ class AppointmentRepository extends BaseRepository
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
-            if (empty($appointment->from_time) || empty($appointment->to_time)) {
+            if (empty($appointment->date) || empty($appointment->from_time) || empty($appointment->to_time)) {
                 continue;
             }
             $startTime = $appointment->from_time . ' ' . $appointment->from_time_type;
@@ -593,7 +610,7 @@ class AppointmentRepository extends BaseRepository
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
-            if (empty($appointment->from_time) || empty($appointment->to_time)) {
+            if (empty($appointment->date) || empty($appointment->from_time) || empty($appointment->to_time)) {
                 continue;
             }
             $startTime = $appointment->from_time . ' ' . $appointment->from_time_type;
@@ -658,7 +675,7 @@ class AppointmentRepository extends BaseRepository
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
-            if (empty($appointment->from_time) || empty($appointment->to_time)) {
+            if (empty($appointment->date) || empty($appointment->from_time) || empty($appointment->to_time)) {
                 continue;
             }
             $startTime = $appointment->from_time . ' ' . $appointment->from_time_type;
