@@ -62,6 +62,7 @@ class Service extends Model implements HasMedia
         'status',
         'duration',
         'short_description',
+        'address',
     ];
 
     const ALL = 2;

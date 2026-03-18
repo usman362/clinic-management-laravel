@@ -72,9 +72,14 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="d-flex flex-column">
+                                            @if($appointment->appointment_type === 'feedback')
+                                                <span class="badge bg-purple text-white mb-1" style="background-color: #7c3aed;">Feedback</span>
+                                            @else
+                                                <span class="badge bg-primary mb-1">Assessment</span>
+                                            @endif
                                             <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}"
-                                                class="text-primary-800 mb-1 fs-6 text-decoration-none">
-                                                New Booking – Action Required
+                                                class="text-primary-800 fs-6 text-decoration-none">
+                                                Booking – Action Required
                                             </a>
                                         </div>
                                     </div>
@@ -135,8 +140,10 @@
                                             <a href="{{ route('patients.appointment.detail', $appointment->id) }}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
                                                 {{ $appointment->doctor->user->fullname }}</a>
-                                            <span
-                                                class="text-muted fw-bold d-block">{{ $appointment->doctor->user->email }}</span>
+                                            <span class="text-muted fw-bold d-block">{{ $appointment->doctor->user->email }}</span>
+                                            @if($appointment->appointment_type === 'feedback')
+                                                <span class="badge mt-1" style="background-color: #7c3aed; color: #fff; width: fit-content;">Feedback</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
@@ -188,8 +195,10 @@
                                             <a href="{{ route('patients.appointment.detail', $appointment->id) }}"
                                                 class="text-primary-800 mb-1 fs-6 text-decoration-none">
                                                 {{ $appointment->doctor->user->fullname }}</a>
-                                            <span
-                                                class="text-muted fw-bold d-block">{{ $appointment->doctor->user->email }}</span>
+                                            <span class="text-muted fw-bold d-block">{{ $appointment->doctor->user->email }}</span>
+                                            @if($appointment->appointment_type === 'feedback')
+                                                <span class="badge mt-1" style="background-color: #7c3aed; color: #fff; width: fit-content;">Feedback</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>

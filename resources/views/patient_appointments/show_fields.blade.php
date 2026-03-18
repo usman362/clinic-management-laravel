@@ -51,15 +51,7 @@
                         <div class="col-md-6 d-flex flex-column mb-md-10 mb-5">
                             <label for="name" class="pb-2 fs-4 text-gray-600">{{ __('messages.setting.address') }}:</label>
                             <span class="fs-4 text-gray-800">
-                                @php
-                                    $doctorAddress = $appointment['data']->doctor->user->address ?? null;
-                                    $addressParts = [];
-                                    if ($doctorAddress) {
-                                        if (!empty($doctorAddress->address1)) $addressParts[] = $doctorAddress->address1;
-                                        if (!empty($doctorAddress->address2)) $addressParts[] = $doctorAddress->address2;
-                                    }
-                                @endphp
-                                {{ count($addressParts) > 0 ? implode(', ', $addressParts) : __('messages.common.n/a') }}
+                                {{ $appointment['data']->services->address ?? __('messages.common.n/a') }}
                             </span>
                         </div>
                         @if(!empty($appointment['data']->description))

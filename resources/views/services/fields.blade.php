@@ -8,12 +8,12 @@
     <div class="col-lg-6">
         <div class="mb-5">
             {{ Form::label('duration', 'Duration' . ':', ['class' => 'form-label required']) }}
-            <div class="input-group">
-                {{ Form::text('duration', null, ['class' => 'form-control', 'placeholder' => 'Duration', 'step' => 'any', 'onkeyup' => 'if (/\D/g.test(this.value)) this.value = this.value.replace(/\D/g,"")']) }}
-                <div class="input-group-text">
-                    <a class="fw-bolder text-gray-500 text-decoration-none">Minutes</a>
-                </div>
-            </div>
+            {{ Form::select('duration', [
+                '45' => '45 minutes',
+                '60' => '1 hour',
+                '90' => '1.5 hours',
+                '120' => '2 hours',
+            ], null, ['class' => 'form-control', 'data-control' => 'select2', 'placeholder' => 'Select duration', 'required']) }}
         </div>
     </div>
     <div class="col-lg-6 mb-5">
@@ -69,6 +69,12 @@
                 <i class="fas fa-question-circle ml-1 mt-1 general-question-mark"></i>
             </span>
             {{ Form::textarea('short_description', null, ['class' => 'form-control', 'placeholder' => __('messages.service.short_description'), 'rows' => 5, 'maxlength' => 60]) }}
+        </div>
+    </div>
+    <div class="col-lg-12">
+        <div class="mb-5">
+            {{ Form::label('address', __('messages.setting.address') . ':', ['class' => 'form-label']) }}
+            {{ Form::text('address', null, ['class' => 'form-control', 'placeholder' => 'Service address / location']) }}
         </div>
     </div>
     <div>

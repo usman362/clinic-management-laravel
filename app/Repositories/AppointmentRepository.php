@@ -427,24 +427,8 @@ class AppointmentRepository extends BaseRepository
                 continue;
             }
 
-            // Build location from doctor's own address
-            $location = '';
-            $doctorUser = getLogInUser();
-            $address = $doctorUser->address ?? null;
-            if ($address) {
-                $cityName = '';
-                if ($address->city_id) {
-                    $city = \App\Models\City::find($address->city_id);
-                    $cityName = $city ? $city->name : '';
-                }
-                $parts = array_filter([
-                    $address->address1 ?? '',
-                    $address->address2 ?? '',
-                    $cityName,
-                    $address->postal_code ?? '',
-                ]);
-                $location = implode(', ', $parts);
-            }
+            // Build location from service address
+            $location = optional($appointment->services)->address ?? '';
 
             // Build instructions
             $instructions = optional($appointment->services)->short_description ?? '';
@@ -493,24 +477,8 @@ class AppointmentRepository extends BaseRepository
                 continue;
             }
 
-            // Build location from doctor's own address
-            $location = '';
-            $doctorUser = getLogInUser();
-            $address = $doctorUser->address ?? null;
-            if ($address) {
-                $cityName = '';
-                if ($address->city_id) {
-                    $city = \App\Models\City::find($address->city_id);
-                    $cityName = $city ? $city->name : '';
-                }
-                $parts = array_filter([
-                    $address->address1 ?? '',
-                    $address->address2 ?? '',
-                    $cityName,
-                    $address->postal_code ?? '',
-                ]);
-                $location = implode(', ', $parts);
-            }
+            // Build location from service address
+            $location = optional($appointment->services)->address ?? '';
 
             // Build instructions
             $instructions = optional($appointment->services)->short_description ?? '';
@@ -558,24 +526,8 @@ class AppointmentRepository extends BaseRepository
                 continue;
             }
 
-            // Build location from doctor's user address
-            $location = '';
-            $doctorUser = optional(optional($appointment->doctor)->user);
-            $address = $doctorUser->address ?? null;
-            if ($address) {
-                $cityName = '';
-                if ($address->city_id) {
-                    $city = \App\Models\City::find($address->city_id);
-                    $cityName = $city ? $city->name : '';
-                }
-                $parts = array_filter([
-                    $address->address1 ?? '',
-                    $address->address2 ?? '',
-                    $cityName,
-                    $address->postal_code ?? '',
-                ]);
-                $location = implode(', ', $parts);
-            }
+            // Build location from service address
+            $location = optional($appointment->services)->address ?? '';
 
             // Build instructions from service description + appointment description
             $instructions = optional($appointment->services)->short_description ?? '';
@@ -622,24 +574,8 @@ class AppointmentRepository extends BaseRepository
                 continue;
             }
 
-            // Build location from doctor's user address
-            $location = '';
-            $doctorUser = optional(optional($appointment->doctor)->user);
-            $address = $doctorUser->address ?? null;
-            if ($address) {
-                $cityName = '';
-                if ($address->city_id) {
-                    $city = \App\Models\City::find($address->city_id);
-                    $cityName = $city ? $city->name : '';
-                }
-                $parts = array_filter([
-                    $address->address1 ?? '',
-                    $address->address2 ?? '',
-                    $cityName,
-                    $address->postal_code ?? '',
-                ]);
-                $location = implode(', ', $parts);
-            }
+            // Build location from service address
+            $location = optional($appointment->services)->address ?? '';
 
             // Build instructions from service description + appointment description
             $instructions = optional($appointment->services)->short_description ?? '';
@@ -687,24 +623,8 @@ class AppointmentRepository extends BaseRepository
                 continue;
             }
 
-            // Build location from doctor's user address
-            $location = '';
-            $doctorUser = optional(optional($appointment->doctor)->user);
-            $address = $doctorUser->address ?? null;
-            if ($address) {
-                $cityName = '';
-                if ($address->city_id) {
-                    $city = \App\Models\City::find($address->city_id);
-                    $cityName = $city ? $city->name : '';
-                }
-                $parts = array_filter([
-                    $address->address1 ?? '',
-                    $address->address2 ?? '',
-                    $cityName,
-                    $address->postal_code ?? '',
-                ]);
-                $location = implode(', ', $parts);
-            }
+            // Build location from service address
+            $location = optional($appointment->services)->address ?? '';
 
             // Build instructions
             $instructions = optional($appointment->services)->short_description ?? '';
