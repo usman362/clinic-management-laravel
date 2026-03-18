@@ -237,7 +237,12 @@
                         @forelse(($doctorsWithJotform ?? []) as $doctor)
                             <div class="mb-4" data-doctor-id="{{ $doctor->id }}">
                                 <h6 class="fw-bold mb-2">{{ $doctor->user->first_name }} {{ $doctor->user->last_name }}</h6>
-                                <iframe src="{{ $doctor->jotform_link }}" width="100%" height="600"
+                                @php
+                                    $jotformUrl = $doctor->jotform_link;
+                                    $separator = str_contains($jotformUrl, '?') ? '&' : '?';
+                                    $jotformUrl .= $separator . 'appointment_id=' . $appointment->id . '&doctor_id=' . $doctor->id;
+                                @endphp
+                                <iframe src="{{ $jotformUrl }}" width="100%" height="600"
                                     frameborder="0" scrolling="auto" title="Consent form - {{ $doctor->user->full_name }}">
                                 </iframe>
                             </div>

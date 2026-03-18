@@ -269,7 +269,12 @@
                                 <div data-doctor-id="{{ $doctor->id }}">
                                 <h5 class="fw-bold mb-2 mt-4">
                                     Consent for {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}</h5>
-                                <iframe src="{{ $doctor->jotform_link }}" width="100%" height="500" frameborder="0"
+                                @php
+                                    $jotformUrl = $doctor->jotform_link;
+                                    $separator = str_contains($jotformUrl, '?') ? '&' : '?';
+                                    $jotformUrl .= $separator . 'appointment_id=' . $appointment->id . '&doctor_id=' . $doctor->id;
+                                @endphp
+                                <iframe src="{{ $jotformUrl }}" width="100%" height="500" frameborder="0"
                                     scrolling="auto">
                                 </iframe>
                                 </div>

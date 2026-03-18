@@ -970,17 +970,34 @@ class AppointmentController extends AppBaseController
      * If no PDF file is attached, a simple placeholder document record is created
      * so the system can track that consent was given.
      */
-    public function consentWebhook(Request $request): JsonResponse
+    public function consentWebhook(Request $request)
     {
-        // Accept appointment_id and doctor_id from either query params or form fields
+        // Accept appointment_id and doctor_id from query params, POST form fields, or Jotform rawRequest
         $appointmentId = $request->input('appointment_id', $request->query('appointment_id'));
         $doctorId = $request->input('doctor_id', $request->query('doctor_id'));
 
+        // Jotform may send a rawRequest JSON field containing submitted data
+        if ((! $appointmentId || ! $doctorId) && $request->has('rawRequest')) {
+            $raw = $request->input('rawRequest');
+            if (is_string($raw)) {
+                $raw = json_decode($raw, true);
+            }
+            if (is_array($raw)) {
+                $appointmentId = $appointmentId ?: ($raw['appointment_id'] ?? null);
+                $doctorId = $doctorId ?: ($raw['doctor_id'] ?? null);
+            }
+        }
+
+        $isAjax = $request->ajax() || $request->wantsJson();
+
         if (! $appointmentId || ! $doctorId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Missing required parameters: appointment_id and doctor_id.',
-            ], 422);
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Missing required parameters: appointment_id and doctor_id.',
+                ], 422);
+            }
+            return redirect('/')->with('error', 'Consent form submission could not be processed. Missing appointment details.');
         }
 
         // Look up the appointment
@@ -990,10 +1007,13 @@ class AppointmentController extends AppBaseController
             ->first();
 
         if (! $appointment || ! $appointment->patient) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Appointment not found or does not match the given doctor.',
-            ], 404);
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Appointment not found or does not match the given doctor.',
+                ], 404);
+            }
+            return redirect('/')->with('error', 'Appointment not found.');
         }
 
         $userId = $appointment->patient->user_id;
@@ -1003,40 +1023,55 @@ class AppointmentController extends AppBaseController
             $title = 'Consent Form - ' . $doctor->user->full_name;
         }
 
-        // Handle file upload if a PDF was attached
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $path = $file->store('documents/user_' . $userId, 'public');
+        // Avoid duplicate consent records for same appointment + doctor
+        $existingConsent = Document::where('user_id', $userId)
+            ->where('type', 'consent')
+            ->where('doctor_id', $doctorId)
+            ->where('appointment_id', $appointment->id)
+            ->first();
 
-            Document::create([
-                'user_id'        => $userId,
-                'uploaded_by'    => $userId,
-                'title'          => $title,
-                'type'           => 'consent',
-                'path'           => $path,
-                'mime_type'      => $file->getClientMimeType(),
-                'size'           => (int) round($file->getSize() / 1024),
-                'doctor_id'      => $doctorId,
-                'appointment_id' => $appointment->id,
-            ]);
-        } else {
-            // No file attached — create a record marking consent was signed
-            Document::create([
-                'user_id'        => $userId,
-                'uploaded_by'    => $userId,
-                'title'          => $title . ' (signed)',
-                'type'           => 'consent',
-                'path'           => '',
-                'mime_type'      => 'application/pdf',
-                'size'           => 0,
-                'doctor_id'      => $doctorId,
-                'appointment_id' => $appointment->id,
+        if (! $existingConsent) {
+            // Handle file upload if a PDF was attached
+            if ($request->hasFile('file')) {
+                $file = $request->file('file');
+                $path = $file->store('documents/user_' . $userId, 'public');
+
+                Document::create([
+                    'user_id'        => $userId,
+                    'uploaded_by'    => $userId,
+                    'title'          => $title,
+                    'type'           => 'consent',
+                    'path'           => $path,
+                    'mime_type'      => $file->getClientMimeType(),
+                    'size'           => (int) round($file->getSize() / 1024),
+                    'doctor_id'      => $doctorId,
+                    'appointment_id' => $appointment->id,
+                ]);
+            } else {
+                // No file attached — create a record marking consent was signed
+                Document::create([
+                    'user_id'        => $userId,
+                    'uploaded_by'    => $userId,
+                    'title'          => $title . ' (signed)',
+                    'type'           => 'consent',
+                    'path'           => '',
+                    'mime_type'      => 'application/pdf',
+                    'size'           => 0,
+                    'doctor_id'      => $doctorId,
+                    'appointment_id' => $appointment->id,
+                ]);
+            }
+        }
+
+        if ($isAjax) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Consent document recorded successfully.',
             ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Consent document recorded successfully.',
-        ]);
+        // Browser redirect from Jotform — show a friendly page
+        return redirect()->route('patients.appointments.book-by-token', $appointment->appointment_unique_id)
+            ->with('success', 'Consent form signed successfully! Please continue with your booking.');
     }
 }

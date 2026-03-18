@@ -35,4 +35,4 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 | Optional: attach a PDF file as 'file' in the multipart request.
 |
 */
-Route::post('/consent-webhook', [AppointmentController::class, 'consentWebhook'])->name('api.consent.webhook');
+Route::match(['get', 'post'], '/consent-webhook', [AppointmentController::class, 'consentWebhook'])->name('api.consent.webhook');

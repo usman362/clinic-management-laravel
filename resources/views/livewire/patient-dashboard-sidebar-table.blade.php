@@ -2,7 +2,7 @@
     <div class="">
         <div class="row">
             <div class="col-xxl-4 col-xl-4 col-md-6 widget">
-                <a href="javascript:void(0)" class="text-decoration-none">
+                <a href="{{ route('patients.patient-appointments-index') }}" class="text-decoration-none">
                     <div
                         class="patient-wiget-appointment-card1 rounded-10 p-xxl-8 px-7 py-10 d-flex align-items-center justify-content-between mb-5">
                         <div class="text-start text-dark">
@@ -17,7 +17,7 @@
                 </a>
             </div>
             <div class="col-xxl-4 col-xl-4 col-md-6 widget">
-                <a href="javascript:void(0)" class="text-decoration-none">
+                <a href="{{ route('patients.patient-appointments-index') }}" class="text-decoration-none">
                     <div
                         class="patient-wiget-appointment-card1 rounded-10 p-xxl-8 px-7 py-10 d-flex align-items-center justify-content-between mb-5">
                         <div class="text-start text-dark">
@@ -32,7 +32,7 @@
                 </a>
             </div>
             <div class="col-xxl-4 col-xl-4 col-md-6 widget">
-                <a href="javascript:void(0)" class="text-decoration-none">
+                <a href="{{ route('patients.patient-appointments-index') }}" class="text-decoration-none">
                     <div
                         class="patient-wiget-appointment-card1 rounded-10 p-xxl-8 px-7 py-10 d-flex align-items-center justify-content-between mb-5">
                         <div class="text-start text-dark">
