@@ -48,16 +48,14 @@ class PatientShowPageAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
-        $query = Appointment::with('doctor')
+        $query = Appointment::with(['doctor', 'services'])
             ->where('patient_id', '=', $this->patientId)
-            ->where('appointments.appointment_type', 'assessment')
             ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
             ->select('appointments.*');
 
         if (getLogInUser()->hasRole('doctor')) {
-            $query = Appointment::with(['doctor.user', 'doctor.reviews'])
+            $query = Appointment::with(['doctor.user', 'doctor.reviews', 'services'])
                 ->where('patient_id', '=', $this->patientId)
-                ->where('appointments.appointment_type', 'assessment')
                 ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
                 ->whereDoctorId(getLogInUser()->doctor->id)
                 ->select('appointments.*');
@@ -95,6 +93,19 @@ class PatientShowPageAppointmentTable extends LivewireTableComponent
     public function columns(): array
     {
         return [
+            Column::make(__('messages.appointment.appointment'), 'services.name')->view('patients.components.appointment_service')
+                ->sortable()
+                ->searchable(
+                    function (Builder $query, $direction) {
+                        return $query->whereHas('services', function (Builder $q) use ($direction) {
+                            $q->where('name', 'like', '%' . $direction . '%');
+                        });
+                    }
+                ),
+            Column::make(__('messages.appointment.appointment_at'), 'date')->view('patients.components.appointment_at')
+                ->sortable()->searchable(),
+            Column::make(__('messages.setting.address'), 'services.address')->view('patients.components.appointment_location')
+                ->sortable(),
             Column::make(__('messages.doctor.doctor'), 'doctor.user.first_name')->view('patients.components.doctor')
                 ->sortable()
                 ->searchable(
@@ -104,8 +115,6 @@ class PatientShowPageAppointmentTable extends LivewireTableComponent
                         });
                     }
                 ),
-            Column::make(__('messages.appointment.appointment_at'), 'date')->view('patients.components.appointment_at')
-                ->sortable()->searchable(),
             Column::make(__('messages.appointment.status'), 'id')
                 ->format(function ($value, $row) {
                     return view('patients.components.status')

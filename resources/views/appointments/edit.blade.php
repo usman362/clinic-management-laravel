@@ -266,17 +266,22 @@
                         <!-- Embedded JotForm — one per doctor in the package -->
                         <div class="consent-form-wrapper">
                             @forelse ($fullDoctors as $doctor)
-                                <div data-doctor-id="{{ $doctor->id }}">
+                                <div data-doctor-id="{{ $doctor->id }}" class="consent-form-container">
                                 <h5 class="fw-bold mb-2 mt-4">
                                     Consent for {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}</h5>
                                 @php
                                     $jotformUrl = $doctor->jotform_link;
                                     $separator = str_contains($jotformUrl, '?') ? '&' : '?';
+                                    // Append query params so Jotform redirect preserves them in the webhook
                                     $jotformUrl .= $separator . 'appointment_id=' . $appointment->id . '&doctor_id=' . $doctor->id;
                                 @endphp
                                 <iframe src="{{ $jotformUrl }}" width="100%" height="500" frameborder="0"
-                                    scrolling="auto">
+                                    scrolling="auto" class="consent-iframe" data-doctor-id="{{ $doctor->id }}"
+                                    data-appointment-id="{{ $appointment->id }}">
                                 </iframe>
+                                <div class="consent-status mt-2" data-doctor-id="{{ $doctor->id }}" style="display: none;">
+                                    <span class="badge bg-success"><i class="fas fa-check-circle"></i> Form Signed</span>
+                                </div>
                                 </div>
                             @empty
                                 <div class="alert alert-info">

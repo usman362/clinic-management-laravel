@@ -72,7 +72,10 @@ class PatientFeedbackBookingsTable extends LivewireTableComponent
             'transaction',
             'doctor.reviews',
             'patient.user',
-        ])->where('appointments.appointment_type','feedback')->where('patient_id', getLoginUser()->patient->id)->select('appointments.*');
+        ])->where('appointments.appointment_type','feedback')
+          ->where('appointments.status','!=',Appointment::CANCELLED)
+          ->where('patient_id', getLoginUser()->patient->id)
+          ->select('appointments.*');
 
         $query->whereIn('appointments.id', function ($q) {
             $q->selectRaw('MAX(appointments.id)')

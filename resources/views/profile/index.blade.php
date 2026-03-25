@@ -147,7 +147,24 @@
                                 <div class="form-text text-muted mt-1">
                                     <small><strong>How to get the link:</strong> In JotForm, open your form &rarr; click <strong>Publish</strong> &rarr; copy the <strong>Form URL</strong> (e.g. <code>https://form.jotform.com/12345678</code>).
                                     You can also paste the full <code>&lt;iframe&gt;</code> embed code and the URL will be extracted automatically.
-                                    <br><em>Tip:</em> Use the direct form URL (not the "edit" link) so patients are not asked to log in.</small>
+                                    <br><em>Tip:</em> Use the direct form URL (not the "edit" link) so patients are not asked to log in.
+                                    </small>
+                                </div>
+                                <div class="alert alert-info mt-3" style="font-size: 0.85rem;">
+                                    <strong>Important: Webhook Configuration</strong>
+                                    <p class="mb-2">After patients sign your consent form, JotForm must redirect them to our webhook. To set this up:</p>
+                                    <ol style="margin-bottom: 0;">
+                                        <li>In JotForm, go to <strong>Settings</strong> &rarr; <strong>Notifications</strong></li>
+                                        <li>Add a webhook with these settings:
+                                            <ul style="margin-top: 5px;">
+                                                <li><strong>Webhook URL:</strong> <code>{{ url('api/consent-webhook') }}?appointment_id=APPOINTMENT_ID&doctor_id={{ auth()->id() }}</code></li>
+                                                <li><strong>Method:</strong> POST or GET</li>
+                                                <li><strong>When to send:</strong> When a form is submitted</li>
+                                            </ul>
+                                        </li>
+                                        <li>Optionally, also set up the <strong>"Thank You" page redirect</strong> to the webhook URL above so patients are taken to a confirmation page after signing.</li>
+                                    </ol>
+                                    <p style="margin-top: 10px; margin-bottom: 0;"><em>Note: The appointment_id will be added automatically by our booking system. The doctor_id should be your user ID.</em></p>
                                 </div>
                             </div>
                         </div>

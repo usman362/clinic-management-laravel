@@ -172,7 +172,6 @@ class AppointmentRepository extends BaseRepository
         try {
             DB::beginTransaction();
             // $relation_id = uniqid('appt_');
-            $user = Auth::user();
             foreach ($input['appointments'] as $key => $appt) {
                 // $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
                 $appointment = Appointment::find($appt['appointment_id']);
@@ -208,19 +207,29 @@ class AppointmentRepository extends BaseRepository
                         $input,
                         ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code', 'tax_code', 'school_name', 'school_grade']
                     );
-                    if (isset($user->address)) {
-                        $user->address()->update($addressInputArray);
+
+                    // Get the patient's user record from the appointment
+                    $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
+                    $patientUser = $patient->user;
+
+                    // Save address details to the patient's address record
+                    if ($patientUser->address) {
+                        $patientUser->address()->update($addressInputArray);
                     } else {
-                        $user->address()->create($addressInputArray);
+                        $patientUser->address()->create($addressInputArray);
                     }
-                    $user->first_name = $input['first_name'];
-                    $user->last_name = $input['last_name'];
-                    $user->dob = $input['dob'];
-                    $user->save();
+
+                    // Save child details (first_name, last_name, dob) to the patient's user record
+                    $patientUser->first_name = $input['first_name'] ?? $patientUser->first_name;
+                    $patientUser->last_name = $input['last_name'] ?? $patientUser->last_name;
+                    $patientUser->dob = $input['dob'] ?? $patientUser->dob;
+                    $patientUser->save();
                 } else {
                     $appointment->doctor_id = $appt['doctor_id'];
                     $appointment->service_id = $appt['service_id'];
                     $appointment->description = $input['description'];
+                    // Get the patient's user record from the appointment
+                    $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
                 }
                 $appointment->save();
                 // $appointment->patient_id = $input['patient_id'];
@@ -228,7 +237,6 @@ class AppointmentRepository extends BaseRepository
                 // $appointment->relation_id = $relation_id;
                 // $appointment->payable_amount = $input['payable_amount'];
                 // $appointment->appointment_unique_id = $input['appointment_unique_id'];
-                $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
                 $input['patient_name'] = $patient->user->full_name;
                 $input['original_from_time'] = $input['from_time'] . ' ' . $input['from_time_type'];
                 $input['original_to_time'] = $input['to_time'] . ' ' . $input['to_time_type'];
@@ -537,7 +545,7 @@ class AppointmentRepository extends BaseRepository
 
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
-            $data[$index]['doctorName'] = $doctorUser->full_name ?? '';
+            $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
             $data[$index]['start'] = $start->toDateTimeString();
             $data[$index]['description'] = $appointment->description;
             $data[$index]['status'] = $appointment->status;
@@ -585,7 +593,7 @@ class AppointmentRepository extends BaseRepository
 
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
-            $data[$index]['doctorName'] = $doctorUser->full_name ?? '';
+            $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
             $data[$index]['start'] = $start->toDateTimeString();
             $data[$index]['description'] = $appointment->description;
             $data[$index]['status'] = $appointment->status;
@@ -634,7 +642,7 @@ class AppointmentRepository extends BaseRepository
 
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
-            $data[$index]['doctorName'] = $doctorUser->full_name ?? '';
+            $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
             $data[$index]['patient'] = optional(optional($appointment->patient)->user)->full_name ?? '';
             $data[$index]['start'] = $start->toDateTimeString();
             $data[$index]['description'] = $appointment->description;

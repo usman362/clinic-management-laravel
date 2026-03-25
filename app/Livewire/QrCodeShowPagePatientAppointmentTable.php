@@ -26,10 +26,17 @@ class QrCodeShowPagePatientAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
-        $query = Appointment::with('doctor')->where('patient_id', '=', $this->patientId)->select('appointments.*');
+        $query = Appointment::with('doctor')
+            ->where('patient_id', '=', $this->patientId)
+            ->where('appointments.status', '!=', Appointment::CANCELLED)
+            ->select('appointments.*');
 
         if (getLogInUser()->hasRole('doctor')) {
-            $query = Appointment::with(['doctor.user', 'doctor.reviews'])->where('patient_id', '=', $this->patientId)->whereDoctorId(getLogInUser()->doctor->id)->select('appointments.*');
+            $query = Appointment::with(['doctor.user', 'doctor.reviews'])
+                ->where('patient_id', '=', $this->patientId)
+                ->where('appointments.status', '!=', Appointment::CANCELLED)
+                ->whereDoctorId(getLogInUser()->doctor->id)
+                ->select('appointments.*');
         }
 
         return $query;

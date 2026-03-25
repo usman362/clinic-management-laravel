@@ -112,12 +112,12 @@ class PatientController extends AppBaseController
 
         $data['todayAppointmentCount'] = Appointment::wherePatientId($patient['id'])
             ->whereDate('date', '=', $todayDate)
-            ->whereNotIn('status', [Appointment::CANCELLED])
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
         $data['upcomingAppointmentCount'] = Appointment::wherePatientId($patient['id'])
             ->where('date', '>', $todayDate)
-            ->whereNotIn('status', [Appointment::CANCELLED])
+            ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
         $pastCompletedAppointmentCount = Appointment::wherePatientId($patient['id'])

@@ -221,5 +221,69 @@
                 </table>
             </div>
         </div>
+        @if($pastPendingAppointments->count() > 0)
+        <div class="col-12 mb-7 mb-xxl-0 me-2">
+            <div class="d-flex border-0 pt-5 mb-2">
+                <h3 class="align-items-start flex-column">
+                    <span class="fw-bolder fs-3 mb-1">{{ __('Missed Appointments') }}</span>
+                </h3>
+            </div>
+
+            <div class="table-responsive livewire-table">
+                <table class="table table-striped">
+                    <thead>
+                        <tr class="text-uppercase">
+                            <th class="text-muted mt-1 fw-bold fs-7">{{ __('messages.doctor.doctor') }}</th>
+                            <th class="text-muted mt-1 fw-bold fs-7 text-center">
+                                {{ __('messages.appointment.date') }}</th>
+                            <th class="text-muted mt-1 fw-bold fs-7 text-center">
+                                {{ __('messages.appointment.status') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyReport">
+                        @forelse($pastPendingAppointments as $appointment)
+                            <tr>
+                                <td class="w-50px">
+                                    <div class="d-flex align-items-center">
+                                        <div class="image image-circle image-mini me-3">
+                                            <img src="{{ $appointment->doctor->user->profile_image }}" alt="user"
+                                                class="user-img">
+                                        </div>
+                                        <div class="d-flex flex-column">
+                                            <a href="{{ route('patients.appointment.detail', $appointment->id) }}"
+                                                class="text-primary-800 mb-1 fs-6 text-decoration-none">
+                                                {{ $appointment->doctor->user->fullname }}</a>
+                                            <span class="text-muted fw-bold d-block">{{ $appointment->doctor->user->email }}</span>
+                                            @if($appointment->appointment_type === 'feedback')
+                                                <span class="badge mt-1" style="background-color: #7c3aed; color: #fff; width: fit-content;">Feedback</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="mb-1 fs-6 text-muted fw-bold text-center">
+                                    <span class="badge bg-light-info">
+                                        {{ \Carbon\Carbon::parse($appointment->date)->isoFormat('DD MMM YYYY') }}
+                                    </span>
+                                </td>
+                                <td class="mb-1 fs-6 text-muted fw-bold text-center">
+                                    @if($appointment->status === 'BOOKED')
+                                        <span class="badge bg-warning">{{ __('Booked') }}</span>
+                                    @else
+                                        <span class="badge bg-info">{{ __('Checked In') }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="text-center text-muted fw-bold">
+                                    {{ __('messages.common.no_data_available') }}
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
     </div>
 </div>

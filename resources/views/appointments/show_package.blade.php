@@ -21,7 +21,7 @@
                     @else
                         <a class="btn btn-warning"
                            href="{{ route('feedback.send-from-package', $package->id) }}"
-                           onclick="return confirm('This will create a feedback package for this patient with the same doctor(s). Continue?')">
+                           onclick="return confirm('This will create a feedback package for this patient with the same doctor(s).\n\nNote: Any appointments that have not been completed will trigger a warning message.\n\nContinue?')">
                             <i class="fas fa-paper-plane me-1"></i> Send Feedback Package
                         </a>
                     @endif

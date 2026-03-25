@@ -29,6 +29,8 @@ class PatientDashboardSidebarTable extends Component
 
     public $pendingAppointments;
 
+    public $pastPendingAppointments;
+
     public function mount()
     {
         $todayDate = Carbon::now()->format('Y-m-d');
@@ -45,7 +47,7 @@ class PatientDashboardSidebarTable extends Component
             ->count();
 
         $this->upcomingAppointmentCount = Appointment::wherePatientId($patientId)
-            ->where('date', '>', $todayDate)
+            ->where('date', '>=', $todayDate)
             ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->count();
 
@@ -90,7 +92,16 @@ class PatientDashboardSidebarTable extends Component
                     ->whereStatus(Appointment::BOOKING_PENDING)
                     ->groupBy('relation_id');
             })
+            ->whereIn('appointment_type', ['assessment', 'feedback'])
             ->orderByDesc('appointments.id')
+            ->get();
+
+        // Past pending appointments: BOOKED or CHECK_IN with date < today
+        $this->pastPendingAppointments = Appointment::with(['patient.user', 'doctor.user', 'services'])
+            ->wherePatientId($patientId)
+            ->where('date', '<', $todayDate)
+            ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])
+            ->orderByDesc('date')
             ->get();
     }
     public function placeholder()

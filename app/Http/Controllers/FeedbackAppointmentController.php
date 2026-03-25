@@ -797,6 +797,16 @@ class FeedbackAppointmentController extends AppBaseController
             return redirect()->back();
         }
 
+        // Check if all appointments in the assessment package are completed (CHECK_OUT status)
+        $incompleteAppointments = $assessmentPkg->assessmentAppointments()
+            ->where('status', '!=', Appointment::CHECK_OUT)
+            ->count();
+
+        if ($incompleteAppointments > 0) {
+            Flash::warning('Warning: Not all appointments in this assessment package have been completed yet. ' . $incompleteAppointments . ' appointment(s) are still pending. Do you want to proceed with creating the feedback package?');
+            return redirect()->back();
+        }
+
         try {
             DB::beginTransaction();
 

@@ -73,7 +73,8 @@ class PatientFeedbackBookingAppointmentTable extends LivewireTableComponent
             'transaction',
             'doctor.reviews',
         ])->where('patient_id', getLoginUser()->patient->id)
-        ->where('appointments.status', '!=', 5)
+        ->where('appointments.status', '!=', Appointment::BOOKING_PENDING)
+        ->where('appointments.status', '!=', Appointment::CANCELLED)
         ->where('appointments.appointment_type', 'feedback')
         ->where('relation_id', $this->relationId)->select('appointments.*');
 

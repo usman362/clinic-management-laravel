@@ -216,39 +216,33 @@ class DoctorSessionController extends AppBaseController
             $gap = $doctorSession->session_gap;
             $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
             foreach ($slots as $key => $slot) {
-                $key--;
-                if ($key != 0) {
-                    $slotStartTime = date('h:i A',
-                        strtotime('+'.$gap * $key.' minutes', strtotime($slot[0])));
-                    $slotEndTime = date('h:i A',
-                        strtotime('+'.$gap * $key.' minutes', strtotime($slot[1])));
-                    if (strtotime($doctorWeekDaySession->full_end_time) < strtotime($slotEndTime)) {
-                        break;
-                    }
-                    if (strtotime($slotStartTime) < strtotime($slotEndTime)) {
-                        if (($isSameWeekDay && strtotime($slotStartTime) > strtotime(date('h:i A'))) || ! $isSameWeekDay) {
-                            $startTimeOrg = Carbon::parse(date('h:i A', strtotime($slotStartTime)));
-                            $slotStartTimeCarbon = Carbon::parse(date('h:i A', strtotime($startTime)));
-                            $slotEndTimeCarbon = Carbon::parse(date('h:i A', strtotime($endTime)));
-                            if (! $startTimeOrg->between($slotStartTimeCarbon, $slotEndTimeCarbon)) {
-                                break;
-                            }
+                $slotStartTime = date('h:i A', strtotime($slot[0]));
+                $slotEndTime = date('h:i A', strtotime($slot[1]));
 
-                            if (in_array(($slotStartTime.' - '.$slotEndTime), $bookingSlot)) {
-                                break;
-                            }
-                            $bookingSlot[] = $slotStartTime.' - '.$slotEndTime;
-                        }
-                    }
-                } else {
-                    if (($isSameWeekDay && strtotime($slot[0]) > strtotime(date('h:i A'))) || ! $isSameWeekDay) {
-                        if (in_array((date('h:i A', strtotime($slot[0])).' - '.date('h:i A', strtotime($slot[1]))),
-                            $bookingSlot)) {
-                            break;
-                        }
-                        $bookingSlot[] = date('h:i A', strtotime($slot[0])).' - '.date('h:i A', strtotime($slot[1]));
-                    }
+                // Check if slot end time exceeds the block's end time
+                if (strtotime($slotEndTime) > strtotime($doctorWeekDaySession->full_end_time)) {
+                    break;
                 }
+
+                // Check if this is a past time slot
+                if ($isSameWeekDay && strtotime($slotStartTime) <= strtotime(date('h:i A'))) {
+                    continue;
+                }
+
+                // Check if slot is within the doctor's working hours
+                $startTimeOrg = Carbon::parse($slotStartTime);
+                $slotStartTimeCarbon = Carbon::parse(date('h:i A', strtotime($startTime)));
+                $slotEndTimeCarbon = Carbon::parse(date('h:i A', strtotime($endTime)));
+                if (! $startTimeOrg->between($slotStartTimeCarbon, $slotEndTimeCarbon)) {
+                    break;
+                }
+
+                // Check if slot is already booked
+                if (in_array(($slotStartTime.' - '.$slotEndTime), $bookingSlot)) {
+                    continue;
+                }
+
+                $bookingSlot[] = $slotStartTime.' - '.$slotEndTime;
             }
         }
 
@@ -327,36 +321,34 @@ class DoctorSessionController extends AppBaseController
                 $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
 
                 foreach ($slots as $key => $slot) {
-                    $key--;
-                    if ($key != 0) {
-                        $slotStartTime = date('h:i A', strtotime('+'.$gap * $key.' minutes', strtotime($slot[0])));
-                        $slotEndTime = date('h:i A', strtotime('+'.$gap * $key.' minutes', strtotime($slot[1])));
-                        if (strtotime($doctorWeekDaySession->full_end_time) < strtotime($slotEndTime)) {
-                            break;
-                        }
-                        if (strtotime($slotStartTime) < strtotime($slotEndTime)) {
-                            if (($isSameWeekDay && strtotime($slotStartTime) > strtotime(date('h:i A'))) || ! $isSameWeekDay) {
-                                $startTimeOrg = Carbon::parse(date('h:i A', strtotime($slotStartTime)));
-                                $slotStartTimeCarbon = Carbon::parse(date('h:i A', strtotime($startTime)));
-                                $slotEndTimeCarbon = Carbon::parse(date('h:i A', strtotime($endTime)));
-                                if (! $startTimeOrg->between($slotStartTimeCarbon, $slotEndTimeCarbon)) {
-                                    break;
-                                }
-                                if (in_array(($slotStartTime.' - '.$slotEndTime), $bookingSlot)) {
-                                    break;
-                                }
-                                $bookingSlot[] = $slotStartTime.' - '.$slotEndTime;
-                            }
-                        }
-                    } else {
-                        if (($isSameWeekDay && strtotime($slot[0]) > strtotime(date('h:i A'))) || ! $isSameWeekDay) {
-                            $slotStr = date('h:i A', strtotime($slot[0])).' - '.date('h:i A', strtotime($slot[1]));
-                            if (in_array($slotStr, $bookingSlot)) {
-                                break;
-                            }
-                            $bookingSlot[] = $slotStr;
-                        }
+                    $slotStartTime = date('h:i A', strtotime($slot[0]));
+                    $slotEndTime = date('h:i A', strtotime($slot[1]));
+
+                    // Check if slot end time exceeds the block's end time
+                    if (strtotime($slotEndTime) > strtotime($doctorWeekDaySession->full_end_time)) {
+                        break;
                     }
+
+                    // Check if this is a past time slot
+                    if ($isSameWeekDay && strtotime($slotStartTime) <= strtotime(date('h:i A'))) {
+                        continue;
+                    }
+
+                    // Check if slot is within the doctor's working hours
+                    $startTimeOrg = Carbon::parse($slotStartTime);
+                    $slotStartTimeCarbon = Carbon::parse(date('h:i A', strtotime($startTime)));
+                    $slotEndTimeCarbon = Carbon::parse(date('h:i A', strtotime($endTime)));
+                    if (! $startTimeOrg->between($slotStartTimeCarbon, $slotEndTimeCarbon)) {
+                        break;
+                    }
+
+                    // Check if slot is already booked
+                    $slotStr = $slotStartTime.' - '.$slotEndTime;
+                    if (in_array($slotStr, $bookingSlot)) {
+                        continue;
+                    }
+
+                    $bookingSlot[] = $slotStr;
                 }
             }
 

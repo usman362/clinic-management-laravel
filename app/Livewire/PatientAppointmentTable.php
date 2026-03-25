@@ -75,6 +75,7 @@ class PatientAppointmentTable extends LivewireTableComponent
         ])->where('appointments.appointment_type', 'assessment')
           ->where('patient_id', getLoginUser()->patient->id)
           ->where('appointments.status', '!=', Appointment::BOOKING_PENDING)
+          ->where('appointments.status', '!=', Appointment::CANCELLED)
           ->select('appointments.*');
 
         $query->when(

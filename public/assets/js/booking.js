@@ -413,7 +413,7 @@
 
             $.ajax({
                 url: $(this).attr('action'),
-                method: 'POST',
+                method: 'PUT',
                 data: formData,
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 success: function (res) {
@@ -448,9 +448,11 @@
 
         /* ==========================
             JOTFORM postMessage LISTENER
-            Detects when the JotForm iframe submission completes
-            and auto-checks the consent checkbox.
+            Detects when individual JotForm iframe submissions complete
+            and tracks which forms have been signed.
         ========================== */
+        var signedConsentForms = {}; // Track which doctor's forms have been signed
+
         window.addEventListener('message', function (event) {
             // JotForm sends a postMessage with submission data on completion
             // The origin will be from jotform.com or a custom domain
@@ -466,24 +468,34 @@
             // JotForm sends messages with action: 'submission-completed' or
             // a 'formData' payload once the form is submitted
             if (data && (data.action === 'submission-completed' || data.formData || data.submissionID)) {
-                // Auto-check the consent checkbox
-                if (!$('#consentConfirmed').is(':checked')) {
-                    $('#consentConfirmed').prop('checked', true).trigger('change');
+                // Detect which iframe sent this message
+                // Note: JotForm doesn't provide the iframe info, so we'll use a different approach
+                // Check all iframes and see which one should be marked as signed
+                var submissionId = data.submissionID || data.id || '';
+
+                // Store this submission ID
+                if (submissionId) {
+                    window._lastJotformSubmission = {
+                        id: submissionId,
+                        timestamp: Date.now(),
+                        data: data
+                    };
                 }
 
                 // Notify the user
                 showNotification('Consent form signed successfully!');
 
-                // Optionally POST the consent to our authenticated endpoint
+                // Try to post to webhook from JS (for immediate recording)
                 var appointmentId = $('#appointment_id_for_draft').val();
+
+                // Get doctor IDs from all consent forms
                 var doctorIds = [];
-                $('.consent-form-wrapper iframe').each(function () {
-                    var src = $(this).attr('src') || '';
-                    // Try to get the doctor_id from a data attribute on the parent
-                    var doctorId = $(this).closest('[data-doctor-id]').data('doctor-id');
+                $('.consent-form-wrapper .consent-form-container').each(function () {
+                    var doctorId = $(this).data('doctor-id');
                     if (doctorId) doctorIds.push(doctorId);
                 });
 
+                // For now, record the first doctor (since we can't determine which iframe posted)
                 if (appointmentId && doctorIds.length > 0) {
                     $.ajax({
                         url: '/api/consent-webhook',
@@ -491,9 +503,15 @@
                         data: {
                             appointment_id: appointmentId,
                             doctor_id: doctorIds[0],
+                            submission_id: submissionId
                         },
                         success: function (result) {
                             console.log('Consent webhook recorded:', result);
+                            // Mark the form as signed
+                            if (doctorIds[0]) {
+                                signedConsentForms[doctorIds[0]] = true;
+                                updateConsentSignStatus();
+                            }
                         },
                         error: function (xhr) {
                             console.warn('Consent webhook failed:', xhr.responseText);
@@ -504,6 +522,32 @@
                 scheduleSaveDraft();
             }
         });
+
+        /**
+         * Update the UI to show which consent forms have been signed
+         */
+        function updateConsentSignStatus() {
+            var allFormsRequired = $('.consent-form-wrapper .consent-form-container').length;
+            var formsSigned = Object.keys(signedConsentForms).filter(function (k) { return signedConsentForms[k]; }).length;
+
+            $('.consent-form-wrapper .consent-form-container').each(function () {
+                var doctorId = $(this).data('doctor-id');
+                var $status = $(this).find('.consent-status[data-doctor-id="' + doctorId + '"]');
+
+                if (signedConsentForms[doctorId]) {
+                    $status.show();
+                } else {
+                    $status.hide();
+                }
+            });
+
+            // Only enable the checkbox if all forms are signed OR no forms are required
+            if (allFormsRequired === 0 || formsSigned === allFormsRequired) {
+                $('#consentConfirmed').prop('disabled', false);
+            } else {
+                $('#consentConfirmed').prop('disabled', true);
+            }
+        }
 
         /* ==========================
             TIME SLOT LOADING (per appointment section)

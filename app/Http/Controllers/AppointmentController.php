@@ -972,9 +972,17 @@ class AppointmentController extends AppBaseController
      */
     public function consentWebhook(Request $request)
     {
-        // Accept appointment_id and doctor_id from query params, POST form fields, or Jotform rawRequest
-        $appointmentId = $request->input('appointment_id', $request->query('appointment_id'));
-        $doctorId = $request->input('doctor_id', $request->query('doctor_id'));
+        // Try to get appointment_id and doctor_id from multiple sources:
+        // 1. Query parameters (preferred when Jotform redirect includes them)
+        // 2. POST form fields / hidden fields in Jotform
+        // 3. Jotform's rawRequest field (if present)
+
+        $appointmentId = $request->query('appointment_id')
+                      ?? $request->input('appointment_id')
+                      ?? null;
+        $doctorId = $request->query('doctor_id')
+                 ?? $request->input('doctor_id')
+                 ?? null;
 
         // Jotform may send a rawRequest JSON field containing submitted data
         if ((! $appointmentId || ! $doctorId) && $request->has('rawRequest')) {
@@ -997,7 +1005,10 @@ class AppointmentController extends AppBaseController
                     'message' => 'Missing required parameters: appointment_id and doctor_id.',
                 ], 422);
             }
-            return redirect('/')->with('error', 'Consent form submission could not be processed. Missing appointment details.');
+            // Return a user-friendly error page instead of plain redirect
+            return response()->view('errors.consent-error', [
+                'message' => 'Consent form submission could not be processed. Missing appointment details.',
+            ], 422);
         }
 
         // Look up the appointment
@@ -1013,7 +1024,9 @@ class AppointmentController extends AppBaseController
                     'message' => 'Appointment not found or does not match the given doctor.',
                 ], 404);
             }
-            return redirect('/')->with('error', 'Appointment not found.');
+            return response()->view('errors.consent-error', [
+                'message' => 'Appointment not found or does not match the selected doctor.',
+            ], 404);
         }
 
         $userId = $appointment->patient->user_id;
@@ -1070,7 +1083,7 @@ class AppointmentController extends AppBaseController
             ]);
         }
 
-        // Browser redirect from Jotform — show a friendly page
+        // Browser redirect from Jotform — show a friendly success page before redirecting
         return redirect()->route('patients.appointments.book-by-token', $appointment->appointment_unique_id)
             ->with('success', 'Consent form signed successfully! Please continue with your booking.');
     }

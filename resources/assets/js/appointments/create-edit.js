@@ -56,6 +56,8 @@ listenChange('#appointmentDate', function () {
             'adminAppointmentDoctorId': $('#adminAppointmentDoctorId').val(),
             'date': selectedDate,
             'timezone_offset_minutes': timezoneOffsetMinutes,
+            'appointmentServiceId': $('#appointmentServiceId').val(),
+            'appointment_type': $('.appointmentType').val() || 'normal',
         },
         success: function (result) {
             if (result.success) {

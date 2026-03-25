@@ -34,7 +34,9 @@ function tooltip() {
 }
 
 function alertInitialize() {
-    $('.alert').delay(5000).slideUp(300)
+    // Only auto-dismiss alerts that don't have the 'alert-important' class
+    // This preserves manually-dismissible alerts like the feedback instructions banner
+    $('.alert:not(.alert-important):not(#feedbackInstructions)').delay(5000).slideUp(300)
 }
 
 function refreshCsrfToken() {
