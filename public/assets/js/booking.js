@@ -452,25 +452,70 @@
             and tracks which forms have been signed.
         ========================== */
         var signedConsentForms = {}; // Track which doctor's forms have been signed
+        var _consentWebhookPending = {}; // Prevent duplicate AJAX calls
+
+        /**
+         * Record consent via AJAX for a specific doctor
+         */
+        function recordConsentForDoctor(doctorId, submissionId) {
+            var appointmentId = $('#appointment_id_for_draft').val();
+            if (!appointmentId || !doctorId) return;
+            if (_consentWebhookPending[doctorId]) return; // Already processing
+            if (signedConsentForms[doctorId]) return; // Already signed
+
+            _consentWebhookPending[doctorId] = true;
+
+            $.ajax({
+                url: '/api/consent-webhook',
+                type: 'POST',
+                data: {
+                    appointment_id: appointmentId,
+                    doctor_id: doctorId,
+                    submission_id: submissionId || ''
+                },
+                success: function (result) {
+                    console.log('Consent webhook recorded for doctor ' + doctorId + ':', result);
+                    signedConsentForms[doctorId] = true;
+                    updateConsentSignStatus();
+                },
+                error: function (xhr) {
+                    console.warn('Consent webhook failed for doctor ' + doctorId + ':', xhr.responseText);
+                },
+                complete: function () {
+                    _consentWebhookPending[doctorId] = false;
+                }
+            });
+        }
 
         window.addEventListener('message', function (event) {
-            // JotForm sends a postMessage with submission data on completion
-            // The origin will be from jotform.com or a custom domain
-            if (!event.origin || event.origin.indexOf('jotform') === -1) {
-                return;
-            }
-
             var data = event.data;
             if (typeof data === 'string') {
                 try { data = JSON.parse(data); } catch (e) { return; }
             }
+            if (!data || typeof data !== 'object') return;
+
+            // Handle our OWN success page postMessage (from consent-success-fallback view)
+            if (data.action === 'consent-form-completed' && data.source === 'clinic-consent-webhook') {
+                showNotification('Consent form signed successfully!');
+                // Record consent for all unsigned doctors
+                $('.consent-form-wrapper .consent-form-container').each(function () {
+                    var doctorId = $(this).data('doctor-id');
+                    if (doctorId && !signedConsentForms[doctorId]) {
+                        recordConsentForDoctor(doctorId, '');
+                    }
+                });
+                scheduleSaveDraft();
+                return;
+            }
+
+            // Handle JotForm postMessage
+            if (!event.origin || event.origin.indexOf('jotform') === -1) {
+                return;
+            }
 
             // JotForm sends messages with action: 'submission-completed' or
             // a 'formData' payload once the form is submitted
-            if (data && (data.action === 'submission-completed' || data.formData || data.submissionID)) {
-                // Detect which iframe sent this message
-                // Note: JotForm doesn't provide the iframe info, so we'll use a different approach
-                // Check all iframes and see which one should be marked as signed
+            if (data.action === 'submission-completed' || data.formData || data.submissionID) {
                 var submissionId = data.submissionID || data.id || '';
 
                 // Store this submission ID
@@ -482,44 +527,48 @@
                     };
                 }
 
-                // Notify the user
                 showNotification('Consent form signed successfully!');
 
-                // Try to post to webhook from JS (for immediate recording)
-                var appointmentId = $('#appointment_id_for_draft').val();
-
-                // Get doctor IDs from all consent forms
+                // Get all doctor IDs and record consent for each unsigned one
                 var doctorIds = [];
                 $('.consent-form-wrapper .consent-form-container').each(function () {
                     var doctorId = $(this).data('doctor-id');
                     if (doctorId) doctorIds.push(doctorId);
                 });
 
-                // For now, record the first doctor (since we can't determine which iframe posted)
-                if (appointmentId && doctorIds.length > 0) {
-                    $.ajax({
-                        url: '/api/consent-webhook',
-                        type: 'POST',
-                        data: {
-                            appointment_id: appointmentId,
-                            doctor_id: doctorIds[0],
-                            submission_id: submissionId
-                        },
-                        success: function (result) {
-                            console.log('Consent webhook recorded:', result);
-                            // Mark the form as signed
-                            if (doctorIds[0]) {
-                                signedConsentForms[doctorIds[0]] = true;
-                                updateConsentSignStatus();
-                            }
-                        },
-                        error: function (xhr) {
-                            console.warn('Consent webhook failed:', xhr.responseText);
-                        }
-                    });
+                // Try to determine which iframe sent this (by checking which hasn't been signed yet)
+                var unsignedDoctors = doctorIds.filter(function (id) { return !signedConsentForms[id]; });
+                if (unsignedDoctors.length > 0) {
+                    recordConsentForDoctor(unsignedDoctors[0], submissionId);
+                } else if (doctorIds.length > 0) {
+                    recordConsentForDoctor(doctorIds[0], submissionId);
                 }
 
                 scheduleSaveDraft();
+            }
+        });
+
+        /**
+         * IFRAME LOAD MONITORING
+         * Detects when a Jotform iframe navigates to our webhook (redirect with HTTP POST)
+         * and automatically records consent. This handles the case where Jotform
+         * redirects the iframe to /api/consent-webhook which shows the success page.
+         */
+        $('.consent-iframe').on('load', function () {
+            var $iframe = $(this);
+            var doctorId = $iframe.data('doctor-id');
+            if (!doctorId || signedConsentForms[doctorId]) return;
+
+            try {
+                // If iframe navigated to our domain (consent webhook redirect), it means form was submitted
+                var iframeUrl = $iframe[0].contentWindow.location.href;
+                if (iframeUrl && iframeUrl.indexOf('consent-webhook') !== -1) {
+                    // The iframe was redirected to our webhook — record consent
+                    recordConsentForDoctor(doctorId, '');
+                    showNotification('Consent form signed successfully!');
+                }
+            } catch (e) {
+                // Cross-origin — iframe is still on jotform.com, which is normal on initial load
             }
         });
 

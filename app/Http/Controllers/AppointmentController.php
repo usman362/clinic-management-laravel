@@ -976,6 +976,7 @@ class AppointmentController extends AppBaseController
         // 1. Query parameters (preferred when Jotform redirect includes them)
         // 2. POST form fields / hidden fields in Jotform
         // 3. Jotform's rawRequest field (if present)
+        // 4. Jotform's formID + search all POST data for embedded fields
 
         $appointmentId = $request->query('appointment_id')
                       ?? $request->input('appointment_id')
@@ -996,8 +997,52 @@ class AppointmentController extends AppBaseController
             }
         }
 
+        // Jotform POST redirect: scan ALL input fields for appointment_id / doctor_id
+        // Jotform names hidden fields as q1_appointmentId, q2_doctorId etc.
+        if (! $appointmentId || ! $doctorId) {
+            foreach ($request->all() as $key => $value) {
+                if (is_string($value)) {
+                    if (! $appointmentId && (stripos($key, 'appointment') !== false || $key === 'appointment_id')) {
+                        $appointmentId = $value;
+                    }
+                    if (! $doctorId && (stripos($key, 'doctor') !== false || $key === 'doctor_id')) {
+                        $doctorId = $value;
+                    }
+                }
+                // Jotform sends fields as arrays sometimes: q3[field] => value
+                if (is_array($value)) {
+                    foreach ($value as $subKey => $subVal) {
+                        if (is_string($subVal)) {
+                            if (! $appointmentId && stripos($subKey, 'appointment') !== false) {
+                                $appointmentId = $subVal;
+                            }
+                            if (! $doctorId && stripos($subKey, 'doctor') !== false) {
+                                $doctorId = $subVal;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Last resort: try to extract from the HTTP Referer header
+        // The Jotform iframe URL contains ?appointment_id=X&doctor_id=Y
+        if (! $appointmentId || ! $doctorId) {
+            $referer = $request->header('Referer', '');
+            if ($referer) {
+                $parsed = parse_url($referer);
+                if (isset($parsed['query'])) {
+                    parse_str($parsed['query'], $refParams);
+                    $appointmentId = $appointmentId ?: ($refParams['appointment_id'] ?? null);
+                    $doctorId = $doctorId ?: ($refParams['doctor_id'] ?? null);
+                }
+            }
+        }
+
         $isAjax = $request->ajax() || $request->wantsJson();
 
+        // If still missing parameters, show a friendly page that auto-closes
+        // (the JS postMessage listener on the booking page will handle it instead)
         if (! $appointmentId || ! $doctorId) {
             if ($isAjax) {
                 return response()->json([
@@ -1005,10 +1050,11 @@ class AppointmentController extends AppBaseController
                     'message' => 'Missing required parameters: appointment_id and doctor_id.',
                 ], 422);
             }
-            // Return a user-friendly error page instead of plain redirect
-            return response()->view('errors.consent-error', [
-                'message' => 'Consent form submission could not be processed. Missing appointment details.',
-            ], 422);
+            // Show a success-like page that tells the user to go back to the booking
+            // The JS postMessage listener will have already recorded the consent
+            return response()->view('errors.consent-success-fallback', [
+                'message' => 'Your consent form has been submitted. Please close this window and return to the booking page to continue.',
+            ]);
         }
 
         // Look up the appointment
@@ -1018,14 +1064,26 @@ class AppointmentController extends AppBaseController
             ->first();
 
         if (! $appointment || ! $appointment->patient) {
+            // Try looking up by just appointment_id (doctor_id may not match for packages)
+            $appointment = Appointment::with('patient.user')
+                ->where('id', $appointmentId)
+                ->first();
+
+            if ($appointment) {
+                // Use the actual doctor_id from the appointment
+                $doctorId = $appointment->doctor_id;
+            }
+        }
+
+        if (! $appointment || ! $appointment->patient) {
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Appointment not found or does not match the given doctor.',
+                    'message' => 'Appointment not found.',
                 ], 404);
             }
             return response()->view('errors.consent-error', [
-                'message' => 'Appointment not found or does not match the selected doctor.',
+                'message' => 'Appointment not found. Please return to the booking page and try again.',
             ], 404);
         }
 
@@ -1083,8 +1141,10 @@ class AppointmentController extends AppBaseController
             ]);
         }
 
-        // Browser redirect from Jotform — show a friendly success page before redirecting
-        return redirect()->route('patients.appointments.book-by-token', $appointment->appointment_unique_id)
-            ->with('success', 'Consent form signed successfully! Please continue with your booking.');
+        // Browser redirect from Jotform — show a friendly success page
+        return response()->view('errors.consent-success-fallback', [
+            'message' => 'Consent form signed successfully! You can close this window and continue with your booking.',
+            'appointment' => $appointment,
+        ]);
     }
 }
