@@ -78,7 +78,10 @@ class AuthorizePaymentController extends AppBaseController
         $requests->setRefId($refId);
         $requests->setTransactionRequest($transactionRequestType);
 
-        // Create the controller and get the response
+        // Create the controller and get the response.
+        // NOTE: This clinic uses physical/manual payments. Authorize.net is disabled
+        // in Appointment::PAYMENT_METHOD, so this code path is unreachable in normal use.
+        // Left as SANDBOX (original behavior) to avoid any chance of hitting a real endpoint.
         $controller = new AnetController\CreateTransactionController($requests);
         $response = $controller->executeWithApiResponse(\net\authorize\api\constants\ANetEnvironment::SANDBOX);
 
@@ -130,8 +133,12 @@ class AuthorizePaymentController extends AppBaseController
 
                         return redirect(route('appointments.index'));
                     } catch (HttpException $ex) {
-                        echo $ex->statusCode;
-                        print_r($ex->getMessage());
+                        \Log::error('Authorize.net payment error', [
+                            'status' => $ex->statusCode,
+                            'message' => $ex->getMessage(),
+                        ]);
+                        $message_text = __('messages.flash.there_were');
+                        $msg_type = 'error_msg';
                     }
                 } else {
                     $message_text = __('messages.flash.there_were');

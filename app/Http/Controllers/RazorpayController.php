@@ -65,37 +65,44 @@ class RazorpayController extends AppBaseController
                 $generatedSignature = hash_hmac('sha256', $payment['order_id'].'|'.$input['razorpay_payment_id'],
                     config('payments.razorpay.secret'));
                 if ($generatedSignature != $input['razorpay_signature']) {
+                    Log::warning('Razorpay signature mismatch', ['payment_id' => $input['razorpay_payment_id']]);
                     return redirect()->back();
                 }
-                // Create Transaction Here
 
                 $appointmentID = $payment['notes']['appointmentID'];
                 $appointment = Appointment::whereId($appointmentID)->first();
+                if (! $appointment) {
+                    Log::warning('Razorpay callback for unknown appointment', ['appointmentID' => $appointmentID]);
+                    return redirect()->back();
+                }
                 $patient = Patient::with('user')->whereId($appointment->patient_id)->first();
 
-                $transaction = [
-                    'user_id' => $patient->user->id,
-                    'transaction_id' => $payment->id,
-                    'appointment_id' => $appointment['appointment_unique_id'],
-                    'amount' => intval($appointment['payable_amount']),
-                    'type' => Appointment::RAZORPAY,
-                    'meta' => $payment->toArray(),
-                ];
+                // Idempotency: skip if this Razorpay payment id has already been recorded.
+                if (! Transaction::where('transaction_id', $payment->id)->exists()) {
+                    $transaction = [
+                        'user_id' => $patient->user->id,
+                        'transaction_id' => $payment->id,
+                        'appointment_id' => $appointment['appointment_unique_id'],
+                        'amount' => intval($appointment['payable_amount']),
+                        'type' => Appointment::RAZORPAY,
+                        'meta' => $payment->toArray(),
+                    ];
 
-                Transaction::create($transaction);
+                    Transaction::create($transaction);
 
-                $appointment->update([
-                    'payment_method' => Appointment::RAZORPAY,
-                    'payment_type' => Appointment::PAID,
-                ]);
+                    $appointment->update([
+                        'payment_method' => Appointment::RAZORPAY,
+                        'payment_type' => Appointment::PAID,
+                    ]);
+
+                    Notification::create([
+                        'title' => Notification::APPOINTMENT_PAYMENT_DONE_PATIENT_MSG,
+                        'type' => Notification::PAYMENT_DONE,
+                        'user_id' => $patient->user->id,
+                    ]);
+                }
 
                 Flash::success(__('messages.flash.appointment_created_payment_complete'));
-
-                Notification::create([
-                    'title' => Notification::APPOINTMENT_PAYMENT_DONE_PATIENT_MSG,
-                    'type' => Notification::PAYMENT_DONE,
-                    'user_id' => $patient->user->id,
-                ]);
 
                 if (! getLogInUser()) {
                     return redirect(route('medicalAppointment'));
@@ -107,7 +114,12 @@ class RazorpayController extends AppBaseController
 
                 return redirect(route('appointments.index'));
             } catch (Exception $e) {
-                return false;
+                Log::error('Razorpay payment processing error', [
+                    'message' => $e->getMessage(),
+                    'payment_id' => $input['razorpay_payment_id'] ?? null,
+                ]);
+                Flash::error(__('messages.flash.payment_failed') ?: 'Payment processing failed.');
+                return redirect()->back();
             }
         }
 

@@ -312,8 +312,21 @@ class UserController extends AppBaseController
 
     public function impersonate(int $id): RedirectResponse
     {
+        // Only clinic admins can impersonate, and never themselves or other admins.
+        $currentUser = getLogInUser();
+        abort_unless($currentUser && $currentUser->hasRole('clinic_admin'), 403);
+
         $user = User::findOrFail($id);
-        getLogInUser()->impersonate($user);
+        abort_if($user->id === $currentUser->id, 403, 'Cannot impersonate yourself.');
+        abort_if($user->hasRole('clinic_admin'), 403, 'Cannot impersonate another admin.');
+
+        \Log::info('Impersonation started', [
+            'actor_id' => $currentUser->id,
+            'target_id' => $user->id,
+            'target_role' => $user->roles->pluck('name')->first(),
+        ]);
+
+        $currentUser->impersonate($user);
         if ($user->hasRole('doctor')) {
             return redirect()->route('doctors.dashboard');
         } elseif ($user->hasRole('patient')) {

@@ -293,7 +293,7 @@
                             $booking_info = \App\Models\Setting::pluck('value', 'key')->toArray();
                         @endphp
 
-                        {!! $booking_info['booking_info'] !!}
+                        {!! clean($booking_info['booking_info'], 'default') !!}
                     </div>
 
                     <!-- Required Checkbox -->

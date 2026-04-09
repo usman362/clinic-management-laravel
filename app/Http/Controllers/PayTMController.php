@@ -70,72 +70,77 @@ class PayTMController extends AppBaseController
         $response = $transaction->response();
         $order_id = $transaction->getOrderId(); // return a order id
         $transaction->getTransactionId(); // return a transaction id
-        [$appointmentId, $loginUserId] = explode('|', $order_id);
+        // SECURITY: do NOT trust user IDs round-tripped via order_id (auth bypass).
+        // We only use $appointmentId here; the user is derived from the appointment server-side.
+        [$appointmentId] = explode('|', $order_id);
 
         // update the db data as per result from api call
         if ($transaction->isSuccessful()) {
             $appointment = Appointment::whereId($appointmentId)->first();
+            if (! $appointment) {
+                Log::warning('PayTM callback for unknown appointment', ['order_id' => $order_id]);
+                return redirect(route('medicalAppointment'));
+            }
             $patient = Patient::with('user')->whereId($appointment->patient_id)->first();
 
-            $transaction = [
-                'user_id' => $patient->user->id,
-                'transaction_id' => $response['TXNID'],
-                'appointment_id' => $appointment['appointment_unique_id'],
-                'amount' => $appointment['payable_amount'],
-                'type' => Appointment::PAYTM,
-                'meta' => json_encode($response),
-            ];
+            // Idempotency: skip if this transaction has already been recorded.
+            if (! Transaction::where('transaction_id', $response['TXNID'])->exists()) {
+                $newTransaction = [
+                    'user_id' => $patient->user->id,
+                    'transaction_id' => $response['TXNID'],
+                    'appointment_id' => $appointment['appointment_unique_id'],
+                    'amount' => $appointment['payable_amount'],
+                    'type' => Appointment::PAYTM,
+                    'meta' => json_encode($response),
+                ];
 
-            Transaction::create($transaction);
+                Transaction::create($newTransaction);
 
-            $appointment->update([
-                'payment_method' => Appointment::PAYTM,
-                'payment_type' => Appointment::PAID,
-            ]);
+                $appointment->update([
+                    'payment_method' => Appointment::PAYTM,
+                    'payment_type' => Appointment::PAID,
+                ]);
+
+                Notification::create([
+                    'title' => Notification::APPOINTMENT_PAYMENT_DONE_PATIENT_MSG,
+                    'type' => Notification::PAYMENT_DONE,
+                    'user_id' => $patient->user->id,
+                ]);
+            }
 
             Flash::success(__('messages.flash.appointment_created_payment_complete'));
 
-            Notification::create([
-                'title' => Notification::APPOINTMENT_PAYMENT_DONE_PATIENT_MSG,
-                'type' => Notification::PAYMENT_DONE,
-                'user_id' => $patient->user->id,
-            ]);
-
-            if ($loginUserId == User::ADMIN) {
-                Auth::loginUsingId($loginUserId);
-
-                return redirect(route('appointments.index'));
-            }
-
-            if ($loginUserId != '') {
-                Auth::loginUsingId($loginUserId);
-
-                return redirect(route('patients.patient-appointments-index'));
-            }
-
-            return redirect(route('medicalAppointment'));
+            return $this->redirectAfterPayment();
         } elseif ($transaction->isFailed()) {
             Flash::error(__('messages.flash.appointment_created_payment_not_complete'));
 
-            if ($loginUserId == User::ADMIN) {
-                Auth::loginUsingId($loginUserId);
-
-                return redirect(route('appointments.index'));
-            }
-
-            if ($loginUserId != '') {
-                Auth::loginUsingId($loginUserId);
-
-                return redirect(route('patients.patient-appointments-index'));
-            }
-
-            return redirect(route('medicalAppointment'));
+            return $this->redirectAfterPayment();
         } else {
             if ($transaction->isOpen()) {
                 Log::info('Open');
             }
         }
+
+        return $this->redirectAfterPayment();
         //        $transaction->getResponseMessage(); //Get Response Message If Available
+    }
+
+    /**
+     * Decide where to redirect after a PayTM callback.
+     * Uses the CURRENT session (never callback-supplied IDs) to avoid auth bypass.
+     */
+    private function redirectAfterPayment(): RedirectResponse
+    {
+        $user = getLogInUser();
+        if (! $user) {
+            return redirect(route('medicalAppointment'));
+        }
+
+        if ($user->hasRole('patient')) {
+            return redirect(route('patients.patient-appointments-index'));
+        }
+
+        return redirect(route('appointments.index'));
     }
 
     /**

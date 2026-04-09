@@ -244,12 +244,18 @@ class PatientController extends AppBaseController
             'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', // 5MB
         ]);
 
+        // Verify target patient exists and current user can manage them.
+        $patient = Patient::findOrFail($id);
+        $this->authorizeManagePatientDocuments($patient);
+
         $file = $request->file('file');
 
-        $path = $file->store('documents/user_' . Auth::id(), 'public');
+        // Store under the TARGET patient's user_id, not the uploader's id.
+        // Previously used Auth::id() which stored docs under admin's folder.
+        $path = $file->store('documents/user_' . $patient->user_id, 'public');
 
-        $document = Document::create([
-            'user_id' => $id,
+        Document::create([
+            'user_id' => $patient->user_id,
             'uploaded_by' => Auth::id(),
             'title' => $request->title,
             'type' => $request->type,
@@ -268,19 +274,56 @@ class PatientController extends AppBaseController
      */
     public function deleteDocumet($id)
     {
-        $document = Document::where('id', $id)
-            // ->where('user_id', Auth::id())
-            ->firstOrFail();
+        $document = Document::findOrFail($id);
+
+        // Verify current user can manage the owning patient.
+        $patient = Patient::where('user_id', $document->user_id)->first();
+        if ($patient) {
+            $this->authorizeManagePatientDocuments($patient);
+        } else {
+            abort_unless(Auth::user()->hasRole('clinic_admin'), 403);
+        }
 
         if (Storage::disk('public')->exists($document->path)) {
             Storage::disk('public')->delete($document->path);
         }
 
-        $patientId = $document->user_id;
+        $patientId = $patient ? $patient->id : null;
         $document->delete();
 
         return redirect()
             ->route('patients.show', ['patient' => $patientId, 'tab' => 'documents'])
             ->with('success', 'Document deleted successfully.');
+    }
+
+    /**
+     * Authorize the current user to manage the given patient's documents.
+     * - clinic_admin & staff: full access
+     * - doctor: only if they have an appointment with this patient
+     * - patient: only their own documents
+     */
+    private function authorizeManagePatientDocuments(Patient $patient): void
+    {
+        $user = Auth::user();
+        abort_unless($user, 403);
+
+        if ($user->hasRole('clinic_admin') || $user->hasRole('staff')) {
+            return;
+        }
+
+        if ($user->hasRole('patient')) {
+            abort_unless($user->patient && $user->patient->id === $patient->id, 403);
+            return;
+        }
+
+        if ($user->hasRole('doctor') && $user->doctor) {
+            $hasAppointment = \App\Models\Appointment::where('doctor_id', $user->doctor->id)
+                ->where('patient_id', $patient->id)
+                ->exists();
+            abort_unless($hasAppointment, 403);
+            return;
+        }
+
+        abort(403);
     }
 }

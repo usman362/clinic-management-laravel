@@ -38,7 +38,22 @@ class VisitTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
-        return Visit::with(['doctor.user', 'patient.user'])->select('visits.*');
+        $user = getLogInUser();
+        $query = Visit::with(['doctor.user', 'patient.user'])->select('visits.*');
+
+        if ($user) {
+            if ($user->hasRole('doctor') && $user->doctor) {
+                $query->where('doctor_id', $user->doctor->id);
+            } elseif ($user->hasRole('patient') && $user->patient) {
+                $query->where('patient_id', $user->patient->id);
+            } elseif (! $user->hasRole('clinic_admin') && ! $user->hasRole('staff')) {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
     }
 
     public function placeholder()
@@ -53,7 +68,7 @@ class VisitTable extends LivewireTableComponent
                 ->sortable()->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('doctor.user', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),

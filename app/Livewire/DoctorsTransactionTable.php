@@ -60,7 +60,7 @@ class DoctorsTransactionTable extends LivewireTableComponent
                 ->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('user', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),
@@ -90,8 +90,21 @@ class DoctorsTransactionTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        $user = getLogInUser();
         $transaction = Transaction::whereHas('doctorappointment')
             ->with(['doctorappointment', 'user.patient', 'appointment']);
+
+        if ($user) {
+            if ($user->hasRole('doctor') && $user->doctor) {
+                $transaction->whereHas('appointment', function (Builder $q) use ($user) {
+                    $q->where('doctor_id', $user->doctor->id);
+                });
+            } elseif (! $user->hasRole('clinic_admin') && ! $user->hasRole('staff')) {
+                $transaction->whereRaw('1 = 0');
+            }
+        } else {
+            $transaction->whereRaw('1 = 0');
+        }
 
         $transaction->when($this->paymentType != '',
         function (Builder $q) {

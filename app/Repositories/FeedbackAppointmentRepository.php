@@ -69,6 +69,11 @@ class FeedbackAppointmentRepository extends BaseRepository
      */
     public function store($input)
     {
+        $createdAppointmentIds = [];
+        $deferredMail = null;
+        $fromTime = [];
+        $toTime = [];
+
         try {
             DB::beginTransaction();
             $relation_id = uniqid('appt_');
@@ -107,22 +112,23 @@ class FeedbackAppointmentRepository extends BaseRepository
                 $appointment->to_time = $input['to_time'];
                 $appointment->to_time_type = $input['to_time_type'];
                 $appointment->save();
+                $createdAppointmentIds[] = $appointment->id;
             }
 
             $patient = Patient::whereId($input['patient_id'])->with('user')->first();
             $input['patient_name'] = $patient->user->full_name;
-            $input['original_from_time'] = $fromTime[0] . ' ' . $fromTime[1];
-            $input['original_to_time'] = $toTime[0] . ' ' . $toTime[1];
+            $input['original_from_time'] = ($fromTime[0] ?? '') . ' ' . ($fromTime[1] ?? '');
+            $input['original_to_time'] = ($toTime[0] ?? '') . ' ' . ($toTime[1] ?? '');
             $service = Service::whereId($input['service_id'])->first();
             $input['service'] = $service->name;
 
             if ($patient->user->email_notification) {
-                Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
+                $deferredMail = ['email' => $patient->user->email, 'data' => $input];
             }
 
             $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
             if (! getLogInUser()->hasRole('patient')) {
-                $patientNotification = Notification::create([
+                Notification::create([
                     'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG . ' ' . $input['full_time'],
                     'type' => Notification::BOOKED,
                     'user_id' => $patient->user->id,
@@ -131,30 +137,39 @@ class FeedbackAppointmentRepository extends BaseRepository
 
             $doctor = Doctor::whereId($input['doctor_id'])->with('user')->first();
             $input['doctor_name'] = $doctor->user->full_name;
-            if ($doctor->user->email_notification) {
-                // Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
-            }
 
-            $doctorNotification = Notification::create([
+            Notification::create([
                 'title' => $patient->user->full_name . ' ' . Notification::APPOINTMENT_CREATE_DOCTOR_MSG . ' ' . $input['full_time'],
                 'type' => Notification::BOOKED,
                 'user_id' => $doctor->user->id,
             ]);
 
             DB::commit();
-
-            try {
-                CreateGoogleAppointment::dispatch(true, $appointment->id);
-                CreateGoogleAppointment::dispatch(false, $appointment->id);
-            } catch (Exception $exception) {
-                Log::error($exception->getMessage());
-            }
-            $appointment = Appointment::where('relation_id', $relation_id)->first();
-            return $appointment;
         } catch (Exception $e) {
             DB::rollBack();
             throw new UnprocessableEntityHttpException($e->getMessage());
         }
+
+        // Side effects (mail + Google Calendar dispatch) AFTER commit.
+        if ($deferredMail) {
+            try {
+                Mail::to($deferredMail['email'])->send(new PatientAppointmentBookMail($deferredMail['data']));
+            } catch (Exception $exception) {
+                Log::error('Patient feedback booking mail failed: ' . $exception->getMessage());
+            }
+        }
+
+        // Dispatch Google Calendar event for EVERY created appointment, not just the last one.
+        foreach ($createdAppointmentIds as $appointmentId) {
+            try {
+                CreateGoogleAppointment::dispatch(true, $appointmentId);
+                CreateGoogleAppointment::dispatch(false, $appointmentId);
+            } catch (Exception $exception) {
+                Log::error($exception->getMessage());
+            }
+        }
+
+        return Appointment::where('relation_id', $relation_id)->first();
     }
 
     public function update($input, $id)

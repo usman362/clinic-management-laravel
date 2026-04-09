@@ -70,6 +70,9 @@ class AppointmentRepository extends BaseRepository
      */
     public function store($input)
     {
+        $createdAppointmentIds = [];
+        $emailJobs = [];
+
         try {
             DB::beginTransaction();
             $relation_id = uniqid('appt_');
@@ -108,63 +111,56 @@ class AppointmentRepository extends BaseRepository
                 $appointment->to_time = $input['to_time'];
                 $appointment->to_time_type = $input['to_time_type'];
                 $appointment->save();
+                $createdAppointmentIds[] = $appointment->id;
+
                 $patient = Patient::whereId($input['patient_id'])->with('user')->first();
                 $input['patient_name'] = $patient->user->full_name;
 
                 $input['booking_link'] = env('APP_URL') . 'patients/appointments/' . $relation_id . '/edit';
                 if ($patient->user->email_notification) {
-
-                    // fetch template from DB
+                    // Defer the actual mail send until after commit (collect now, send below)
                     $template = AdminEmail::where('type', 'patient_email')->first();
-
-                    // prepare dynamic data
-                    $data = [
-                        'booking_link' => env('APP_URL') . 'patients/appointments/' . $relation_id . '/edit',
-                        'template'     => $template,
+                    $emailJobs[] = [
+                        'email' => $patient->user->email,
+                        'data'  => [
+                            'booking_link' => env('APP_URL') . 'patients/appointments/' . $relation_id . '/edit',
+                            'template'     => $template,
+                        ],
                     ];
-
-                    Mail::to($patient->user->email)
-                        ->send(new PatientAppointmentBookMail($data));
                 }
-
-                // // $input['full_time'] = $input['original_from_time'].'-'.$input['original_to_time'].' '.Carbon::parse($input['date'])->format('jS M, Y');
-                // $input['full_time'] = '00:00';
-                // if (! getLogInUser()->hasRole('patient')) {
-                //     $patientNotification = Notification::create([
-                //         'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG.' '.$input['full_time'],
-                //         'type' => Notification::BOOKED,
-                //         'user_id' => $patient->user->id,
-                //     ]);
-                // }
 
                 $doctor = Doctor::whereId($appt['doctor_id'])->with('user')->first();
                 $input['doctor_name'] = $doctor->user->full_name;
-                if ($doctor->user->email_notification) {
-                    // Mail::to($doctor->user->email)->send(new DoctorAppointmentBookMail($input));
-                }
-
-                // $doctorNotification = Notification::create([
-                //     'title' => $patient->user->full_name.' '.Notification::APPOINTMENT_CREATE_DOCTOR_MSG.' '.$input['full_time'],
-                //     'type' => Notification::BOOKED,
-                //     'user_id' => $doctor->user->id,
-                // ]);
-
-                DB::commit();
-
-                try {
-                    CreateGoogleAppointment::dispatch(true, $appointment->id);
-                    CreateGoogleAppointment::dispatch(false, $appointment->id);
-                } catch (Exception $exception) {
-                    Log::error($exception->getMessage());
-                }
+                // Doctor mail block was already commented out — kept that way.
             }
 
-            $appointment = Appointment::where('relation_id', $relation_id)->first();
-            return $appointment;
+            // Single atomic commit for all appointments + the package.
+            DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
             throw new UnprocessableEntityHttpException($e->getMessage());
         }
+
+        // Side effects (dispatch jobs, send mails) AFTER commit so they can't
+        // poison the transaction or run with uncommitted IDs.
+        foreach ($createdAppointmentIds as $appointmentId) {
+            try {
+                CreateGoogleAppointment::dispatch(true, $appointmentId);
+                CreateGoogleAppointment::dispatch(false, $appointmentId);
+            } catch (Exception $exception) {
+                Log::error($exception->getMessage());
+            }
+        }
+
+        foreach ($emailJobs as $job) {
+            try {
+                Mail::to($job['email'])->send(new PatientAppointmentBookMail($job['data']));
+            } catch (Exception $exception) {
+                Log::error('Patient booking mail failed: ' . $exception->getMessage());
+            }
+        }
+
+        return Appointment::where('relation_id', $relation_id)->first();
     }
 
     public function update($input, $id)

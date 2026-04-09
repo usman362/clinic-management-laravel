@@ -99,6 +99,13 @@ class AppointmentTable extends LivewireTableComponent
             $query->where('patient_id', getLoginUser()->patient->id);
         }
 
+        $user = getLogInUser();
+        if ($user && $user->hasRole('doctor') && $user->doctor) {
+            $query->where('doctor_id', $user->doctor->id);
+        } elseif ($user && ! $user->hasRole('clinic_admin') && ! $user->hasRole('staff') && ! $user->hasRole('patient') && ! $user->hasRole('doctor')) {
+            $query->whereRaw('1 = 0');
+        }
+
         $query->whereIn('appointments.id', function ($q) {
             $q->selectRaw('MAX(appointments.id)')
             ->from('appointments')

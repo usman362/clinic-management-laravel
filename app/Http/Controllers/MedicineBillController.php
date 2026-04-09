@@ -90,72 +90,98 @@ class MedicineBillController extends AppBaseController
         }
         $arr = collect($input['medicine']);
         $duplicateIds = $arr->duplicates();
+        if (! $duplicateIds->isEmpty()) {
+            Flash::error(__('messages.medicine_bills.duplicate_medicine'));
+            return Redirect::route('medicine-bills.create');
+        }
 
         $input['payment_status'] = isset($input['payment_status']) ? 1 : 0;
 
-        foreach ($input['medicine'] as $key => $value) {
-            $medicine = Medicine::find($input['medicine'][$key]);
-            if (! empty($duplicateIds)) {
-                foreach ($duplicateIds as $key => $value) {
-                    $medicine = Medicine::find($duplicateIds[$key]);
+        // Wrap stock check + decrement + bill creation in a transaction with row locks
+        // to prevent overselling under concurrent bills.
+        try {
+            $bill = \DB::transaction(function () use ($input) {
+                // Lock relevant medicine rows for the duration of this transaction.
+                $medicineIds = array_values(array_unique(array_filter(array_map('intval', $input['medicine'] ?? []))));
+                $lockedMedicines = Medicine::whereIn('id', $medicineIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
 
-                    Flash::error(__('messages.medicine_bills.duplicate_medicine'));
+                // Stock + expiry check after lock — guarantees no other request can change quantity until commit.
+                $today = \Carbon\Carbon::today()->toDateString();
+                foreach ($input['medicine'] as $key => $medId) {
+                    $medicine = $lockedMedicines->get($medId);
+                    if (! $medicine) {
+                        throw new \RuntimeException(__('messages.medicine_bills.medicine_not_selected'));
+                    }
+                    $qty = (int) ($input['quantity'][$key] ?? 0);
+                    if ($medicine->available_quantity < $qty) {
+                        $available = $medicine->available_quantity ?? 0;
+                        throw new \RuntimeException(
+                            __('messages.medicine_bills.available_quantity').' '.$medicine->name.' '.__('messages.medicine_bills.is').' '.$available.'.'
+                        );
+                    }
 
-                    return Redirect::route('medicine-bills.create');
+                    // Reject sale of medicine past its expiry date.
+                    $expiry = $input['expiry_date'][$key] ?? null;
+                    if ($expiry && $expiry < $today) {
+                        throw new \RuntimeException(
+                            $medicine->name . ' is expired (' . $expiry . ') and cannot be sold.'
+                        );
+                    }
                 }
-            }
-            $qty = $input['quantity'][$key];
-            if ($medicine->available_quantity < $qty) {
-                $available = $medicine->available_quantity == null ? 0 : $medicine->available_quantity;
-                Flash::error(__('messages.medicine_bills.available_quantity').' '.$medicine->name.' '.__('messages.medicine_bills.is').' '.$available.'.');
 
-                return Redirect::route('medicine-bills.create');
-
-            }
-        }
-
-        // dd($input);
-        $medicineBill = MedicineBill::create([
-            'bill_number' => 'BIL'.generateUniqueBillNumber(),
-            'patient_id' => $input['patient_id'],
-            'net_amount' => $input['net_amount'],
-            'discount' => $input['discount'],
-            'payment_status' => $input['payment_status'],
-            'payment_type' => $input['payment_type'],
-            'note' => $input['note'],
-            'total' => $input['total'],
-            'tax_amount' => $input['tax'],
-            'payment_note' => $input['payment_note'],
-            'model_type' => \App\Models\MedicineBill::class,
-            'bill_date' => $input['bill_date'],
-        ]);
-        $medicineBill->update([
-            'model_id' => $medicineBill->id,
-        ]);
-        if ($input['category_id']) {
-            foreach ($input['category_id'] as $key => $value) {
-                $medicine = Medicine::find($input['medicine'][$key]);
-                $tax = $input['tax_medicine'][$key] == null ? $input['tax_medicine'][$key] : 0;
-                SaleMedicine::create([
-                    'medicine_bill_id' => $medicineBill->id,
-                    'medicine_id' => $medicine->id,
-                    'sale_price' => $input['sale_price'][$key],
-                    'expiry_date' => $input['expiry_date'][$key],
-                    'sale_quantity' => $input['quantity'][$key],
-                    'tax' => $tax,
-
+                $medicineBill = MedicineBill::create([
+                    'bill_number' => 'BIL'.generateUniqueBillNumber(),
+                    'patient_id' => $input['patient_id'],
+                    'net_amount' => $input['net_amount'],
+                    'discount' => $input['discount'],
+                    'payment_status' => $input['payment_status'],
+                    'payment_type' => $input['payment_type'],
+                    'note' => $input['note'],
+                    'total' => $input['total'],
+                    'tax_amount' => $input['tax'],
+                    'payment_note' => $input['payment_note'],
+                    'model_type' => \App\Models\MedicineBill::class,
+                    'bill_date' => $input['bill_date'],
                 ]);
-                if ($input['payment_status'] == 1) {
-                    $medicine->update([
-                        'available_quantity' => $medicine->available_quantity - $input['quantity'][$key],
-                    ]);
+                $medicineBill->update([
+                    'model_id' => $medicineBill->id,
+                ]);
+
+                if (! empty($input['category_id'])) {
+                    foreach ($input['category_id'] as $key => $value) {
+                        $medicine = $lockedMedicines->get($input['medicine'][$key]);
+                        if (! $medicine) {
+                            continue;
+                        }
+                        $tax = $input['tax_medicine'][$key] == null ? $input['tax_medicine'][$key] : 0;
+                        SaleMedicine::create([
+                            'medicine_bill_id' => $medicineBill->id,
+                            'medicine_id'     => $medicine->id,
+                            'sale_price'      => $input['sale_price'][$key],
+                            'expiry_date'     => $input['expiry_date'][$key],
+                            'sale_quantity'   => $input['quantity'][$key],
+                            'tax'             => $tax,
+                        ]);
+
+                        if ($input['payment_status'] == 1) {
+                            // Atomic decrement under the row lock acquired above.
+                            $medicine->decrement('available_quantity', (int) $input['quantity'][$key]);
+                        }
+                    }
                 }
-            }
-            Flash::success(__('messages.medicine_bills.medicine_bill').' '.__('messages.medicine.saved_successfully'));
 
-            return Redirect::route('medicine-bills.index');
-
+                return $medicineBill;
+            });
+        } catch (\RuntimeException $e) {
+            Flash::error($e->getMessage());
+            return Redirect::route('medicine-bills.create');
         }
+
+        Flash::success(__('messages.medicine_bills.medicine_bill').' '.__('messages.medicine.saved_successfully'));
+        return Redirect::route('medicine-bills.index');
     }
 
     /**

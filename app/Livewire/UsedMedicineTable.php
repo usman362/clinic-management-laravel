@@ -43,7 +43,7 @@ class UsedMedicineTable extends LivewireTableComponent
                 })->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('medicine', function (Builder $q) use ($direction) {
-                            $q->whereRaw("name like '%{$direction}%'");
+                            $q->whereRaw("name like ?", ['%'.$direction.'%']);
                         });
                     }
                 )->view('used-medicine.columns.medicine'),

@@ -58,8 +58,7 @@ class PatientRepository extends BaseRepository
     public function store($input): bool
     {
         try {
-            // $password = Str::password(12);
-            $password = 'user12345';
+            $password = Str::password(12);
             DB::beginTransaction();
             $addressInputArray = Arr::only($input,
                 ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code']);

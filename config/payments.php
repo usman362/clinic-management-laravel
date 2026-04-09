@@ -3,11 +3,11 @@
 return [
 
     'paystack' => [
-        'key' => getenv('PAYSTACK_PUBLIC_KEY'),
-        'secret' => getenv('PAYSTACK_SECRET_KEY'),
-        'url' => getenv('PAYSTACK_PAYMENT_URL'),
+        'key' => env('PAYSTACK_PUBLIC_KEY'),
+        'secret' => env('PAYSTACK_SECRET_KEY'),
+        'url' => env('PAYSTACK_PAYMENT_URL'),
 
-        'email' => getenv('PAYSTACK_MERCHANT_EMAIL'),
+        'email' => env('PAYSTACK_MERCHANT_EMAIL'),
     ],
 
     'paypal' => [

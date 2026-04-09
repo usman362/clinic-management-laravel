@@ -6,12 +6,14 @@ use App\Models\Medicine;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use Livewire\Attributes\Lazy;
+use Livewire\Attributes\Locked;
 
 #[Lazy]
 class MedicineBrandDetailsTable extends LivewireTableComponent
 {
     protected $model = Medicine::class;
 
+    #[Locked]
     public $brandDetails;
 
     protected $listeners = ['refresh' => '$refresh', 'changeFilter', 'resetPage'];

@@ -24,15 +24,18 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 | JotForm Consent Webhook
 |--------------------------------------------------------------------------
 |
-| Public endpoint for JotForm to call after a consent form is signed.
-| Configure JotForm "Thank You" page or webhook to POST to:
-|   POST {APP_URL}/api/consent-webhook
+| Called by booking.js after the patient signs a consent form in the embedded
+| JotForm iframe. Authenticated session required so we can verify the patient
+| owns the appointment they're signing for. The JotForm iframe runs inside an
+| authenticated patient/doctor page, so the auth cookie is available.
 |
-| Required query params or hidden fields:
-|   - appointment_token: the appointment's unique_id
+| Required POST fields:
+|   - appointment_id: the appointment's id
 |   - doctor_id: the doctor's ID
 |
 | Optional: attach a PDF file as 'file' in the multipart request.
 |
 */
-Route::match(['get', 'post'], '/consent-webhook', [AppointmentController::class, 'consentWebhook'])->name('api.consent.webhook');
+Route::middleware(['web', 'auth'])
+    ->match(['get', 'post'], '/consent-webhook', [AppointmentController::class, 'consentWebhook'])
+    ->name('api.consent.webhook');

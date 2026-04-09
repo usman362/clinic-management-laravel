@@ -73,8 +73,7 @@ class UserRepository extends BaseRepository
      */
     public function store(array $input)
     {
-        // $password = Str::password(12);
-        $password = 'user12345';
+        $password = Str::password(12);
         $addressInputArray = Arr::only($input,
             ['address1', 'address2', 'country_id', 'city_id', 'state_id', 'postal_code']);
         if (!empty($input['jotform_link']) && str_contains($input['jotform_link'], '<iframe')) {

@@ -7,10 +7,12 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use Livewire\Attributes\Lazy;
+use Livewire\Attributes\Locked;
 
 #[Lazy]
 class PatientShowPageAppointmentTable extends LivewireTableComponent
 {
+    #[Locked]
     public $patientId;
 
     protected $model = Appointment::class;
@@ -111,7 +113,7 @@ class PatientShowPageAppointmentTable extends LivewireTableComponent
                 ->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('doctor.user', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),

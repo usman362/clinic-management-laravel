@@ -95,7 +95,10 @@ Route::middleware('setLanguage')->group(function () {
     Route::get('/terms-conditions', [FrontController::class, 'termsCondition'])->name('terms.conditions');
     Route::get('/privacy-policy', [FrontController::class, 'privacyPolicy'])->name('privacy.policy');
     Route::get('/faqs', [FrontController::class, 'faq'])->name('front.faqs');
-    Route::get('qr-code/p/{id?}', [PatientQrCodeController::class,'show'])->name('patient_show');
+    // QR scan from printed smart cards — public by design but throttled to prevent enumeration.
+    Route::get('qr-code/p/{id?}', [PatientQrCodeController::class,'show'])
+        ->middleware('throttle:30,1')
+        ->name('patient_show');
 });
 //Change language
 Route::post('/change-language', [FrontController::class, 'changeLanguage'])->name('front.change.language');
@@ -211,10 +214,11 @@ Route::get('get-cities', [UserController::class, 'getCity'])->name('get-city');
 Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImpersonateUser')->group(function () {
     //Logs
     Route::get('logs', [LogViewerController::class, 'index']);
-    //Impersonate
-    //    Route::impersonate();
-    Route::get('impersonate/{id}', [UserController::class, 'impersonate'])->name('impersonate');
-    Route::get('impersonate-leave', [UserController::class, 'impersonateLeave'])->name('impersonate.leave');
+    //Impersonate — restricted to clinic admins. See UserController::impersonate() for in-method defense.
+    Route::middleware('role:clinic_admin')->group(function () {
+        Route::get('impersonate/{id}', [UserController::class, 'impersonate'])->name('impersonate');
+        Route::get('impersonate-leave', [UserController::class, 'impersonateLeave'])->name('impersonate.leave');
+    });
 
     //Email verified
     Route::post('email-verified', [UserController::class, 'emailVerified'])->name('emailVerified');
@@ -461,7 +465,9 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus')->group(func
     Route::get('get-medicine-category/{category}', [MedicineBillController::class, 'getMedicineCategory'])->name('get-medicine-category');
 });
 
-Route::get('delete-old-patients', [PatientController::class, 'deleteOldPatient']);
+Route::middleware(['auth', 'xss', 'checkUserStatus', 'role:clinic_admin'])->group(function () {
+    Route::post('delete-old-patients', [PatientController::class, 'deleteOldPatient'])->name('delete-old-patients');
+});
 
 
 require __DIR__.'/auth.php';

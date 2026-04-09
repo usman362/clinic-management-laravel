@@ -308,6 +308,22 @@ class PrescriptionController extends AppBaseController
 
     public function convertToPDF($id): \Illuminate\Http\Response
     {
+        // Authorization: only the prescription's doctor, the prescription's patient,
+        // or clinic_admin/staff can download the PDF.
+        $rawPrescription = Prescription::findOrFail($id);
+        $user = getLogInUser();
+        abort_unless($user, 403);
+
+        $allowed = false;
+        if ($user->hasRole('clinic_admin') || $user->hasRole('staff')) {
+            $allowed = true;
+        } elseif ($user->hasRole('doctor') && $user->doctor && $rawPrescription->doctor_id === $user->doctor->id) {
+            $allowed = true;
+        } elseif ($user->hasRole('patient') && $user->patient && $rawPrescription->patient_id === $user->patient->id) {
+            $allowed = true;
+        }
+        abort_unless($allowed, 403);
+
         $data = $this->prescriptionRepository->getSettingList();
 
         $prescription = $this->prescriptionRepository->getData($id);

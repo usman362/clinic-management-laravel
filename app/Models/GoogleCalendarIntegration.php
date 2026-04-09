@@ -40,7 +40,13 @@ class GoogleCalendarIntegration extends Model
         'last_used_at',
     ];
 
+    /**
+     * NOTE: access_token and meta are encrypted at rest.
+     * Existing rows must be re-encrypted by re-OAuthing the integration.
+     * Old plaintext tokens will fail to decrypt.
+     */
     protected $casts = [
-        'meta' => 'json',
+        'access_token' => 'encrypted',
+        'meta' => 'encrypted:json',
     ];
 }

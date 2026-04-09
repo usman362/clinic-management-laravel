@@ -16,4 +16,14 @@ class ZoomOAuth extends Model
         'access_token',
         'refresh_token',
     ];
+
+    /**
+     * NOTE: access_token and refresh_token are encrypted at rest.
+     * Existing rows must be re-encrypted by re-OAuthing the integration.
+     * Old plaintext tokens will fail to decrypt.
+     */
+    protected $casts = [
+        'access_token' => 'encrypted',
+        'refresh_token' => 'encrypted',
+    ];
 }

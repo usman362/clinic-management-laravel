@@ -117,7 +117,7 @@ class VisitController extends AppBaseController
 
     public function destroy(Visit $visit): mixed
     {
-        if (getLogInUser()->hasrole('doctor')) {
+        if (getLogInUser()->hasRole('doctor')) {
             if ($visit->doctor_id !== getLogInUser()->doctor->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }

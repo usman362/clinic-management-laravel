@@ -61,35 +61,60 @@ class PaystackController extends Controller
     {
         $paymentDetails = Paystack::getPaymentData();
 
-        $appointmentId = $paymentDetails['data']['metadata']['appointmentId'];
-        $appointment = Appointment::whereId($appointmentId)->first();
-        $patientId = User::whereEmail($paymentDetails['data']['customer']['email'])->pluck('id')->first();
+        // Server-side amount and ownership verification.
+        $appointmentId = $paymentDetails['data']['metadata']['appointmentId'] ?? null;
+        $appointment = $appointmentId ? Appointment::whereId($appointmentId)->first() : null;
+        if (! $appointment) {
+            \Log::warning('Paystack callback for unknown appointment', ['appointmentId' => $appointmentId]);
+            Flash::error(__('messages.flash.appointment_created_payment_not_complete'));
+            return redirect(route('medicalAppointment'));
+        }
 
-        $transaction = [
-            'user_id' => $patientId,
-            'transaction_id' => $paymentDetails['data']['reference'],
-            'appointment_id' => $appointment['appointment_unique_id'],
-            'amount' => intval($appointment['payable_amount']),
-            'type' => Appointment::PAYSTACK,
-            'meta' => json_encode($paymentDetails['data']),
-        ];
+        // Verify amount Paystack reports matches what we expected (in minor units * 100).
+        $expectedAmount = intval(round($appointment->payable_amount * 100));
+        $paystackAmount = intval($paymentDetails['data']['amount'] ?? 0);
+        if ($paystackAmount !== $expectedAmount) {
+            \Log::warning('Paystack amount mismatch', [
+                'appointmentId' => $appointmentId,
+                'expected' => $expectedAmount,
+                'received' => $paystackAmount,
+            ]);
+            Flash::error(__('messages.flash.appointment_created_payment_not_complete'));
+            return redirect(route('medicalAppointment'));
+        }
 
-        Transaction::create($transaction);
+        // Resolve patient from the appointment, not from email in the callback (prevents spoofing).
+        $patient = Patient::with('user')->whereId($appointment->patient_id)->first();
+        $patientId = $patient ? $patient->user_id : null;
 
-        $appointment->update([
-            'payment_method' => Appointment::PAYSTACK,
-            'payment_type' => Appointment::PAID,
-        ]);
+        // Idempotency: skip if reference already recorded.
+        if (! Transaction::where('transaction_id', $paymentDetails['data']['reference'])->exists()) {
+            $transaction = [
+                'user_id' => $patientId,
+                'transaction_id' => $paymentDetails['data']['reference'],
+                'appointment_id' => $appointment['appointment_unique_id'],
+                'amount' => intval($appointment['payable_amount']),
+                'type' => Appointment::PAYSTACK,
+                'meta' => json_encode($paymentDetails['data']),
+            ];
+
+            Transaction::create($transaction);
+
+            $appointment->update([
+                'payment_method' => Appointment::PAYSTACK,
+                'payment_type' => Appointment::PAID,
+            ]);
+
+            if ($patient) {
+                Notification::create([
+                    'title' => Notification::APPOINTMENT_PAYMENT_DONE_PATIENT_MSG,
+                    'type' => Notification::PAYMENT_DONE,
+                    'user_id' => $patient->user_id,
+                ]);
+            }
+        }
 
         Flash::success(__('messages.flash.appointment_created_payment_complete'));
-
-        $patient = Patient::whereUserId($patientId)->with('user')->first();
-
-        Notification::create([
-            'title' => Notification::APPOINTMENT_PAYMENT_DONE_PATIENT_MSG,
-            'type' => Notification::PAYMENT_DONE,
-            'user_id' => $patient->user_id,
-        ]);
 
         if (parse_url(url()->previous(), PHP_URL_PATH) == '/medical-appointment') {
             return redirect(route('medicalAppointment'));

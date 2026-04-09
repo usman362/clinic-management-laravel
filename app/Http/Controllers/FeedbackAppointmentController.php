@@ -221,7 +221,7 @@ class FeedbackAppointmentController extends AppBaseController
      */
     public function destroy(Appointment $appointment): JsonResponse
     {
-        if (getLogInUser()->hasrole('patient')) {
+        if (getLogInUser()->hasRole('patient')) {
             if ($appointment->patient_id !== getLogInUser()->patient->id) {
                 return $this->sendError('Seems, you are not allowed to access this record.');
             }

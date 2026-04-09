@@ -34,12 +34,19 @@ class PatientQrCodeController extends AppBaseController
         $appointment = Appointment::with('doctor')->where('patient_id', '=', $patient->id)->get();
         $visit = Visit::with(['doctor.user', 'patient.user'])->where('patient_id', '=', $patient->id)->get();
         $todayDate = Carbon::now()->format('Y-m-d');
-        $data['todayAppointmentCount'] = Appointment::wherePatientId($patient['id'])->where('date', '=',
-            $todayDate)->count();
-        $data['upcomingAppointmentCount'] = Appointment::wherePatientId($patient['id'])->where('date', '>',
-            $todayDate)->count();
-        $data['completedAppointmentCount'] = Appointment::wherePatientId($patient['id'])->where('date', '<',
-            $todayDate)->count();
+
+        // Counters exclude BOOKING_PENDING (incomplete wizard) so pending bookings
+        // don't inflate dashboard numbers. See CP-01.
+        $countedStatuses = [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT];
+        $data['todayAppointmentCount'] = Appointment::wherePatientId($patient['id'])
+            ->whereIn('status', $countedStatuses)
+            ->where('date', '=', $todayDate)->count();
+        $data['upcomingAppointmentCount'] = Appointment::wherePatientId($patient['id'])
+            ->whereIn('status', $countedStatuses)
+            ->where('date', '>', $todayDate)->count();
+        $data['completedAppointmentCount'] = Appointment::wherePatientId($patient['id'])
+            ->whereIn('status', [Appointment::CHECK_OUT])
+            ->where('date', '<=', $todayDate)->count();
 
         return view('fronts.patient_qr_code.show', compact('patient','appointment','appointmentStatus', 'data','visit'))->with([
             'book' => Appointment::BOOKED,

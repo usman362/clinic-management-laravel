@@ -74,8 +74,9 @@ class LiveConsultationsTable extends LivewireTableComponent
             Column::make(__('messages.appointment.patient'),
                 'patient_id')->view('live_consultations.components.patient'),
             Column::make(__('messages.doctor.status'), 'status')->view('live_consultations.components.status'),
-            Column::make(__('messages.patient.password'), 'password')->view('live_consultations.components.password')
-                ->sortable()->searchable(),
+            // Password column kept for doctor/admin access to meeting password,
+            // but no longer sortable/searchable to prevent enumeration. View masks the value.
+            Column::make(__('messages.patient.password'), 'password')->view('live_consultations.components.password'),
             Column::make(__('messages.common.action'), 'id')->view('live_consultations.components.action'),
         ];
     }

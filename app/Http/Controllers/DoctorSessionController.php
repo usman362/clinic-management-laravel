@@ -188,8 +188,10 @@ class DoctorSessionController extends AppBaseController
         }
         // dd($doctorWeekDaySessions);
 
+        // Include BOOKING_PENDING (status=5) so two patients booking concurrently
+        // can't grab the same slot before payment confirmation.
         $appointments = Appointment::whereDoctorId($doctorId)->whereIn('status',
-            [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT])->get();
+            [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT, Appointment::BOOKING_PENDING])->get();
         $bookedSlot = [];
         $bookingSlot = [];
         foreach ($appointments as $appointment) {
@@ -298,7 +300,7 @@ class DoctorSessionController extends AppBaseController
 
             $appointments = Appointment::whereDoctorId($doctorId)
                 ->where('date', $dateStr)
-                ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT])
+                ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT, Appointment::BOOKING_PENDING])
                 ->get();
             $bookedSlot = $appointments->map(function ($a) {
                 return $a->from_time.' '.$a->from_time_type.' - '.$a->to_time.' '.$a->to_time_type;

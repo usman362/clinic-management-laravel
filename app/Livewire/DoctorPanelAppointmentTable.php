@@ -119,7 +119,7 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
                 ->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('patient.user', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),

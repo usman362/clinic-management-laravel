@@ -79,12 +79,12 @@ class LiveConsultationController extends AppBaseController
 
     public function show(LiveConsultation $liveConsultation): Factory|View|JsonResponse|Application
     {
-        if (getLogInUser()->hasrole('patient')) {
+        if (getLogInUser()->hasRole('patient')) {
             if ($liveConsultation->patient_id !== getLogInUser()->patient->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }
         }
-        if (getLogInUser()->hasrole('doctor')) {
+        if (getLogInUser()->hasRole('doctor')) {
             if ($liveConsultation->doctor_id !== getLogInUser()->doctor->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }
@@ -98,7 +98,7 @@ class LiveConsultationController extends AppBaseController
 
     public function edit(LiveConsultation $liveConsultation): JsonResponse
     {
-        if (getLogInUser()->hasrole('doctor')) {
+        if (getLogInUser()->hasRole('doctor')) {
             if ($liveConsultation->doctor_id !== getLogInUser()->doctor->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }
@@ -120,7 +120,7 @@ class LiveConsultationController extends AppBaseController
 
     public function destroy(LiveConsultation $liveConsultation): JsonResponse
     {
-        if (getLogInUser()->hasrole('doctor')) {
+        if (getLogInUser()->hasRole('doctor')) {
             if ($liveConsultation->doctor_id !== getLogInUser()->doctor->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }
@@ -157,12 +157,12 @@ class LiveConsultationController extends AppBaseController
 
     public function getLiveStatus(LiveConsultation $liveConsultation)
     {
-        if (getLogInUser()->hasrole('patient')) {
+        if (getLogInUser()->hasRole('patient')) {
             if ($liveConsultation->patient_id !== getLogInUser()->patient->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }
         }
-        if (getLogInUser()->hasrole('doctor')) {
+        if (getLogInUser()->hasRole('doctor')) {
             if ($liveConsultation->doctor_id !== getLogInUser()->doctor->id) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));
             }

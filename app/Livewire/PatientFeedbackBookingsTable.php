@@ -7,9 +7,11 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use Livewire\Attributes\Lazy;
+use Livewire\Attributes\Locked;
 
 class PatientFeedbackBookingsTable extends LivewireTableComponent
 {
+    #[Locked]
     public $doctorId;
 
     protected $model = Appointment::class;

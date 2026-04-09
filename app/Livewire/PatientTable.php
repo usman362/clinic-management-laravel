@@ -78,7 +78,7 @@ class PatientTable extends LivewireTableComponent
                 ->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('user', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),

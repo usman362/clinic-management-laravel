@@ -85,6 +85,7 @@ class PrescriptionTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        $user = getLogInUser();
         /** @var Prescription $query */
         if (! getLoggedinDoctor()) {
             $query = Prescription::query()->select('prescriptions.*')->with('patient', 'doctor');
@@ -93,6 +94,17 @@ class PrescriptionTable extends LivewireTableComponent
             $query = Prescription::query()->select('prescriptions.*')->with('patient', 'doctor')->where('doctor_id',
                 $doctorId->id);
         }
+
+        if ($user) {
+            if ($user->hasRole('patient') && $user->patient) {
+                $query->where('patient_id', $user->patient->id);
+            } elseif (! $user->hasRole('clinic_admin') && ! $user->hasRole('staff') && ! $user->hasRole('doctor')) {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
         $query->when(! empty($this->appointMentId), function (Builder $q) {
             $q->whereAppointmentId($this->appointMentId);
         });

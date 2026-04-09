@@ -58,7 +58,7 @@ class DoctorHolidayTable extends LivewireTableComponent
                 ->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('doctor.doctorUser', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),
@@ -75,7 +75,21 @@ class DoctorHolidayTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        $user = getLogInUser();
         $query = DoctorHoliday::with('doctor')->select('doctor_holidays.*');
+
+        if ($user) {
+            if ($user->hasRole('doctor') && $user->doctor) {
+                $query->where('doctor_id', $user->doctor->id);
+            } elseif ($user->hasRole('patient')) {
+                $query->whereRaw('1 = 0');
+            } elseif (! $user->hasRole('clinic_admin') && ! $user->hasRole('staff')) {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
         if ($this->dateFilter != '' && $this->dateFilter != getWeekDate()) {
             $timeEntryDate = explode(' - ', $this->dateFilter);
             $startDate = Carbon::createFromFormat('d/m/Y', $timeEntryDate[0])->format('Y-m-d');

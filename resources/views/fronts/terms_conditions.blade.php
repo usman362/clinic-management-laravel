@@ -6,7 +6,7 @@
     <section id="content">
         <div class="content-wrap p-t-100">
             <div class="container p-t-30">
-                <div class="mt-100">{!! $termConditions['terms_conditions'] !!}</div>
+                <div class="mt-100">{!! clean($termConditions['terms_conditions'], 'default') !!}</div>
             </div>
         </div>
     </section>

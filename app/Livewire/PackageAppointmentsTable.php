@@ -9,11 +9,13 @@ use App\Models\Appointment;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use Livewire\Attributes\Lazy;
+use Livewire\Attributes\Locked;
 
 #[Lazy]
 class PackageAppointmentsTable extends LivewireTableComponent
 {
 
+    #[Locked]
     public $relationId;
 
     protected $model = Appointment::class;
@@ -149,7 +151,7 @@ class PackageAppointmentsTable extends LivewireTableComponent
                 ->searchable(
                     function (Builder $query, $direction) {
                         return $query->whereHas('doctor.doctorUser', function (Builder $q) use ($direction) {
-                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                            $q->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                         });
                     }
                 ),

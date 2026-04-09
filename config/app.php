@@ -166,9 +166,9 @@ return [
     |
     */
 
-    'providers' => ServiceProvider::defaultProviders()->merge([
+    'providers' => ServiceProvider::defaultProviders()->merge(array_filter([
         Spatie\Permission\PermissionServiceProvider::class,
-        Barryvdh\Debugbar\ServiceProvider::class,
+        env('APP_DEBUG') ? Barryvdh\Debugbar\ServiceProvider::class : null,
         Barryvdh\DomPDF\ServiceProvider::class,
         Maatwebsite\Excel\ExcelServiceProvider::class,
 
@@ -188,7 +188,7 @@ return [
         Mariuzzo\LaravelJsLocalization\LaravelJsLocalizationServiceProvider::class,
         Rap2hpoutre\LaravelLogViewer\LaravelLogViewerServiceProvider::class,
         SimpleSoftwareIO\QrCode\QrCodeServiceProvider::class,
-    ])->toArray(),
+    ]))->toArray(),
 
     /*
     |--------------------------------------------------------------------------

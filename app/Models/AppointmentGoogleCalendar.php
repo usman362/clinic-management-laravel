@@ -41,6 +41,6 @@ class AppointmentGoogleCalendar extends Model
 
     public function googleCalendarList(): BelongsTo
     {
-        return $this->BelongsTo(GoogleCalendarList::class);
+        return $this->belongsTo(GoogleCalendarList::class);
     }
 }

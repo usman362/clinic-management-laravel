@@ -410,7 +410,7 @@ class AppointmentController extends AppBaseController
      */
     public function destroy(Appointment $appointment): JsonResponse
     {
-        if (getLogInUser()->hasrole('patient')) {
+        if (getLogInUser()->hasRole('patient')) {
             if ($appointment->patient_id !== getLogInUser()->patient->id) {
                 return $this->sendError('Seems, you are not allowed to access this record.');
             }
@@ -1085,6 +1085,34 @@ class AppointmentController extends AppBaseController
             return response()->view('errors.consent-error', [
                 'message' => 'Appointment not found. Please return to the booking page and try again.',
             ], 404);
+        }
+
+        // Authorization: only the appointment's patient, the appointment's doctor,
+        // or a clinic_admin/staff can record consent. Prevents arbitrary forgery.
+        $currentUser = getLogInUser();
+        if ($currentUser) {
+            $authorized = false;
+            if ($currentUser->hasRole('clinic_admin') || $currentUser->hasRole('staff')) {
+                $authorized = true;
+            } elseif ($currentUser->hasRole('patient') && $currentUser->patient
+                      && $currentUser->patient->id === $appointment->patient_id) {
+                $authorized = true;
+            } elseif ($currentUser->hasRole('doctor') && $currentUser->doctor
+                      && $currentUser->doctor->id === $appointment->doctor_id) {
+                $authorized = true;
+            }
+
+            if (! $authorized) {
+                \Log::warning('Consent webhook unauthorized', [
+                    'user_id' => $currentUser->id,
+                    'appointment_id' => $appointment->id,
+                    'doctor_id' => $doctorId,
+                ]);
+                if ($isAjax) {
+                    return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+                }
+                return response()->view('errors.consent-error', ['message' => 'Unauthorized.'], 403);
+            }
         }
 
         $userId = $appointment->patient->user_id;

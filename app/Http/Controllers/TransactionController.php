@@ -69,7 +69,7 @@ class TransactionController extends AppBaseController
         $transaction = Transaction::findOrFail($input['id']);
         $appointment = Appointment::where('appointment_unique_id', $transaction->appointment_id)->first();
 
-        if (getLogInUser()->hasrole('doctor')) {
+        if (getLogInUser()->hasRole('doctor')) {
             $doctor = Appointment::where('appointment_unique_id', $transaction->appointment_id)->whereDoctorId(getLogInUser()->doctor->id);
             if (! $doctor->exists()) {
                 return $this->sendError(__('messages.common.not_allow__assess_record'));

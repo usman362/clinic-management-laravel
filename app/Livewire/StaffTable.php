@@ -51,7 +51,7 @@ class StaffTable extends LivewireTableComponent
             Column::make(__('messages.user.full_name'), 'first_name')->view('staffs.components.staff_name')
                 ->sortable()->searchable(
                     function (Builder $query, $direction) {
-                        return $query->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like '%{$direction}%'");
+                        return $query->whereRaw("TRIM(CONCAT(first_name,' ',last_name,' ')) like ?", ['%'.$direction.'%']);
                     }
                 ),
             Column::make(__('messages.patient.name'), 'email')

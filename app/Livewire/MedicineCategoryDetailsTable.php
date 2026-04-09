@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Medicine;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\Views\Column;
+use Livewire\Attributes\Locked;
 
 class MedicineCategoryDetailsTable extends LivewireTableComponent
 {
@@ -12,6 +13,7 @@ class MedicineCategoryDetailsTable extends LivewireTableComponent
 
     protected $listeners = ['refresh' => '$refresh', 'changeFilter', 'resetPage'];
 
+    #[Locked]
     public $categoryDetails;
 
     public function mount(string $categoryDetails): void
