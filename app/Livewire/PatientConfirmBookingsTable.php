@@ -69,6 +69,8 @@ class PatientConfirmBookingsTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        // CP-09: Include CANCELLED appointments so patient can see & rebook them.
+        // Only BOOKING_PENDING (incomplete wizard) is excluded.
         $query = Appointment::with([
             'doctor.user',
             'services',
@@ -76,7 +78,6 @@ class PatientConfirmBookingsTable extends LivewireTableComponent
             'doctor.reviews',
             'patient.user',
         ])->where('appointments.status','!=',Appointment::BOOKING_PENDING)
-          ->where('appointments.status','!=',Appointment::CANCELLED)
           ->where('appointments.appointment_type','!=','feedback')
           ->where('patient_id', getLoginUser()->patient->id)
           ->select('appointments.*');
@@ -120,6 +121,18 @@ class PatientConfirmBookingsTable extends LivewireTableComponent
                 __('Booking'),
                 'doctor.user.first_name'
             )->view('patients.appointments.components.title-booking'),
+            // AP-04: Package status column
+            Column::make('Status', 'status')
+                ->format(function ($value, $row) {
+                    $package = \App\Models\Package::where('relation_id', $row->relation_id)->first();
+                    if (! $package) {
+                        return '<span class="badge bg-light text-dark">Unknown</span>';
+                    }
+                    $label = $package->status_label;
+                    $badgeClass = $package->status_badge_class;
+                    return '<span class="badge ' . e($badgeClass) . '">' . e($label) . '</span>';
+                })
+                ->html(),
             Column::make(__('messages.common.action'), 'id')
                 ->format(function ($value, $row) {
                     return view('patients.appointments.components.booking-action')

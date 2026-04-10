@@ -162,13 +162,23 @@ class DoctorSessionController extends AppBaseController
         $doctorId = $request->get('adminAppointmentDoctorId');
         $timezone_offset_minutes = $request->get('timezone_offset_minutes');
         $doctor_holiday = DoctorHoliday::where('doctor_id', $doctorId)->where('date', $holidaydate)->get();
-        $service = Service::find($request->appointmentServiceId);
+        $serviceId = $request->get('appointmentServiceId') ?? $request->appointmentServiceId;
+        $service = Service::find($serviceId);
         // Feedback appointments always have a fixed 60-minute duration
         if ($request->get('appointment_type') === 'feedback') {
             $duration = 60;
         } else {
             $duration = ($service && $service->duration > 0) ? $service->duration : 0;
         }
+        // DP-02 diagnostic: trace slot duration calculation
+        \Log::debug('DP-02 slot calc', [
+            'serviceId' => $serviceId,
+            'service_name' => $service->name ?? 'NOT FOUND',
+            'service_duration' => $service->duration ?? 'N/A',
+            'resolved_duration' => $duration,
+            'doctor_id' => $doctorId,
+            'date' => $holidaydate,
+        ]);
 
         if (! $doctor_holiday->count() == 0) {
             return $this->sendError(__('messages.flash.doctor_not_available'));

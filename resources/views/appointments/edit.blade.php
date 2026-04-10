@@ -64,6 +64,7 @@
                             {{ Form::open([
                                 'route' => ['patients.appointments.update', $appointment->id],
                                 'id' => 'addAppointmentForm',
+                                'data-turbo' => 'false',
                                 'data-draft-get-url' => route('patients.appointments.draft.get', $appointment->id),
                                 'data-draft-save-url' => route('patients.appointments.draft.save', $appointment->id),
                                 'data-booking-mode' => $bookingMode ?? 'edit',
@@ -179,6 +180,8 @@
                                             <div class="col-lg-6 col-sm-12 mb-5 d-none">
                                                 {{ Form::label('Service', __('messages.appointment.service') . ':', ['class' => 'form-label']) }}
                                                 {{ Form::select('appointments[' . $key . '][service_id]', $data['services'], $relation->service_id, ['disabled', 'class' => 'io-select2 form-select appointmentServiceId', 'data-control' => '', 'id' => 'appointmentServiceId', 'placeholder' => __('messages.appointment.service')]) }}
+                                                {{-- DP-02: Hidden input ensures service_id is always available to JS even though the select is disabled --}}
+                                                <input type="hidden" class="appointmentServiceIdHidden" value="{{ $relation->service_id }}" />
                                             </div>
 
                                             @php
@@ -204,6 +207,8 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                {{-- CP-09/DP-02: Hidden input ensures doctor_id is always readable by JS --}}
+                                                <input type="hidden" class="adminAppointmentDoctorIdHidden" value="{{ $relation->doctor_id }}" />
                                             </div>
 
                                             @php $styleCss = 'style'; @endphp

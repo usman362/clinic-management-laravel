@@ -1,7 +1,8 @@
 // document.addEventListener('turbo:load',
 //     loadPatientPanelAppointmentFilterData)
-var patientPanelApptmentStart = moment().startOf("week");
-var patientPanelApptmentEnd = moment().endOf("week");
+// CP-01/CP-06 fix: No default date range — table shows ALL appointments on load.
+var patientPanelApptmentStart = null;
+var patientPanelApptmentEnd = null;
 
 function loadPatientPanelAppointmentFilterData() {
     if (!$("#patientAppointmentDate").length) {
@@ -13,8 +14,7 @@ function loadPatientPanelAppointmentFilterData() {
 
     let patientDatePicker = $("#patientAppointmentDate").daterangepicker(
         {
-            startDate: patientPanelApptmentStart,
-            endDate: patientPanelApptmentEnd,
+            autoUpdateInput: false,
             opens: "left",
             showDropdowns: true,
             locale: {

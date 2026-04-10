@@ -2,8 +2,10 @@
 
 let patientShowApptmentFilterDate = $("#patientShowPageAppointmentDate");
 
-var patientShowApptmentStart = moment().startOf("week");
-var patientShowApptmentEnd = moment().endOf("week");
+// CP-01/CP-06 fix: No default date range — table shows ALL appointments on load.
+// User can still manually apply a date filter via the daterangepicker.
+var patientShowApptmentStart = null;
+var patientShowApptmentEnd = null;
 
 Livewire.hook("element.init", () => {
     loadPatientShowAppointmentDate();
@@ -23,10 +25,10 @@ function loadPatientShowAppointmentDate() {
     // let patientShowApptmentStart = moment().startOf("week");
     // let patientShowApptmentEnd = moment().endOf("week");
 
-    $("#patientShowPageAppointmentDate").daterangepicker(
-        {
-            startDate: patientShowApptmentStart,
-            endDate: patientShowApptmentEnd,
+    // CP-01/CP-06: Initialize without a pre-selected range so the table is unfiltered on load.
+    // The input field stays empty; the user picks a range manually if needed.
+    var pickerOpts = {
+            autoUpdateInput: false,
             opens: "left",
             showDropdowns: true,
             locale: {
@@ -84,10 +86,8 @@ function loadPatientShowAppointmentDate() {
                 ],
             },
         }
-        //cb
-    );
-
-    // cb(patientShowApptmentStart, patientShowApptmentEnd);
+    };
+    $("#patientShowPageAppointmentDate").daterangepicker(pickerOpts);
 
     $("#patientShowPageAppointmentDate").on("apply.daterangepicker", function (ev, picker) {
         let date =

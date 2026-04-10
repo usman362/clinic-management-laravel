@@ -83,13 +83,17 @@ class PatientDashboardSidebarTable extends Component
             ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->get();
 
-        $this->pendingAppointments =  Appointment::with(['patient.user', 'doctor.user', 'services'])
+        // CP-01/CP-06 fix: "Pending Bookings" should show packages that are still
+        // in progress (BOOKED or BOOKING_PENDING) — matching the counter above.
+        // Previously only showed BOOKING_PENDING which mismatched the counter.
+        $this->pendingAppointments = Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
-            ->whereStatus(Appointment::BOOKING_PENDING)
-            ->whereIn('appointments.id', function ($q) {
+            ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::BOOKING_PENDING])
+            ->whereIn('appointments.id', function ($q) use ($patientId) {
                 $q->selectRaw('MAX(id)')
                     ->from('appointments')
-                    ->whereStatus(Appointment::BOOKING_PENDING)
+                    ->where('patient_id', $patientId)
+                    ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::BOOKING_PENDING])
                     ->groupBy('relation_id');
             })
             ->whereIn('appointment_type', ['assessment', 'feedback'])

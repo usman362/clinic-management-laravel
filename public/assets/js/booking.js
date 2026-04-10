@@ -83,21 +83,26 @@
         function saveDraft() {
             if (!useDraft) return;
             var payload = getDraftPayload();
+            console.log('[CP-08] saveDraft → step:', payload.currentStep);
             $.ajax({
                 url: draftSaveUrl,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ form_data: payload }),
-                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'), 'Accept': 'application/json' }
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'), 'Accept': 'application/json' },
+                error: function (xhr) { console.error('[CP-08] saveDraft failed:', xhr.status, xhr.responseText); }
             });
         }
 
         function applyProfileChildToForm() {
+            // CP-08 fix: Always apply profile data as the authoritative source.
+            // Previously only applied if field was empty, but blade pre-fills from DB
+            // which blocked profile data from ever being applied.
             var form = $form[0];
             ['first_name', 'last_name', 'address', 'dob', 'tax_code', 'school_name', 'school_grade'].forEach(function (id) {
                 var el = form.querySelector('#' + id);
                 if (!el) return;
-                if (!el.value && profileChild[id] != null && profileChild[id] !== '') {
+                if (profileChild[id] != null && profileChild[id] !== '') {
                     el.value = profileChild[id];
                 }
             });
@@ -212,6 +217,7 @@
 
         function restoreDraft(done) {
             if (!useDraft) {
+                console.log('[CP-08] restoreDraft: useDraft=false, applying profile defaults');
                 // No server-side draft: initialize from profile, and skip details step for rebook mode
                 applyProfileChildToForm();
                 if (bookingMode === 'rebook') {
@@ -220,6 +226,7 @@
                 if (done) done();
                 return;
             }
+            console.log('[CP-08] restoreDraft: fetching draft from', draftGetUrl);
             $.ajax({
                 url: draftGetUrl,
                 method: 'GET',
@@ -430,7 +437,12 @@
                     try {
                         var resp = JSON.parse(xhr.responseText);
                         if (resp && resp.message) msg = resp.message;
+                        if (resp && resp.errors) {
+                            var errs = Object.values(resp.errors).flat();
+                            if (errs.length) msg = errs.join('; ');
+                        }
                     } catch (ex) {}
+                    console.error('Booking submit error:', xhr.status, msg);
                     showNotification(msg);
                     $btn.prop('disabled', false).text('Finish');
                 }
@@ -615,8 +627,9 @@
             if (!$section.length) return;
 
             var selectedDate = $(this).val();
-            var doctorId = $section.find('.adminAppointmentDoctorId').val();
-            var serviceId = $section.find('.appointmentServiceId').val();
+            // CP-09/DP-02: Hidden input fallbacks for disabled selects
+            var doctorId = $section.find('.adminAppointmentDoctorId').val() || $section.find('.adminAppointmentDoctorIdHidden').val() || '';
+            var serviceId = $section.find('.appointmentServiceId').val() || $section.find('.appointmentServiceIdHidden').val() || '';
             var appointmentType = $section.find('.appointmentType').val() || '';
             var $slotData = $section.find('.appointment-slot-data');
             var $noSlot = $section.find('.no-time-slot');
@@ -724,8 +737,8 @@
             if (!fp) return;
             var $section = $(inputEl).closest('.appointments-section');
             if (!$section.length) $section = $(inputEl).closest('form');
-            var doctorId = $section.find('.adminAppointmentDoctorId').val();
-            var serviceId = $section.find('.appointmentServiceId').val();
+            var doctorId = $section.find('.adminAppointmentDoctorId').val() || $section.find('.adminAppointmentDoctorIdHidden').val() || '';
+            var serviceId = $section.find('.appointmentServiceId').val() || $section.find('.appointmentServiceIdHidden').val() || '';
             if (!doctorId) return;
 
             $.ajax({
@@ -762,6 +775,9 @@
                     minDate: new Date(),
                     disableMobile: true,
                     dateFormat: 'Y-m-d',
+                    // CP-14: Start in whitelist mode — no dates enabled until AJAX loads available dates.
+                    // Without this, flatpickr defaults to all-dates-enabled (blacklist mode).
+                    enable: [],
                     onOpen: function () {
                         if (inputEl._flatpickr && inputEl._flatpickr.calendarContainer) {
                             inputEl._flatpickr.calendarContainer.classList.add('flatpickr-appointment-available-dates');

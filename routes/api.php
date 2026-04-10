@@ -36,6 +36,10 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 | Optional: attach a PDF file as 'file' in the multipart request.
 |
 */
-Route::middleware(['web', 'auth'])
+// CP-12 fix: Removed 'auth' middleware. JotForm redirects from an iframe (cross-origin)
+// which has NO session cookie, so 'auth' blocks all JotForm POSTs with 401.
+// The consentWebhook() method has its own authorization logic inside (checks
+// appointment ownership when user IS authenticated, allows recording when not).
+Route::middleware(['web'])
     ->match(['get', 'post'], '/consent-webhook', [AppointmentController::class, 'consentWebhook'])
     ->name('api.consent.webhook');

@@ -130,7 +130,26 @@ class PatientAppointmentTable extends LivewireTableComponent
 
     public function columns(): array
     {
+        // CP-18: Restructured columns per client feedback V7.
+        // Order: Appointment (service), Date/Time, Location, Doctor, Status, Action
         return [
+            // Appointment = service name
+            Column::make('Appointment', 'services.name')
+                ->view('patients.appointments.components.service_name')
+                ->sortable()
+                ->searchable(),
+
+            // Date / Time
+            Column::make('Date/Time', 'date')
+                ->view('patients.appointments.components.appointment_at')
+                ->sortable(),
+
+            // Location (from service.address)
+            Column::make('Location', 'services.address')
+                ->view('patients.appointments.components.location')
+                ->searchable(),
+
+            // Doctor
             Column::make(
                 __('messages.doctor.doctor'),
                 'doctor.user.first_name'
@@ -143,31 +162,16 @@ class PatientAppointmentTable extends LivewireTableComponent
                         });
                     }
                 ),
-            Column::make(__('messages.appointment.patient'), 'patient.patientUser.first_name')
-                ->view('appointments.components.patient_name')
-                ->sortable(function (Builder $query, $direction) {
-                    return $query->orderBy(User::select('first_name')->whereColumn('id', 'patient.user_id'), $direction);
-                })
-                ->searchable(),
+
+            // Hidden searchable column for doctor email
             Column::make(__('messages.patient.name'), 'doctor.user.email')
                 ->hideIf('doctor.user.email')
                 ->searchable(),
-            // Column::make(__('messages.appointment.appointment_at'),
-            //     'date')->view('patients.appointments.components.appointment_at')
-            //     ->sortable()->searchable(),
-            // Column::make(__('messages.appointment.service_charge'),
-            //     'services.charges')->view('patients.appointments.components.service_charge')
-            //     ->sortable()->searchable(),
-            // Column::make(__('messages.appointment.payment'), 'payment_type')
-            //     ->format(function ($value, $row) {
-            //         return view('patients.appointments.components.payment')
-            //             ->with([
-            //                 'row' => $row,
-            //                 'paid' => Appointment::PAID,
-            //                 'pending' => Appointment::PENDING,
-            //             ]);
-            //     }),
+
+            // Status
             Column::make(__('messages.appointment.status'), 'status')->view('patients.appointments.components.status'),
+
+            // Action
             Column::make(__('messages.common.action'), 'id')
                 ->format(function ($value, $row) {
                     return view('patients.appointments.components.action')

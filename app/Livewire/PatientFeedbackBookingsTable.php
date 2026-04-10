@@ -68,22 +68,30 @@ class PatientFeedbackBookingsTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        $patientId = getLoginUser()->patient->id ?? 0;
+
+        // AP-05: Show all feedback appointments for this patient.
+        // Include BOOKING_PENDING so newly created (unsent) feedback packages appear.
         $query = Appointment::with([
             'doctor.user',
             'services',
             'transaction',
             'doctor.reviews',
             'patient.user',
-        ])->where('appointments.appointment_type','feedback')
-          ->where('appointments.status','!=',Appointment::CANCELLED)
-          ->where('patient_id', getLoginUser()->patient->id)
+        ])->where('appointments.appointment_type', 'feedback')
+          ->where('appointments.status', '!=', Appointment::CANCELLED)
+          ->where('patient_id', $patientId)
           ->select('appointments.*');
 
-        $query->whereIn('appointments.id', function ($q) {
+        // Show one row per package (relation_id), using the latest appointment as representative.
+        $query->whereIn('appointments.id', function ($q) use ($patientId) {
             $q->selectRaw('MAX(appointments.id)')
-            ->from('appointments')
-            ->groupBy('appointments.relation_id');
+                ->from('appointments')
+                ->where('appointment_type', 'feedback')
+                ->where('patient_id', $patientId)
+                ->groupBy('appointments.relation_id');
         });
+
         return $query->select('appointments.*');
     }
 

@@ -797,14 +797,18 @@ class FeedbackAppointmentController extends AppBaseController
             return redirect()->back();
         }
 
-        // Check if all appointments in the assessment package are completed (CHECK_OUT status)
+        // AP-05.3: Check if all appointments completed. Warn but allow with `?confirm=1`.
         $incompleteAppointments = $assessmentPkg->assessmentAppointments()
             ->where('status', '!=', Appointment::CHECK_OUT)
             ->count();
 
-        if ($incompleteAppointments > 0) {
-            Flash::warning('Warning: Not all appointments in this assessment package have been completed yet. ' . $incompleteAppointments . ' appointment(s) are still pending. Do you want to proceed with creating the feedback package?');
-            return redirect()->back();
+        if ($incompleteAppointments > 0 && ! request()->boolean('confirm')) {
+            Flash::warning(
+                $incompleteAppointments . ' appointment(s) are not yet completed. '
+                . 'To create the feedback package anyway, click the button again to confirm.'
+            );
+            // Redirect back with a flag that the view can use to show a "Confirm" button
+            return redirect()->back()->with('feedback_needs_confirm', $packageId);
         }
 
         try {

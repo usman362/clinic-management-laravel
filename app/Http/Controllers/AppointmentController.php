@@ -275,7 +275,9 @@ class AppointmentController extends AppBaseController
 
     public function edit($id): \Illuminate\View\View
     {
-        $appointment = Appointment::findOrFail($id);
+        // CP-08: Eager-load patient.user + address so blade data-profile-* attributes
+        // are populated correctly (prevents null address causing empty profile data).
+        $appointment = Appointment::with(['patient.user.address', 'patient.address', 'doctor.user', 'services'])->findOrFail($id);
 
         if (getLogInUser()->hasRole('patient')) {
             if ($appointment->patient_id !== getLogInUser()->patient->id) {
@@ -379,10 +381,12 @@ class AppointmentController extends AppBaseController
     {
         $user = getLogInUser();
         if (! $user->hasRole('patient') || ! $user->patient) {
+            \Log::debug('CP-08 getDraft: unauthorized', ['user_id' => $user?->id]);
             return $this->sendError(__('messages.common.unauthorized'), 403);
         }
         $appointment = Appointment::where('id', $id)->where('patient_id', $user->patient->id)->firstOrFail();
         $draft = AppointmentDraft::where('user_id', $user->id)->where('appointment_id', $id)->first();
+        \Log::debug('CP-08 getDraft', ['appointment_id' => $id, 'has_draft' => (bool) $draft]);
         return $this->sendResponse($draft ? $draft->form_data : null, __('messages.flash.retrieve'));
     }
 
@@ -407,6 +411,8 @@ class AppointmentController extends AppBaseController
 
     /**
      * Remove the specified Appointment from storage.
+     * AP-03: Also cancels all sibling appointments in the same package and
+     * deletes the Package record (which triggers Package::booted cascade).
      */
     public function destroy(Appointment $appointment): JsonResponse
     {
@@ -415,10 +421,21 @@ class AppointmentController extends AppBaseController
                 return $this->sendError('Seems, you are not allowed to access this record.');
             }
         }
-        $appointmentUniqueId = $appointment->appointment_unique_id;
 
-        $transaction = Transaction::whereAppointmentId($appointmentUniqueId)->first();
+        $relationId = $appointment->relation_id;
 
+        // Cancel all sibling appointments in the same package
+        if ($relationId) {
+            Appointment::where('relation_id', $relationId)
+                ->whereNotIn('status', [Appointment::CANCELLED])
+                ->update(['status' => Appointment::CANCELLED]);
+
+            // Delete the Package record (triggers Package::booted cascade as backup)
+            Package::where('relation_id', $relationId)->delete();
+        }
+
+        // Delete the specific appointment's transaction
+        $transaction = Transaction::whereAppointmentId($appointment->appointment_unique_id)->first();
         if ($transaction) {
             $transaction->delete();
         }
@@ -1130,6 +1147,8 @@ class AppointmentController extends AppBaseController
             ->first();
 
         if (! $existingConsent) {
+            $submissionId = $request->input('submission_id', '');
+
             // Handle file upload if a PDF was attached
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
@@ -1147,13 +1166,18 @@ class AppointmentController extends AppBaseController
                     'appointment_id' => $appointment->id,
                 ]);
             } else {
-                // No file attached — create a record marking consent was signed
+                // AP-02: No file attached — record consent as signed with JotForm submission reference.
+                // The submission PDF can be downloaded from JotForm using the submission_id.
+                $consentTitle = $title . ' (signed)';
+                if ($submissionId) {
+                    $consentTitle .= ' [JotForm #' . $submissionId . ']';
+                }
                 Document::create([
                     'user_id'        => $userId,
                     'uploaded_by'    => $userId,
-                    'title'          => $title . ' (signed)',
+                    'title'          => $consentTitle,
                     'type'           => 'consent',
-                    'path'           => '',
+                    'path'           => $submissionId ? 'jotform:' . $submissionId : '',
                     'mime_type'      => 'application/pdf',
                     'size'           => 0,
                     'doctor_id'      => $doctorId,

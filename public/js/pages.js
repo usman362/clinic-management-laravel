@@ -4240,8 +4240,9 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 
 // document.addEventListener('turbo:load',
 //     loadPatientPanelAppointmentFilterData)
-var patientPanelApptmentStart = moment().startOf("week");
-var patientPanelApptmentEnd = moment().endOf("week");
+// CP-01/CP-06 fix: No default date range.
+var patientPanelApptmentStart = null;
+var patientPanelApptmentEnd = null;
 
 function loadPatientPanelAppointmentFilterData() {
   var _ranges;
@@ -4253,8 +4254,7 @@ function loadPatientPanelAppointmentFilterData() {
 
 
   var patientDatePicker = $("#patientAppointmentDate").daterangepicker({
-    startDate: patientPanelApptmentStart,
-    endDate: patientPanelApptmentEnd,
+    autoUpdateInput: false,
     opens: "left",
     showDropdowns: true,
     locale: {
@@ -4745,7 +4745,7 @@ var handleViewEvent = function handleViewEvent() {
   viewEndDate.innerText = ': ' + endDateMod;
   viewStartDate.innerText = ': ' + startDateMod; // Populate view data
 
-  viewEventName.innerText = 'Doctor: ' + data.doctorName;
+  viewEventName.innerText = (data.doctorName ? 'Doctor: ' + data.doctorName : 'Doctor: Not assigned');
   $(viewEventStatus).val(data.eventStatus);
   viewAmount.innerText = addCommas(data.amount);
   viewUId.innerText = data.uId;
@@ -10801,8 +10801,9 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 
 // document.addEventListener('turbo:load', loadPatientShowAppointmentDate)
 var patientShowApptmentFilterDate = $("#patientShowPageAppointmentDate");
-var patientShowApptmentStart = moment().startOf("week");
-var patientShowApptmentEnd = moment().endOf("week");
+// CP-01/CP-06 fix: No default date range — table shows ALL appointments on load.
+var patientShowApptmentStart = null;
+var patientShowApptmentEnd = null;
 Livewire.hook("element.init", function () {
   loadPatientShowAppointmentDate();
 
@@ -10825,8 +10826,7 @@ function loadPatientShowAppointmentDate() {
 
 
   $("#patientShowPageAppointmentDate").daterangepicker({
-    startDate: patientShowApptmentStart,
-    endDate: patientShowApptmentEnd,
+    autoUpdateInput: false,
     opens: "left",
     showDropdowns: true,
     locale: {

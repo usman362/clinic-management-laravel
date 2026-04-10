@@ -8,7 +8,9 @@
 
         {{-- Instructions panel --}}
         @if(!getLogInUser()->hasRole('patient'))
-        <div class="bg-info bg-opacity-10 border border-info rounded p-4 position-relative mb-4" role="alert" id="feedbackInstructions">
+        {{-- AP-05: data-turbo-permanent prevents Turbo from caching the dismissed state --}}
+        <div class="bg-info bg-opacity-10 border border-info rounded p-4 position-relative mb-4"
+             role="alert" id="feedbackInstructions" data-turbo-permanent>
             <h5 class="alert-heading fw-bold mb-2"><i class="fas fa-info-circle me-2"></i>What is a Feedback Package?</h5>
             <p class="mb-2">
                 A <strong>feedback package</strong> is a follow-up appointment set created after an assessment package has been completed.
@@ -23,7 +25,8 @@
                 <li>The patient receives a booking link to select their preferred feedback appointment slot.</li>
             </ol>
             <p class="mb-0"><small>Alternatively, click <strong>"Create Feedback Package"</strong> below to create one manually.</small></p>
-            <button type="button" class="btn-close position-absolute top-0 end-0 m-3" aria-label="Close" onclick="this.closest('#feedbackInstructions').remove()"></button>
+            <button type="button" class="btn-close position-absolute top-0 end-0 m-3" aria-label="Close"
+                    onclick="this.closest('#feedbackInstructions').style.display='none'"></button>
         </div>
         @endif
 

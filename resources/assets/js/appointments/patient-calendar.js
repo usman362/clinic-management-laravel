@@ -224,7 +224,7 @@ const handleViewEvent = () => {
     viewStartDate.innerText = ': ' + startDateMod
 
     // Populate view data
-    viewEventName.innerText = 'Doctor: ' + data.doctorName
+    viewEventName.innerText = (data.doctorName ? 'Doctor: ' + data.doctorName : 'Doctor: Not assigned')
     $(viewEventStatus).val(data.eventStatus)
     viewAmount.innerText = addCommas(data.amount)
     viewUId.innerText = data.uId

@@ -19,9 +19,17 @@
                             <i class="fas fa-check me-1"></i> Feedback Sent
                         </span>
                     @else
+                        @if(session('feedback_needs_confirm') == $package->id)
+                            {{-- AP-05.3: Doctor clicked "Send" but some appointments incomplete — show confirm button --}}
+                            <a class="btn btn-danger"
+                               href="{{ route('feedback.send-from-package', ['packageId' => $package->id, 'confirm' => 1]) }}"
+                               onclick="return confirm('Not all appointments are completed.\n\nAre you sure you want to create the feedback package anyway?')">
+                                <i class="fas fa-exclamation-triangle me-1"></i> Confirm: Create Feedback Package
+                            </a>
+                        @endif
                         <a class="btn btn-warning"
                            href="{{ route('feedback.send-from-package', $package->id) }}"
-                           onclick="return confirm('This will create a feedback package for this patient with the same doctor(s).\n\nNote: Any appointments that have not been completed will trigger a warning message.\n\nContinue?')">
+                           onclick="return confirm('This will create a feedback package for this patient with the same doctor(s).\n\nContinue?')">
                             <i class="fas fa-paper-plane me-1"></i> Send Feedback Package
                         </a>
                     @endif

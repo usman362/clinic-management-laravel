@@ -25,25 +25,61 @@ class Package extends Model
 {
     use HasFactory;
 
+    /**
+     * AP-03: When a package is deleted, cancel all its related appointments
+     * rather than leaving orphans in the patient's view.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (Package $package) {
+            Appointment::where('relation_id', $package->relation_id)
+                ->whereNotIn('status', [Appointment::CANCELLED])
+                ->update(['status' => Appointment::CANCELLED]);
+        });
+    }
+
+    // AP-04: Package lifecycle statuses.
+    const STATUS_PENDING             = 'pending';
+    const STATUS_LINK_SENT           = 'link_sent';
+    const STATUS_APPOINTMENTS_BOOKED = 'appointments_booked';
+    const STATUS_FEEDBACK_SENT       = 'feedback_sent';
+    const STATUS_FEEDBACK_BOOKED     = 'feedback_booked';
+    const STATUS_COMPLETED           = 'completed';
+
+    const STATUSES = [
+        self::STATUS_PENDING             => 'Pending',
+        self::STATUS_LINK_SENT           => 'Link Sent',
+        self::STATUS_APPOINTMENTS_BOOKED => 'Appointments Booked',
+        self::STATUS_FEEDBACK_SENT       => 'Feedback Sent',
+        self::STATUS_FEEDBACK_BOOKED     => 'Feedback Booked',
+        self::STATUS_COMPLETED           => 'Completed',
+    ];
+
     protected $fillable = [
         'relation_id',
         'patient_id',
         'created_by',
         'appointment_type',
+        'status',
         'description',
         'payable_amount',
         'payment_type',
         'payment_method',
+        'payment_received',
+        'payment_received_at',
+        'payment_notes',
         'feedback_sent_at',
         'parent_package_id',
     ];
 
     protected $casts = [
-        'patient_id'        => 'integer',
-        'created_by'        => 'integer',
-        'payment_type'      => 'integer',
-        'parent_package_id' => 'integer',
-        'feedback_sent_at'  => 'datetime',
+        'patient_id'          => 'integer',
+        'created_by'          => 'integer',
+        'payment_type'        => 'integer',
+        'payment_received'    => 'boolean',
+        'payment_received_at' => 'datetime',
+        'parent_package_id'   => 'integer',
+        'feedback_sent_at'    => 'datetime',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -90,11 +126,90 @@ class Package extends Model
         return $this->hasMany(self::class, 'parent_package_id');
     }
 
+    // ── Status workflow helpers (AP-04) ─────────────────────────────────────
+
+    /** Mark booking link as sent to patient. */
+    public function markLinkSent(): self
+    {
+        $this->update(['status' => self::STATUS_LINK_SENT]);
+        return $this;
+    }
+
+    /** Record that manual payment has been received. */
+    public function recordPaymentReceived(?string $notes = null): self
+    {
+        $this->update([
+            'payment_received'    => true,
+            'payment_received_at' => now(),
+            'payment_notes'       => $notes,
+        ]);
+        return $this;
+    }
+
+    /**
+     * Re-derive status from appointment states and persist it.
+     * Call this after any appointment status change within the package.
+     */
+    public function refreshStatus(): self
+    {
+        $appts  = $this->appointments()->get();
+        $total  = $appts->count();
+        $booked = $appts->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT])->count();
+        $done   = $appts->where('status', Appointment::CHECK_OUT)->count();
+
+        if ($total > 0 && $done === $total) {
+            $status = self::STATUS_COMPLETED;
+        } elseif ($this->feedback_sent_at || $this->feedbackPackages()->exists()) {
+            $fbPkg = $this->feedbackPackages()->first();
+            if ($fbPkg) {
+                $fbDone = $fbPkg->appointments()->where('status', Appointment::CHECK_OUT)->count();
+                $fbTotal = $fbPkg->appointments()->count();
+                if ($fbTotal > 0 && $fbDone === $fbTotal) {
+                    $status = self::STATUS_COMPLETED;
+                } elseif ($fbPkg->appointments()->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])->exists()) {
+                    $status = self::STATUS_FEEDBACK_BOOKED;
+                } else {
+                    $status = self::STATUS_FEEDBACK_SENT;
+                }
+            } else {
+                $status = self::STATUS_FEEDBACK_SENT;
+            }
+        } elseif ($booked > 0) {
+            $status = self::STATUS_APPOINTMENTS_BOOKED;
+        } elseif ($total > 0) {
+            $status = self::STATUS_LINK_SENT;
+        } else {
+            $status = self::STATUS_PENDING;
+        }
+
+        $this->update(['status' => $status]);
+        return $this;
+    }
+
+    /** Human-readable status badge color for views. */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            self::STATUS_COMPLETED           => 'bg-success',
+            self::STATUS_APPOINTMENTS_BOOKED => 'bg-primary',
+            self::STATUS_FEEDBACK_BOOKED     => 'bg-info',
+            self::STATUS_FEEDBACK_SENT       => 'bg-warning text-dark',
+            self::STATUS_LINK_SENT           => 'bg-secondary',
+            default                          => 'bg-light text-dark',
+        };
+    }
+
     // ── Computed helpers ──────────────────────────────────────────────────────
 
-    /** Overall status derived from appointments. */
+    /** Overall status — prefer explicit status field, fall back to derived. */
     public function getStatusLabelAttribute(): string
     {
+        // If explicit status is set and meaningful, use it.
+        if ($this->status && isset(self::STATUSES[$this->status])) {
+            return self::STATUSES[$this->status];
+        }
+
+        // Legacy fallback: derive from appointments.
         $appts = $this->appointments;
         $total = $appts->count();
         $done  = $appts->where('status', Appointment::CHECK_OUT)->count();

@@ -215,10 +215,18 @@ class AppointmentRepository extends BaseRepository
                         $patientUser->address()->create($addressInputArray);
                     }
 
-                    // Save child details (first_name, last_name, dob) to the patient's user record
-                    $patientUser->first_name = $input['first_name'] ?? $patientUser->first_name;
-                    $patientUser->last_name = $input['last_name'] ?? $patientUser->last_name;
-                    $patientUser->dob = $input['dob'] ?? $patientUser->dob;
+                    // CP-09 fix: Only overwrite child details if the form actually sent
+                    // non-empty values. In rebook mode, step 0 is skipped so these fields
+                    // arrive as empty strings — we must NOT overwrite with empty.
+                    if (!empty($input['first_name'])) {
+                        $patientUser->first_name = $input['first_name'];
+                    }
+                    if (!empty($input['last_name'])) {
+                        $patientUser->last_name = $input['last_name'];
+                    }
+                    if (!empty($input['dob'])) {
+                        $patientUser->dob = $input['dob'];
+                    }
                     $patientUser->save();
                 } else {
                     $appointment->doctor_id = $appt['doctor_id'];
