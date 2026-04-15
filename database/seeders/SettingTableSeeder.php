@@ -33,5 +33,6 @@ class SettingTableSeeder extends Seeder
         Setting::create(['key' => 'logo', 'value' => $logoUrl]);
         Setting::create(['key' => 'favicon', 'value' => $favicon]);
         Setting::create(['key' => 'region_code', 'value' => '91']);
+        Setting::create(['key' => 'jotform_api_key', 'value' => '']);
     }
 }

@@ -1246,7 +1246,17 @@ class AppointmentController extends AppBaseController
                 $pdfSource = 'none';
 
                 // ── 1) Try official Jotform PDF via API ────────────────────
-                $apiKey  = config('services.jotform.api_key');
+                // Prefer the DB setting (Admin → Settings → SMTP) so the
+                // admin can rotate the key from the UI. Fall back to .env.
+                $apiKey = null;
+                try {
+                    $apiKey = trim((string) getSettingValue('jotform_api_key'));
+                } catch (\Throwable $ignored) {
+                    // setting row might not exist yet (migration not run)
+                }
+                if (empty($apiKey)) {
+                    $apiKey = config('services.jotform.api_key');
+                }
                 $baseUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
 
                 if ($apiKey && $submissionId) {

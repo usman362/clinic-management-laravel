@@ -111,6 +111,41 @@
                         </div>
                     @endif
 
+                    {{-- AP-02 / CP-12: Jotform API Key --}}
+                    <div class="row mb-6 mt-6 pt-6 border-top">
+                        <div class="col-lg-4">
+                            <div class="mb-4">
+                                <h3 class="m-0">Jotform API Settings</h3>
+                            </div>
+                            {{ Form::label('jotform_api_key', 'Jotform API Key:', ['class' => 'form-label']) }}
+                        </div>
+                        <div class="col-lg-8 mt-4">
+                            {{ Form::text('jotform_api_key', $setting['jotform_api_key'] ?? null, [
+                                'class' => 'form-control',
+                                'placeholder' => 'Paste your Jotform API key here',
+                                'autocomplete' => 'off',
+                            ]) }}
+                            <small class="text-muted d-block mt-2">
+                                Used to download the official signed consent PDF from Jotform into the patient's documents.
+                                Create a key at
+                                <a href="https://www.jotform.com/myaccount/api" target="_blank" rel="noopener">
+                                    jotform.com/myaccount/api
+                                </a>
+                                with <strong>Full Access</strong> permission.
+                                Leave blank to fall back to a generated summary PDF.
+                            </small>
+                            @if(!empty($setting['jotform_api_key']))
+                                <span class="badge bg-success mt-2">
+                                    <i class="fas fa-check me-1"></i> API key configured
+                                </span>
+                            @else
+                                <span class="badge bg-warning text-dark mt-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Not configured — consent PDFs will use fallback format
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+
 
                     <div class="row">
                         <!-- Submit Field -->
