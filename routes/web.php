@@ -334,7 +334,7 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
         [FeedbackAppointmentController::class, 'packageDetails']
     )->name('feedbackpackage.details');
 
-    Route::get(
+    Route::match(['get', 'post'],
         'feedback/send-from-package/{packageId}',
         [FeedbackAppointmentController::class, 'sendFromPackage']
     )->name('feedback.send-from-package');

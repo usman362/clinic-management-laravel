@@ -780,35 +780,63 @@ class FeedbackAppointmentController extends AppBaseController
 
     /**
      * Create a feedback package from an existing assessment package.
-     * Pre-fills patient and doctor(s) from the assessment package.
+     *
+     * Now supports per-doctor sending: the admin can pick a subset of doctors
+     * (via `doctor_ids[]` POST param) to send feedback to. Each call creates a
+     * NEW child feedback Package (with a fresh relation_id) containing only
+     * the selected doctors. Admin can call repeatedly for remaining doctors
+     * until every assessment doctor has been covered.
+     *
+     * If `doctor_ids` is empty/missing, falls back to "all remaining doctors"
+     * (doctors in the assessment package who haven't been sent feedback yet).
      */
-    public function sendFromPackage($packageId): RedirectResponse
+    public function sendFromPackage(Request $request, $packageId): RedirectResponse
     {
-        $assessmentPkg = Package::with(['appointments.doctor.user', 'patient.user'])->findOrFail($packageId);
+        $assessmentPkg = Package::with(['appointments.doctor.user', 'feedbackPackages.appointments', 'patient.user'])
+            ->findOrFail($packageId);
 
         if ($assessmentPkg->appointment_type !== 'assessment') {
             Flash::error('Only assessment packages can have feedback packages created.');
             return redirect()->back();
         }
 
-        // Check if feedback package already exists
-        if ($assessmentPkg->feedbackPackages()->exists()) {
-            Flash::warning('A feedback package has already been created for this assessment package.');
+        // Determine target doctors
+        $requestedDoctorIds = array_values(array_filter(array_map('intval', (array) $request->input('doctor_ids', []))));
+        $remainingDoctorIds = $assessmentPkg->getDoctorIdsWithoutFeedback();
+
+        if (empty($remainingDoctorIds)) {
+            Flash::warning('Feedback has already been sent to every doctor in this assessment package.');
             return redirect()->back();
         }
 
-        // AP-05.3: Check if all appointments completed. Warn but allow with `?confirm=1`.
+        if (empty($requestedDoctorIds)) {
+            // Legacy flow / no selection made → default to all remaining
+            $targetDoctorIds = $remainingDoctorIds;
+        } else {
+            // Must be a subset of remaining doctors
+            $targetDoctorIds = array_values(array_intersect($requestedDoctorIds, $remainingDoctorIds));
+            if (empty($targetDoctorIds)) {
+                Flash::error('Selected doctor(s) have already been sent feedback or are not part of this package.');
+                return redirect()->back();
+            }
+        }
+
+        // AP-05.3: If the SELECTED doctors have any non-completed assessment
+        // appointments, warn and ask the admin to confirm.
         $incompleteAppointments = $assessmentPkg->assessmentAppointments()
+            ->whereIn('doctor_id', $targetDoctorIds)
             ->where('status', '!=', Appointment::CHECK_OUT)
             ->count();
 
-        if ($incompleteAppointments > 0 && ! request()->boolean('confirm')) {
+        if ($incompleteAppointments > 0 && ! $request->boolean('confirm')) {
             Flash::warning(
-                $incompleteAppointments . ' appointment(s) are not yet completed. '
-                . 'To create the feedback package anyway, click the button again to confirm.'
+                $incompleteAppointments . ' assessment appointment(s) for the selected doctor(s) are not yet completed. '
+                . 'Reopen the dialog and tick "Send anyway" to confirm.'
             );
-            // Redirect back with a flag that the view can use to show a "Confirm" button
-            return redirect()->back()->with('feedback_needs_confirm', $packageId);
+            return redirect()->back()->with([
+                'feedback_needs_confirm' => $packageId,
+                'feedback_selected_docs' => $targetDoctorIds,
+            ]);
         }
 
         try {
@@ -816,7 +844,7 @@ class FeedbackAppointmentController extends AppBaseController
 
             $relationId = uniqid('appt_');
 
-            // Create the feedback Package record
+            // Create a NEW child feedback Package for this batch
             $feedbackPkg = Package::create([
                 'relation_id'       => $relationId,
                 'patient_id'        => $assessmentPkg->patient_id,
@@ -829,19 +857,15 @@ class FeedbackAppointmentController extends AppBaseController
                 'parent_package_id' => $assessmentPkg->id,
             ]);
 
-            // Mark feedback as sent on the assessment package
-            $assessmentPkg->update(['feedback_sent_at' => now()]);
+            // Stamp feedback_sent_at on first send only
+            if (! $assessmentPkg->feedback_sent_at) {
+                $assessmentPkg->update(['feedback_sent_at' => now()]);
+            }
 
-            // Create one feedback appointment per unique doctor in the assessment package
-            $doctorIds = $assessmentPkg->assessmentAppointments
-                ->pluck('doctor_id')
-                ->unique();
-
-            foreach ($doctorIds as $doctorId) {
-                // Find a representative appointment to inherit the service
+            // Create one feedback appointment per selected doctor
+            foreach ($targetDoctorIds as $doctorId) {
                 $refAppt = $assessmentPkg->assessmentAppointments
-                    ->where('doctor_id', $doctorId)
-                    ->first();
+                    ->firstWhere('doctor_id', $doctorId);
 
                 Appointment::create([
                     'doctor_id'             => $doctorId,
@@ -863,20 +887,26 @@ class FeedbackAppointmentController extends AppBaseController
                 ]);
             }
 
+            // Refresh assessment package status to reflect new feedback coverage
+            $assessmentPkg->refreshStatus();
+
             // Notify the patient
             $patient = Patient::whereId($assessmentPkg->patient_id)->with('user')->first();
             if ($patient && $patient->user) {
+                $count = count($targetDoctorIds);
                 Notification::create([
-                    'title' => 'A feedback package has been created for you. Please book your feedback appointment(s).',
-                    'type'  => Notification::BOOKED,
+                    'title'   => 'A feedback package has been created for you (' . $count . ' doctor' . ($count > 1 ? 's' : '') . '). Please book your feedback appointment(s).',
+                    'type'    => Notification::BOOKED,
                     'user_id' => $patient->user->id,
                 ]);
             }
 
             DB::commit();
 
-            Flash::success('Feedback package created successfully. The patient has been notified.');
-            return redirect()->route('feedbackpackage.details', $feedbackPkg->appointments()->first()->id ?? $packageId);
+            $doctorWord = count($targetDoctorIds) === 1 ? 'doctor' : 'doctors';
+            Flash::success('Feedback package created for ' . count($targetDoctorIds) . ' ' . $doctorWord . '. The patient has been notified.');
+            $firstFbAppt = $feedbackPkg->appointments()->first();
+            return redirect()->route('feedbackpackage.details', $firstFbAppt->id ?? $packageId);
 
         } catch (Exception $e) {
             DB::rollBack();

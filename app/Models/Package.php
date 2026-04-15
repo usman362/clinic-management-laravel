@@ -171,6 +171,10 @@ class Package extends Model
     /**
      * Re-derive status from appointment states and persist it.
      * Call this after any appointment status change within the package.
+     *
+     * For assessment packages: aggregates status across ALL child feedback
+     * packages (a package may now have multiple child feedback packages,
+     * one per doctor or doctor-subset).
      */
     public function refreshStatus(): self
     {
@@ -179,33 +183,133 @@ class Package extends Model
         $booked = $appts->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::CHECK_OUT])->count();
         $done   = $appts->where('status', Appointment::CHECK_OUT)->count();
 
-        if ($total > 0 && $done === $total) {
-            $status = self::STATUS_COMPLETED;
-        } elseif ($this->feedback_sent_at || $this->feedbackPackages()->exists()) {
-            $fbPkg = $this->feedbackPackages()->first();
-            if ($fbPkg) {
-                $fbDone = $fbPkg->appointments()->where('status', Appointment::CHECK_OUT)->count();
-                $fbTotal = $fbPkg->appointments()->count();
-                if ($fbTotal > 0 && $fbDone === $fbTotal) {
+        if ($this->appointment_type === 'assessment') {
+            $feedbackPkgs = $this->feedbackPackages()->with('appointments')->get();
+
+            if ($feedbackPkgs->isNotEmpty()) {
+                // Aggregate across every child feedback package
+                $allFbAppts = $feedbackPkgs->flatMap->appointments;
+                $fbTotal    = $allFbAppts->count();
+                $fbDone     = $allFbAppts->where('status', Appointment::CHECK_OUT)->count();
+                $fbBookedCount = $allFbAppts->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])->count();
+
+                // Do all assessment doctors have a feedback appointment?
+                $assessmentDoctorIds = $this->getAssessmentDoctorIds();
+                $doctorsWithFb       = $allFbAppts->pluck('doctor_id')->unique()->values()->all();
+                $allDoctorsCovered   = empty(array_diff($assessmentDoctorIds, $doctorsWithFb));
+
+                if ($allDoctorsCovered && $fbTotal > 0 && $fbDone === $fbTotal) {
                     $status = self::STATUS_COMPLETED;
-                } elseif ($fbPkg->appointments()->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])->exists()) {
+                } elseif ($fbBookedCount > 0 || $fbDone > 0) {
                     $status = self::STATUS_FEEDBACK_BOOKED;
                 } else {
                     $status = self::STATUS_FEEDBACK_SENT;
                 }
+            } elseif ($this->feedback_sent_at) {
+                $status = self::STATUS_FEEDBACK_SENT;
+            } elseif ($total > 0 && $done === $total) {
+                $status = self::STATUS_COMPLETED;
+            } elseif ($booked > 0) {
+                $status = self::STATUS_APPOINTMENTS_BOOKED;
+            } elseif ($total > 0) {
+                $status = self::STATUS_LINK_SENT;
+            } else {
+                $status = self::STATUS_PENDING;
+            }
+        } else {
+            // Feedback package — status reflects only its own appointments
+            if ($total > 0 && $done === $total) {
+                $status = self::STATUS_COMPLETED;
+            } elseif ($booked > 0) {
+                $status = self::STATUS_FEEDBACK_BOOKED;
             } else {
                 $status = self::STATUS_FEEDBACK_SENT;
             }
-        } elseif ($booked > 0) {
-            $status = self::STATUS_APPOINTMENTS_BOOKED;
-        } elseif ($total > 0) {
-            $status = self::STATUS_LINK_SENT;
-        } else {
-            $status = self::STATUS_PENDING;
         }
 
         $this->update(['status' => $status]);
         return $this;
+    }
+
+    // ── Per-doctor feedback helpers (multi-send support) ────────────────────
+
+    /**
+     * Unique doctor IDs from this package's assessment appointments.
+     */
+    public function getAssessmentDoctorIds(): array
+    {
+        return $this->assessmentAppointments()
+            ->pluck('doctor_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Doctor IDs that already have a feedback appointment in any child
+     * feedback package of this assessment package.
+     */
+    public function getDoctorIdsWithFeedback(): array
+    {
+        $fbRelationIds = $this->feedbackPackages()->pluck('relation_id');
+        if ($fbRelationIds->isEmpty()) {
+            return [];
+        }
+        return Appointment::whereIn('relation_id', $fbRelationIds)
+            ->pluck('doctor_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Assessment doctor IDs that have NOT yet been sent feedback.
+     */
+    public function getDoctorIdsWithoutFeedback(): array
+    {
+        return array_values(array_diff(
+            $this->getAssessmentDoctorIds(),
+            $this->getDoctorIdsWithFeedback()
+        ));
+    }
+
+    /**
+     * Per-doctor feedback status map — used by the "Send Feedback" modal to
+     * show each doctor's current status in the UI.
+     *
+     * Returns: [doctor_id => 'completed'|'booked'|'sent'|null, ...]
+     */
+    public function getDoctorFeedbackStatusMap(): array
+    {
+        $map = [];
+        foreach ($this->getAssessmentDoctorIds() as $docId) {
+            $map[$docId] = null;
+        }
+
+        $feedbackPkgs = $this->feedbackPackages()->with('appointments')->get();
+        foreach ($feedbackPkgs as $fbPkg) {
+            foreach ($fbPkg->appointments as $appt) {
+                $docId = $appt->doctor_id;
+                if (! array_key_exists($docId, $map)) {
+                    continue;
+                }
+                // Priority: completed > booked > sent (so later fb appts can't downgrade)
+                $current = $map[$docId];
+                $incoming = match ((int) $appt->status) {
+                    Appointment::CHECK_OUT                         => 'completed',
+                    Appointment::BOOKED, Appointment::CHECK_IN     => 'booked',
+                    default                                        => 'sent',
+                };
+                $rank = ['sent' => 1, 'booked' => 2, 'completed' => 3];
+                if ($current === null || $rank[$incoming] > $rank[$current]) {
+                    $map[$docId] = $incoming;
+                }
+            }
+        }
+
+        return $map;
     }
 
     /** Human-readable status badge color for views. */
@@ -242,33 +346,46 @@ class Package extends Model
         return 'Pending';
     }
 
-    /** Feedback status for assessment packages: Not sent / Sent (date) / Booked / Completed. */
+    /**
+     * Feedback status for assessment packages.
+     * Shows aggregate across multiple child feedback packages:
+     *   "Not sent" / "Sent 2/3 (15 Apr)" / "Booked 2/3" / "Completed"
+     */
     public function getFeedbackStatusLabelAttribute(): string
     {
         if ($this->appointment_type !== 'assessment') {
             return '';
         }
 
-        // Check if a feedback package exists for this assessment package
-        $feedbackPkg = $this->feedbackPackages()->first();
+        $feedbackPkgs = $this->feedbackPackages()->with('appointments')->get();
 
-        if (! $feedbackPkg) {
-            // No feedback package linked — check if feedback was sent
+        if ($feedbackPkgs->isEmpty()) {
             if ($this->feedback_sent_at) {
                 return 'Sent ' . $this->feedback_sent_at->format('d M Y');
             }
             return 'Not sent';
         }
 
-        // Feedback package exists — derive status from its appointments
-        $fbAppts = $feedbackPkg->appointments;
-        $total   = $fbAppts->count();
-        $done    = $fbAppts->where('status', Appointment::CHECK_OUT)->count();
-        $booked  = $fbAppts->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])->count();
+        $allFbAppts = $feedbackPkgs->flatMap->appointments;
+        $fbTotal    = $allFbAppts->count();
+        $fbDone     = $allFbAppts->where('status', Appointment::CHECK_OUT)->count();
+        $fbBooked   = $allFbAppts->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN])->count();
 
-        if ($total > 0 && $done === $total) return 'Completed';
-        if ($booked > 0 || $done > 0)       return 'Booked';
-        return 'Sent ' . ($feedbackPkg->created_at ? $feedbackPkg->created_at->format('d M Y') : '');
+        $assessmentDoctorCount = count($this->getAssessmentDoctorIds());
+        $doctorsWithFbCount    = $allFbAppts->pluck('doctor_id')->unique()->count();
+        $allCovered            = ($doctorsWithFbCount >= $assessmentDoctorCount);
+
+        $coverage = $doctorsWithFbCount . '/' . max($assessmentDoctorCount, $doctorsWithFbCount);
+
+        if ($allCovered && $fbTotal > 0 && $fbDone === $fbTotal) {
+            return 'Completed';
+        }
+        if ($fbBooked > 0 || $fbDone > 0) {
+            return 'Booked ' . $coverage;
+        }
+
+        $latestCreatedAt = $feedbackPkgs->sortByDesc('created_at')->first()?->created_at;
+        return 'Sent ' . $coverage . ($latestCreatedAt ? ' (' . $latestCreatedAt->format('d M Y') . ')' : '');
     }
 
     /** Find a Package by its relation_id string. */
