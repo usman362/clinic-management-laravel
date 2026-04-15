@@ -31,20 +31,10 @@ function loadDoctorSessionData () {
         })
     })
 
-    $('select[name^="endTimes"]').each(function () {
-        let selectedIndex = $(this)[0].selectedIndex
-        let startTimeOptions = $(this).
-            closest('.timeSlot').
-            next().
-            find('select[name^="startTimes"] option')
-        startTimeOptions.each(function (index) {
-            if (index <= selectedIndex) {
-                $(this).attr('disabled', true)
-            } else {
-                $(this).attr('disabled', false)
-            }
-        })
-    })
+    // Cross-block time restrictions removed: doctors can now add
+    // inner / overlapping slots on the same day (e.g. a 1-hour block
+    // inside a 9 AM–6 PM block) as long as slot durations differ.
+    // Backend validateSlotTiming() handles overlap rules.
 }
 
 listenChange('#selGap', function () {
@@ -58,16 +48,6 @@ listenClick('.add-session-time', function () {
         if ($('#selGap').val() == '') {
             return false
         }
-    }
-    let selectedIndex = 0
-    if ($(this).parent().prev().children('.session-times').find('.timeSlot:last-child').length > 0) {
-        selectedIndex = $(this).
-            parent().
-            prev().
-            children('.session-times').
-            find('.timeSlot:last-child').
-            children('.add-slot').
-            find('select[name^="endTimes"] option:selected')[0].index
     }
 
     let day = $(this).closest('.weekly-content').attr('data-day')
@@ -87,21 +67,11 @@ listenClick('.add-session-time', function () {
                 append(data.data)
             weeklyEle.find('select[data-control="select2"]').select2()
 
-            let startTimeOptions = $('.add-session-time').
-                parent().
-                prev().
-                children('.session-times').
-                find('.timeSlot:last-child').
-                children('.add-slot').
-                find('select[name^="startTimes"] option')
-            startTimeOptions.each(function (index) {
-                if (index <= selectedIndex) {
-                    $(this).attr('disabled', true)
-                } else {
-                    $(this).attr('disabled', false)
-                }
-            })
-
+            // New block's start time is NOT restricted to be after the
+            // previous block's end time — doctors can now create an
+            // inner / overlapping block (with a different slot duration)
+            // on the same day. Backend enforces the overlap-with-same-
+            // duration rule.
         },
     })
 })
@@ -184,16 +154,6 @@ listenClick('.copy-btn', function () {
 })
 
 listenClick('.deleteBtn', function () {
-
-    let selectedIndex = 0
-    if ($(this).closest('.timeSlot').prev().length > 0) {
-        selectedIndex = $(this).
-            closest('.timeSlot').
-            prev().
-            children('.add-slot').
-            find('select[name^="endTimes"] option:selected')[0].index
-    }
-
     if ($(this).
         closest('.weekly-row').
         find('.session-times').
@@ -207,18 +167,8 @@ listenClick('.deleteBtn', function () {
             append('<div class="unavailable-time">'+ Lang.get('js.unavailable') +'</div>')
     }
 
-    let startTimeOptions = $(this).
-        closest('.timeSlot').
-        next().
-        children('.add-slot').
-        find('select[name^="startTimes"] option')
-    startTimeOptions.each(function (index) {
-        if (index <= selectedIndex) {
-            $(this).attr('disabled', true)
-        } else {
-            $(this).attr('disabled', false)
-        }
-    })
+    // No cross-block start-time re-enabling needed; all start-time
+    // options stay available so other blocks can overlap freely.
 
     $(this).parent().siblings('.error-msg').remove()
     $(this).parent().closest('.timeSlot').remove()
@@ -283,19 +233,9 @@ listenChange('select[name^="startTimes"]', function (e) {
     })
 })
 
-listenChange('select[name^="endTimes"]', function (e) {
-    let selectedIndex = $(this)[0].selectedIndex
-    let startTimeOptions = $(this).
-        closest('.timeSlot').
-        next().find('select[name^="startTimes"] option')
-    startTimeOptions.each(function (index) {
-        if (index <= selectedIndex) {
-            $(this).attr('disabled', true)
-        } else {
-            $(this).attr('disabled', false)
-        }
-    })
-})
+// End-time change no longer restricts the next block's start time.
+// Doctors may place a later block that overlaps an earlier one as long
+// as slot durations differ (enforced server-side).
 
 listenClick('#addHolidayBtn', function () {
     let doctorSessionIsEdit = $('#doctorSessionIsEdit').val();
