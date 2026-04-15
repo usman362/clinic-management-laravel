@@ -69,6 +69,9 @@ class PatientAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        // CP-09: Include CANCELLED appointments so patient can see & rebook them.
+        // Only BOOKING_PENDING (incomplete booking wizard) is excluded.
+        // The action blade already shows a rebook button for CANCELLED rows.
         $query = Appointment::with([
             'doctor.user',
             'services',
@@ -77,7 +80,6 @@ class PatientAppointmentTable extends LivewireTableComponent
         ])->where('appointments.appointment_type', 'assessment')
           ->where('patient_id', getLoginUser()->patient->id)
           ->where('appointments.status', '!=', Appointment::BOOKING_PENDING)
-          ->where('appointments.status', '!=', Appointment::CANCELLED)
           ->select('appointments.*');
 
         $query->when(

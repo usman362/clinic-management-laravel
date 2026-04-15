@@ -93,13 +93,16 @@ class PatientRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
+            // CP-08: Include child-profile fields (tax_code, school_name, school_grade)
+            // so admin-side patient edits also persist these consistently with booking flow.
             $addressInputArray = Arr::only($input,
-                ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code']);
+                ['address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code', 'tax_code', 'school_name', 'school_grade']);
             $input['type'] = User::PATIENT;
             $input['email'] = setEmailLowerCase($input['email']);
             /** @var Patient $patient */
             $patient->user()->update(Arr::except($input, [
                 'address1', 'address2', 'city_id', 'state_id', 'country_id', 'postal_code', 'patient_unique_id',
+                'tax_code', 'school_name', 'school_grade',
                 'avatar_remove',
                 'profile', 'is_edit', 'edit_patient_country_id', 'edit_patient_state_id', 'edit_patient_city_id',
                 'backgroundImg',

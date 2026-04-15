@@ -26,15 +26,37 @@ class Package extends Model
     use HasFactory;
 
     /**
-     * AP-03: When a package is deleted, cancel all its related appointments
-     * rather than leaving orphans in the patient's view.
+     * AP-03 V8: When a Package is deleted, HARD DELETE all related appointments
+     * (including already-cancelled ones), their transactions, consent documents
+     * and Google Calendar links. Client requirement: "The cancelled appointment
+     * should no longer exist, as we deleted the package."
+     *
+     * Note: The primary entry point is AppointmentController::destroy() which already
+     * does this cleanup. This event ensures consistency for any direct Package::delete()
+     * call (e.g. via tinker, future admin tools).
      */
     protected static function booted(): void
     {
         static::deleting(function (Package $package) {
-            Appointment::where('relation_id', $package->relation_id)
-                ->whereNotIn('status', [Appointment::CANCELLED])
-                ->update(['status' => Appointment::CANCELLED]);
+            $relationId = $package->relation_id;
+            if (! $relationId) {
+                return;
+            }
+
+            $appointments = Appointment::where('relation_id', $relationId)->get();
+            $apptIds       = $appointments->pluck('id')->all();
+            $apptUniqueIds = $appointments->pluck('appointment_unique_id')->filter()->all();
+
+            if (! empty($apptUniqueIds)) {
+                \App\Models\Transaction::whereIn('appointment_id', $apptUniqueIds)->delete();
+            }
+            if (! empty($apptIds)) {
+                Document::whereIn('appointment_id', $apptIds)->where('type', 'consent')->delete();
+                if (class_exists(UserGoogleAppointment::class)) {
+                    UserGoogleAppointment::whereIn('appointment_id', $apptIds)->delete();
+                }
+            }
+            Appointment::where('relation_id', $relationId)->delete();
         });
     }
 

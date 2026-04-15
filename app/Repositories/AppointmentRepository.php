@@ -205,10 +205,24 @@ class AppointmentRepository extends BaseRepository
                     );
 
                     // Get the patient's user record from the appointment
-                    $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
+                    $patient = Patient::whereId($appointment->patient_id)->with(['user', 'address'])->first();
                     $patientUser = $patient->user;
 
-                    // Save address details to the patient's address record
+                    // CP-08 CRITICAL FIX: Address is polymorphic. Patient and User have
+                    // SEPARATE morphOne(Address, 'owner') relationships pointing to DIFFERENT
+                    // rows (different owner_type). Previously we wrote to User->address but
+                    // the blade reads from Patient->address, so tax_code/school_name/school_grade
+                    // never persisted to where the form could read them.
+                    //
+                    // Align with PatientRepository/UserRepository/PatientController which all
+                    // write to $patient->address(). Also mirror to user->address for backward-compat
+                    // with any legacy reads.
+                    if ($patient->address) {
+                        $patient->address()->update($addressInputArray);
+                    } else {
+                        $patient->address()->create($addressInputArray);
+                    }
+                    // Also mirror to user->address so legacy reads still work
                     if ($patientUser->address) {
                         $patientUser->address()->update($addressInputArray);
                     } else {
@@ -521,8 +535,14 @@ class AppointmentRepository extends BaseRepository
     public function getPatientAppointmentsCalendar(): array
     {
         $patientId = getLogInUser()->patient->id;
+        // CP-18.1: Removed invalid 'user' eager load (Appointment has no user_id column)
+        // which could cause Eloquent to silently return partial relationships.
         /** @var Appointment $appointment */
-        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->where('appointment_type', 'assessment')->get();
+        $appointments = Appointment::with(['doctor.user', 'services'])
+            ->where('status', '!=', '5')
+            ->where('patient_id', $patientId)
+            ->where('appointment_type', 'assessment')
+            ->get();
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
@@ -547,9 +567,19 @@ class AppointmentRepository extends BaseRepository
                 $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
             }
 
+            // CP-18.1: Robust doctor name build with fallbacks (email if name missing).
+            $doctorName = '';
+            if ($appointment->doctor && $appointment->doctor->user) {
+                $u = $appointment->doctor->user;
+                $doctorName = trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? ''));
+                if ($doctorName === '') {
+                    $doctorName = $u->email ?? '';
+                }
+            }
+
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
-            $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
+            $data[$index]['doctorName'] = $doctorName;
             $data[$index]['start'] = $start->toDateTimeString();
             $data[$index]['description'] = $appointment->description;
             $data[$index]['status'] = $appointment->status;
@@ -570,7 +600,12 @@ class AppointmentRepository extends BaseRepository
     public function getPatientFeedbackAppointmentsCalendar(): array
     {
         $patientId = getLogInUser()->patient->id;
-        $appointments = Appointment::with(['doctor.user.address', 'user', 'services'])->where('status', '!=', '5')->where('patient_id', $patientId)->where('appointment_type', 'feedback')->get();
+        // CP-18.1: Removed invalid 'user' eager load (same fix as getPatientAppointmentsCalendar)
+        $appointments = Appointment::with(['doctor.user', 'services'])
+            ->where('status', '!=', '5')
+            ->where('patient_id', $patientId)
+            ->where('appointment_type', 'feedback')
+            ->get();
         $data = [];
         $index = 0;
         foreach ($appointments as $appointment) {
@@ -595,9 +630,19 @@ class AppointmentRepository extends BaseRepository
                 $instructions = $instructions ? $instructions . ' — ' . $appointment->description : $appointment->description;
             }
 
+            // CP-18.1: Robust doctor name with fallbacks
+            $doctorName = '';
+            if ($appointment->doctor && $appointment->doctor->user) {
+                $u = $appointment->doctor->user;
+                $doctorName = trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? ''));
+                if ($doctorName === '') {
+                    $doctorName = $u->email ?? '';
+                }
+            }
+
             $data[$index]['id'] = $appointment->id;
             $data[$index]['title'] = $startTime . '-' . $endTime;
-            $data[$index]['doctorName'] = optional(optional($appointment->doctor)->user)->full_name ?? '';
+            $data[$index]['doctorName'] = $doctorName;
             $data[$index]['start'] = $start->toDateTimeString();
             $data[$index]['description'] = $appointment->description;
             $data[$index]['status'] = $appointment->status;

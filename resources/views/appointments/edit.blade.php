@@ -65,6 +65,7 @@
                                 'route' => ['patients.appointments.update', $appointment->id],
                                 'id' => 'addAppointmentForm',
                                 'data-turbo' => 'false',
+                                'novalidate' => true,
                                 'data-draft-get-url' => route('patients.appointments.draft.get', $appointment->id),
                                 'data-draft-save-url' => route('patients.appointments.draft.save', $appointment->id),
                                 'data-booking-mode' => $bookingMode ?? 'edit',
@@ -271,22 +272,56 @@
                         <!-- Embedded JotForm — one per doctor in the package -->
                         <div class="consent-form-wrapper">
                             @forelse ($fullDoctors as $doctor)
-                                <div data-doctor-id="{{ $doctor->id }}" class="consent-form-container">
-                                <h5 class="fw-bold mb-2 mt-4">
-                                    Consent for {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}</h5>
                                 @php
-                                    $jotformUrl = $doctor->jotform_link;
-                                    $separator = str_contains($jotformUrl, '?') ? '&' : '?';
-                                    // Append query params so Jotform redirect preserves them in the webhook
-                                    $jotformUrl .= $separator . 'appointment_id=' . $appointment->id . '&doctor_id=' . $doctor->id;
+                                    // AP-02/CP-12 V8: Skip iframe if user already signed this doctor's consent.
+                                    // Look up any existing consent Document for this patient + doctor
+                                    // (not limited to the current appointment — signing once per doctor is enough).
+                                    $patientUserId = optional($appointment->patient)->user_id;
+                                    $alreadySignedDoc = $patientUserId ? \App\Models\Document::where('user_id', $patientUserId)
+                                        ->where('type', 'consent')
+                                        ->where('doctor_id', $doctor->id)
+                                        ->orderByDesc('created_at')
+                                        ->first() : null;
                                 @endphp
-                                <iframe src="{{ $jotformUrl }}" width="100%" height="500" frameborder="0"
-                                    scrolling="auto" class="consent-iframe" data-doctor-id="{{ $doctor->id }}"
-                                    data-appointment-id="{{ $appointment->id }}">
-                                </iframe>
-                                <div class="consent-status mt-2" data-doctor-id="{{ $doctor->id }}" style="display: none;">
-                                    <span class="badge bg-success"><i class="fas fa-check-circle"></i> Form Signed</span>
-                                </div>
+                                <div data-doctor-id="{{ $doctor->id }}" class="consent-form-container">
+                                    <h5 class="fw-bold mb-2 mt-4">
+                                        Consent for {{ $doctor->user->first_name . ' ' . $doctor->user->last_name }}
+                                    </h5>
+
+                                    @if ($alreadySignedDoc)
+                                        {{-- Already signed: show confirmation instead of iframe --}}
+                                        <div class="alert alert-success d-flex align-items-center" role="alert">
+                                            <i class="fas fa-check-circle fs-4 me-3"></i>
+                                            <div class="flex-grow-1">
+                                                <div class="fw-bold">Consent form already signed</div>
+                                                <small class="text-muted">
+                                                    Signed on {{ $alreadySignedDoc->created_at->format('d M Y, h:i A') }}.
+                                                    You do not need to sign again for this doctor.
+                                                </small>
+                                            </div>
+                                        </div>
+                                        {{-- Hidden marker so booking.js knows this doctor's consent is complete --}}
+                                        <input type="hidden" class="consent-already-signed" value="1"
+                                               data-doctor-id="{{ $doctor->id }}"
+                                               data-appointment-id="{{ $appointment->id }}">
+                                        <div class="consent-status mt-2" data-doctor-id="{{ $doctor->id }}">
+                                            <span class="badge bg-success"><i class="fas fa-check-circle"></i> Form Signed</span>
+                                        </div>
+                                    @else
+                                        @php
+                                            $jotformUrl = $doctor->jotform_link;
+                                            $separator = str_contains($jotformUrl, '?') ? '&' : '?';
+                                            // Append query params so Jotform redirect preserves them in the webhook
+                                            $jotformUrl .= $separator . 'appointment_id=' . $appointment->id . '&doctor_id=' . $doctor->id;
+                                        @endphp
+                                        <iframe src="{{ $jotformUrl }}" width="100%" height="500" frameborder="0"
+                                            scrolling="auto" class="consent-iframe" data-doctor-id="{{ $doctor->id }}"
+                                            data-appointment-id="{{ $appointment->id }}">
+                                        </iframe>
+                                        <div class="consent-status mt-2" data-doctor-id="{{ $doctor->id }}" style="display: none;">
+                                            <span class="badge bg-success"><i class="fas fa-check-circle"></i> Form Signed</span>
+                                        </div>
+                                    @endif
                                 </div>
                             @empty
                                 <div class="alert alert-info">

@@ -466,6 +466,14 @@
         var signedConsentForms = {}; // Track which doctor's forms have been signed
         var _consentWebhookPending = {}; // Prevent duplicate AJAX calls
 
+        // CP-12 V8: Pre-seed from DOM — blade marks doctors whose consent is already signed
+        // in a prior session. These markers come from the server and mean the user doesn't
+        // need to sign that doctor's form again.
+        $('.consent-already-signed').each(function () {
+            var did = $(this).data('doctor-id');
+            if (did) signedConsentForms[did] = true;
+        });
+
         /**
          * Record consent via AJAX for a specific doctor
          */

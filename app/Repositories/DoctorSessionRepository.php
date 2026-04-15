@@ -150,12 +150,27 @@ class DoctorSessionRepository extends BaseRepository
 
     public function validateSlotTiming($input, $day)
     {
+        // DP-02 V8: Allow OVERLAPPING blocks if they have DIFFERENT slot durations.
+        // e.g., doctor may create a 9am-10am 1hr block AND a 9am-11am 2hr block
+        // for the same time range — each serves different service durations.
+        // Only block exact duplicates (same start + same duration) or bad time ranges.
         $startTimeArr = $input['startTimes'][$day] ?? [];
         $endTimeArr = $input['endTimes'][$day] ?? [];
+        $slotDurations = $input['slotDurations'][$day] ?? [];
+
         foreach ($startTimeArr as $key => $startTime) {
             $slotStartTime = Carbon::instance(DateTime::createFromFormat('h:i A', $startTime));
+            $myMeetingTime = (int) ($slotDurations[$key] ?? 0);
+
             $tempArr = Arr::except($startTimeArr, [$key]);
             foreach ($tempArr as $tempKey => $tempStartTime) {
+                $otherMeetingTime = (int) ($slotDurations[$tempKey] ?? 0);
+
+                // Overlap with a DIFFERENT duration is allowed — skip overlap check.
+                if ($myMeetingTime > 0 && $otherMeetingTime > 0 && $myMeetingTime !== $otherMeetingTime) {
+                    continue;
+                }
+
                 $start = Carbon::instance(DateTime::createFromFormat('h:i A', $tempStartTime));
                 $end = Carbon::instance(DateTime::createFromFormat('h:i A', $endTimeArr[$tempKey]));
                 if ($slotStartTime->isBetween($start, $end)) {

@@ -411,8 +411,15 @@ class AppointmentController extends AppBaseController
 
     /**
      * Remove the specified Appointment from storage.
-     * AP-03: Also cancels all sibling appointments in the same package and
-     * deletes the Package record (which triggers Package::booted cascade).
+     *
+     * AP-03 V8: When an appointment is deleted from the admin Packages page (or any
+     * delete action), HARD DELETE all appointments in the same package — including
+     * already-cancelled ones — plus their transactions, consent documents, Google
+     * Calendar links, and the Package record itself.
+     *
+     * Previously we only soft-cancelled (status=CANCELLED) sibling appointments,
+     * leaving cancelled rows visible in the patient overview. Client requirement:
+     * "The cancelled appointment should no longer exist, as we deleted the package."
      */
     public function destroy(Appointment $appointment): JsonResponse
     {
@@ -424,23 +431,44 @@ class AppointmentController extends AppBaseController
 
         $relationId = $appointment->relation_id;
 
-        // Cancel all sibling appointments in the same package
-        if ($relationId) {
-            Appointment::where('relation_id', $relationId)
-                ->whereNotIn('status', [Appointment::CANCELLED])
-                ->update(['status' => Appointment::CANCELLED]);
+        \DB::transaction(function () use ($appointment, $relationId) {
+            if ($relationId) {
+                // Get ALL appointments in this package (any status, including cancelled)
+                $packageAppointments = Appointment::where('relation_id', $relationId)->get();
+                $apptIds       = $packageAppointments->pluck('id')->all();
+                $apptUniqueIds = $packageAppointments->pluck('appointment_unique_id')->filter()->all();
 
-            // Delete the Package record (triggers Package::booted cascade as backup)
-            Package::where('relation_id', $relationId)->delete();
-        }
+                // Delete related transactions for ALL appointments in the package
+                if (! empty($apptUniqueIds)) {
+                    Transaction::whereIn('appointment_id', $apptUniqueIds)->delete();
+                }
 
-        // Delete the specific appointment's transaction
-        $transaction = Transaction::whereAppointmentId($appointment->appointment_unique_id)->first();
-        if ($transaction) {
-            $transaction->delete();
-        }
+                // Delete consent documents tied to these appointments
+                if (! empty($apptIds)) {
+                    \App\Models\Document::whereIn('appointment_id', $apptIds)
+                        ->where('type', 'consent')
+                        ->delete();
+                }
 
-        $appointment->delete();
+                // Delete Google Calendar links
+                if (! empty($apptIds) && class_exists(\App\Models\UserGoogleAppointment::class)) {
+                    \App\Models\UserGoogleAppointment::whereIn('appointment_id', $apptIds)->delete();
+                }
+
+                // Hard-delete the Package record (no cascade SQL exists; we own it)
+                Package::where('relation_id', $relationId)->delete();
+
+                // Hard-delete every appointment in the package
+                Appointment::where('relation_id', $relationId)->delete();
+            } else {
+                // Orphan appointment without relation_id — just delete its transaction + itself
+                $transaction = Transaction::whereAppointmentId($appointment->appointment_unique_id)->first();
+                if ($transaction) {
+                    $transaction->delete();
+                }
+                $appointment->delete();
+            }
+        });
 
         return $this->sendSuccess(__('messages.flash.appointment_delete'));
     }
@@ -1149,7 +1177,7 @@ class AppointmentController extends AppBaseController
         if (! $existingConsent) {
             $submissionId = $request->input('submission_id', '');
 
-            // Handle file upload if a PDF was attached
+            // Handle file upload if a PDF was attached (legacy path, kept for backward-compat)
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $path = $file->store('documents/user_' . $userId, 'public');
@@ -1166,23 +1194,85 @@ class AppointmentController extends AppBaseController
                     'appointment_id' => $appointment->id,
                 ]);
             } else {
-                // AP-02: No file attached — record consent as signed with JotForm submission reference.
-                // The submission PDF can be downloaded from JotForm using the submission_id.
+                // AP-02/CP-12 V8: Generate a real PDF from JotForm submission data using dompdf
+                // and save it to the patient's documents folder. This ensures the Documents tab
+                // shows a downloadable PDF proof of consent (client requirement).
                 $consentTitle = $title . ' (signed)';
-                if ($submissionId) {
-                    $consentTitle .= ' [JotForm #' . $submissionId . ']';
+
+                // Collect submission answers if available (JotForm posts them in rawRequest)
+                $submittedAnswers = [];
+                $raw = $request->input('rawRequest');
+                if (is_string($raw)) {
+                    $decoded = json_decode($raw, true);
+                    if (is_array($decoded)) {
+                        foreach ($decoded as $k => $v) {
+                            // Skip internal JotForm keys (like q1_firstName, use friendly labels if possible)
+                            if (is_string($v) && trim($v) !== '') {
+                                $submittedAnswers[$k] = $v;
+                            } elseif (is_array($v)) {
+                                // Flatten composite fields
+                                $flat = implode(', ', array_filter(array_map(fn($x) => is_scalar($x) ? (string)$x : null, $v)));
+                                if ($flat !== '') {
+                                    $submittedAnswers[$k] = $flat;
+                                }
+                            }
+                        }
+                    }
                 }
-                Document::create([
-                    'user_id'        => $userId,
-                    'uploaded_by'    => $userId,
-                    'title'          => $consentTitle,
-                    'type'           => 'consent',
-                    'path'           => $submissionId ? 'jotform:' . $submissionId : '',
-                    'mime_type'      => 'application/pdf',
-                    'size'           => 0,
-                    'doctor_id'      => $doctorId,
-                    'appointment_id' => $appointment->id,
-                ]);
+
+                try {
+                    $pdf = \PDF::loadView('documents.consent_pdf', [
+                        'patientName'       => optional($appointment->patient->user)->full_name ?? 'Patient',
+                        'patientEmail'      => optional($appointment->patient->user)->email ?? '',
+                        'doctorName'        => $doctor && $doctor->user ? $doctor->user->full_name : 'Doctor',
+                        'appointmentUid'    => $appointment->appointment_unique_id ?? '',
+                        'signedAt'          => now()->format('d M Y, h:i A'),
+                        'submissionId'      => $submissionId,
+                        'submittedAnswers'  => $submittedAnswers,
+                    ]);
+
+                    $folder   = 'documents/user_' . $userId;
+                    $filename = 'consent_dr_' . $doctorId . '_appt_' . $appointment->id . '_' . time() . '.pdf';
+                    $relPath  = $folder . '/' . $filename;
+
+                    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                    $disk->makeDirectory($folder);
+                    $disk->put($relPath, $pdf->output());
+
+                    $sizeKB = (int) round(strlen($pdf->output()) / 1024);
+                    if ($submissionId) {
+                        $consentTitle .= ' [JotForm #' . $submissionId . ']';
+                    }
+
+                    Document::create([
+                        'user_id'        => $userId,
+                        'uploaded_by'    => $userId,
+                        'title'          => $consentTitle,
+                        'type'           => 'consent',
+                        'path'           => $relPath,
+                        'mime_type'      => 'application/pdf',
+                        'size'           => $sizeKB,
+                        'doctor_id'      => $doctorId,
+                        'appointment_id' => $appointment->id,
+                    ]);
+                } catch (\Throwable $ex) {
+                    \Log::error('Consent PDF generation failed', [
+                        'error' => $ex->getMessage(),
+                        'appointment_id' => $appointment->id,
+                    ]);
+                    // Fallback: still record consent even if PDF failed
+                    Document::create([
+                        'user_id'        => $userId,
+                        'uploaded_by'    => $userId,
+                        'title'          => $consentTitle . ($submissionId ? ' [JotForm #' . $submissionId . ']' : ''),
+                        'type'           => 'consent',
+                        'path'           => '',
+                        'mime_type'      => 'application/pdf',
+                        'size'           => 0,
+                        'doctor_id'      => $doctorId,
+                        'appointment_id' => $appointment->id,
+                    ]);
+                }
             }
         }
 

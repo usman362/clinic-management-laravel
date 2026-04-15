@@ -195,8 +195,11 @@
                     ->where('patient_id', $patient->id)
                     ->get();
             
+                // AP-02/CP-12 fix: Documents are saved with user_id = Patient's User ID,
+                // not Patient ID. Query with $patient->id previously missed all records.
                 $documents = \App\Models\Document::with(['user', 'owner'])
-                    ->where('user_id', $patient->id)
+                    ->where('user_id', $patient->user_id)
+                    ->orderByDesc('created_at')
                     ->get();
             
                 $activeTab = request('tab', 'overview');
@@ -355,10 +358,35 @@
                                                     <td>{{ ucfirst($doc->type ?? 'Other') }}</td>
                                                     <td>{{ $doc->created_at->format('d M Y') }}</td>
                                                     <td class="text-center d-flex">
-                                                        <a href="{{ asset('uploads/'.$doc->path) }}" target="_blank"
-                                                            class="btn btn-sm btn-outline-primary mx-2" download="">
-                                                            Download
-                                                        </a>
+                                                        @php
+                                                            // CP-12 V8: Build correct download URL for public disk files.
+                                                            // Documents saved via Storage::disk('public') live at storage/app/public/{path}
+                                                            // and are served via the `storage/...` symlink.
+                                                            $docPath = $doc->path ?? '';
+                                                            if ($docPath && \Illuminate\Support\Str::startsWith($docPath, 'jotform:')) {
+                                                                // Legacy records that never got a real file
+                                                                $downloadUrl = null;
+                                                                $externalLabel = 'JotForm #' . substr($docPath, 8);
+                                                            } elseif ($docPath) {
+                                                                $downloadUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($docPath);
+                                                            } else {
+                                                                $downloadUrl = null;
+                                                                $externalLabel = null;
+                                                            }
+                                                        @endphp
+                                                        @if($downloadUrl)
+                                                            <a href="{{ $downloadUrl }}" target="_blank"
+                                                                class="btn btn-sm btn-outline-primary mx-2" download>
+                                                                Download
+                                                            </a>
+                                                        @elseif(!empty($externalLabel))
+                                                            <span class="btn btn-sm btn-outline-secondary mx-2 disabled"
+                                                                  title="Original submission stored on JotForm — reference ID shown">
+                                                                {{ $externalLabel }}
+                                                            </span>
+                                                        @else
+                                                            <span class="btn btn-sm btn-outline-secondary mx-2 disabled">No file</span>
+                                                        @endif
                                                         <form method="POST"
                                                             action="{{ route('documents.destroy', $doc->id) }}"
                                                             >
