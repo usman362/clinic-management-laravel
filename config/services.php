@@ -46,4 +46,14 @@ return [
         'industry_type' => env('PAYTM_INDUSTRY_TYPE'),
     ],
 
+    /*
+    | Jotform — used to download the official PDF-editor-rendered submission
+    | PDF on the consent webhook (AP-02 / CP-12). Without a valid API key the
+    | app falls back to a dompdf-generated summary from the submission answers.
+    */
+    'jotform' => [
+        'api_key'  => env('JOTFORM_API_KEY'),
+        'base_url' => env('JOTFORM_API_BASE_URL', 'https://api.jotform.com'),
+    ],
+
 ];

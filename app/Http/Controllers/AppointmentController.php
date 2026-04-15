@@ -1194,23 +1194,38 @@ class AppointmentController extends AppBaseController
                     'appointment_id' => $appointment->id,
                 ]);
             } else {
-                // AP-02/CP-12 V8: Generate a real PDF from JotForm submission data using dompdf
-                // and save it to the patient's documents folder. This ensures the Documents tab
-                // shows a downloadable PDF proof of consent (client requirement).
+                // AP-02 / CP-12: Save the OFFICIAL Jotform-rendered PDF of the
+                // submission into the patient's documents folder.
+                //
+                // Strategy:
+                //   1. Try to download the real PDF from Jotform using the API
+                //      (requires JOTFORM_API_KEY in .env). This gives us the
+                //      branded/signed PDF as it appears on jotform.com.
+                //   2. Fall back to a dompdf-generated summary of the answers
+                //      if the API call fails or the API key isn't configured,
+                //      so we never silently lose the consent record.
                 $consentTitle = $title . ' (signed)';
 
-                // Collect submission answers if available (JotForm posts them in rawRequest)
+                // Jotform webhook also posts formID in addition to submission_id
+                $formId = $request->input('formID')
+                    ?? $request->input('form_id')
+                    ?? $request->query('formID')
+                    ?? '';
+
+                // Collect submission answers for the fallback PDF
                 $submittedAnswers = [];
                 $raw = $request->input('rawRequest');
                 if (is_string($raw)) {
                     $decoded = json_decode($raw, true);
                     if (is_array($decoded)) {
+                        // rawRequest sometimes wraps formID under "slug" or similar keys
+                        if (empty($formId) && isset($decoded['formID'])) {
+                            $formId = $decoded['formID'];
+                        }
                         foreach ($decoded as $k => $v) {
-                            // Skip internal JotForm keys (like q1_firstName, use friendly labels if possible)
                             if (is_string($v) && trim($v) !== '') {
                                 $submittedAnswers[$k] = $v;
                             } elseif (is_array($v)) {
-                                // Flatten composite fields
                                 $flat = implode(', ', array_filter(array_map(fn($x) => is_scalar($x) ? (string)$x : null, $v)));
                                 if ($flat !== '') {
                                     $submittedAnswers[$k] = $flat;
@@ -1220,28 +1235,112 @@ class AppointmentController extends AppBaseController
                     }
                 }
 
+                $folder   = 'documents/user_' . $userId;
+                $filename = 'consent_dr_' . $doctorId . '_appt_' . $appointment->id . '_' . time() . '.pdf';
+                $relPath  = $folder . '/' . $filename;
+
+                $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                $disk->makeDirectory($folder);
+
+                $pdfBytes  = null;
+                $pdfSource = 'none';
+
+                // ── 1) Try official Jotform PDF via API ────────────────────
+                $apiKey  = config('services.jotform.api_key');
+                $baseUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
+
+                if ($apiKey && $submissionId) {
+                    // Jotform exposes two endpoints that return the rendered PDF.
+                    // We try them in order — whichever one succeeds wins.
+                    $attempts = [];
+                    if ($formId) {
+                        $attempts[] = $baseUrl . '/generatePDF?formid=' . urlencode($formId)
+                            . '&submissionid=' . urlencode($submissionId)
+                            . '&apiKey=' . urlencode($apiKey);
+                        $attempts[] = $baseUrl . '/pdf-converter/' . urlencode($formId)
+                            . '/fill-pdf?download=1'
+                            . '&submissionID=' . urlencode($submissionId)
+                            . '&apikey=' . urlencode($apiKey);
+                    }
+                    // Fallback URL that doesn't require formID
+                    $attempts[] = 'https://www.jotform.com/server.php?action=getSubmissionPDF'
+                        . '&sid=' . urlencode($submissionId)
+                        . ($formId ? '&formID=' . urlencode($formId) : '')
+                        . '&apiKey=' . urlencode($apiKey);
+
+                    foreach ($attempts as $url) {
+                        try {
+                            $response = \Illuminate\Support\Facades\Http::timeout(30)
+                                ->withHeaders(['APIKEY' => $apiKey])
+                                ->get($url);
+
+                            if ($response->successful()) {
+                                $body = $response->body();
+                                // PDF files start with "%PDF-"
+                                if (is_string($body) && strncmp($body, '%PDF-', 5) === 0) {
+                                    $pdfBytes  = $body;
+                                    $pdfSource = 'jotform_api';
+                                    break;
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            \Log::warning('Jotform PDF fetch attempt failed', [
+                                'url'            => $url,
+                                'error'          => $e->getMessage(),
+                                'appointment_id' => $appointment->id,
+                            ]);
+                            // try next URL
+                        }
+                    }
+
+                    if ($pdfSource !== 'jotform_api') {
+                        \Log::warning('Jotform API did not return a valid PDF — falling back to dompdf', [
+                            'appointment_id' => $appointment->id,
+                            'submission_id'  => $submissionId,
+                            'form_id'        => $formId,
+                        ]);
+                    }
+                }
+
+                // ── 2) Fallback: generate our own summary PDF with dompdf ──
+                if ($pdfBytes === null) {
+                    try {
+                        $pdf = \PDF::loadView('documents.consent_pdf', [
+                            'patientName'       => optional($appointment->patient->user)->full_name ?? 'Patient',
+                            'patientEmail'      => optional($appointment->patient->user)->email ?? '',
+                            'doctorName'        => $doctor && $doctor->user ? $doctor->user->full_name : 'Doctor',
+                            'appointmentUid'    => $appointment->appointment_unique_id ?? '',
+                            'signedAt'          => now()->format('d M Y, h:i A'),
+                            'submissionId'      => $submissionId,
+                            'submittedAnswers'  => $submittedAnswers,
+                        ]);
+                        $pdfBytes  = $pdf->output();
+                        $pdfSource = 'dompdf_fallback';
+                    } catch (\Throwable $ex) {
+                        \Log::error('Consent PDF generation failed', [
+                            'error' => $ex->getMessage(),
+                            'appointment_id' => $appointment->id,
+                        ]);
+                    }
+                }
+
+                // ── 3) Persist the PDF + document record ───────────────────
                 try {
-                    $pdf = \PDF::loadView('documents.consent_pdf', [
-                        'patientName'       => optional($appointment->patient->user)->full_name ?? 'Patient',
-                        'patientEmail'      => optional($appointment->patient->user)->email ?? '',
-                        'doctorName'        => $doctor && $doctor->user ? $doctor->user->full_name : 'Doctor',
-                        'appointmentUid'    => $appointment->appointment_unique_id ?? '',
-                        'signedAt'          => now()->format('d M Y, h:i A'),
-                        'submissionId'      => $submissionId,
-                        'submittedAnswers'  => $submittedAnswers,
-                    ]);
+                    if ($pdfBytes !== null) {
+                        $disk->put($relPath, $pdfBytes);
+                        $sizeKB = (int) round(strlen($pdfBytes) / 1024);
+                    } else {
+                        // Last-resort: record consent without a file
+                        $relPath = '';
+                        $sizeKB  = 0;
+                    }
 
-                    $folder   = 'documents/user_' . $userId;
-                    $filename = 'consent_dr_' . $doctorId . '_appt_' . $appointment->id . '_' . time() . '.pdf';
-                    $relPath  = $folder . '/' . $filename;
-
-                    $disk = \Illuminate\Support\Facades\Storage::disk('public');
-                    $disk->makeDirectory($folder);
-                    $disk->put($relPath, $pdf->output());
-
-                    $sizeKB = (int) round(strlen($pdf->output()) / 1024);
                     if ($submissionId) {
                         $consentTitle .= ' [JotForm #' . $submissionId . ']';
+                    }
+                    if ($pdfSource === 'dompdf_fallback' && $apiKey) {
+                        // Mark when we had to fall back so admin can re-sync later
+                        $consentTitle .= ' (summary)';
                     }
 
                     Document::create([
@@ -1255,21 +1354,16 @@ class AppointmentController extends AppBaseController
                         'doctor_id'      => $doctorId,
                         'appointment_id' => $appointment->id,
                     ]);
-                } catch (\Throwable $ex) {
-                    \Log::error('Consent PDF generation failed', [
-                        'error' => $ex->getMessage(),
+
+                    \Log::info('Consent PDF stored', [
                         'appointment_id' => $appointment->id,
+                        'submission_id'  => $submissionId,
+                        'source'         => $pdfSource,
+                        'size_kb'        => $sizeKB,
                     ]);
-                    // Fallback: still record consent even if PDF failed
-                    Document::create([
-                        'user_id'        => $userId,
-                        'uploaded_by'    => $userId,
-                        'title'          => $consentTitle . ($submissionId ? ' [JotForm #' . $submissionId . ']' : ''),
-                        'type'           => 'consent',
-                        'path'           => '',
-                        'mime_type'      => 'application/pdf',
-                        'size'           => 0,
-                        'doctor_id'      => $doctorId,
+                } catch (\Throwable $ex) {
+                    \Log::error('Failed to store consent document', [
+                        'error' => $ex->getMessage(),
                         'appointment_id' => $appointment->id,
                     ]);
                 }
