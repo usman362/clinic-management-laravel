@@ -39,9 +39,9 @@
                 <div class="card">
                     <div class="card-body p-sm-12 p-5">
                         @if (Auth::user()->hasRole('doctor'))
-                            {{ Form::open(['route' => 'doctors.doctor-sessions.store', 'id' => 'saveFormDoctor']) }}
+                            {{ Form::open(['route' => 'doctors.doctor-sessions.store', 'id' => 'saveFormDoctor', 'data-turbo' => 'false']) }}
                         @else
-                            {{ Form::open(['route' => 'doctor-sessions.store', 'id' => 'saveFormDoctor']) }}
+                            {{ Form::open(['route' => 'doctor-sessions.store', 'id' => 'saveFormDoctor', 'data-turbo' => 'false']) }}
                         @endif
                         <div class="card-body p-0">
                             @include('doctor_sessions.fields')

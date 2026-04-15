@@ -31,9 +31,9 @@
             <div class="card">
                 <div class="card-body p-sm-12 p-5">
                     @if(getLogInUser()->hasRole('doctor'))
-                        {{ Form::model($doctorSession,['route' => ['doctors.doctor-sessions.update', $doctorSession->id], 'method' => 'patch','id' => 'saveFormDoctor']) }}
+                        {{ Form::model($doctorSession,['route' => ['doctors.doctor-sessions.update', $doctorSession->id], 'method' => 'patch','id' => 'saveFormDoctor', 'data-turbo' => 'false']) }}
                     @else
-                        {{ Form::model($doctorSession,['route' => ['doctor-sessions.update', $doctorSession->id], 'method' => 'patch','id' => 'saveFormDoctor']) }}
+                        {{ Form::model($doctorSession,['route' => ['doctor-sessions.update', $doctorSession->id], 'method' => 'patch','id' => 'saveFormDoctor', 'data-turbo' => 'false']) }}
                     @endif
                     <div class="card-body p-0">
                         @if(getLogInUser()->hasRole('doctor'))
