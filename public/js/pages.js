@@ -8115,17 +8115,7 @@ function loadDoctorSessionData() {
       }
     });
   });
-  $('select[name^="endTimes"]').each(function () {
-    var selectedIndex = $(this)[0].selectedIndex;
-    var startTimeOptions = $(this).closest('.timeSlot').next().find('select[name^="startTimes"] option');
-    startTimeOptions.each(function (index) {
-      if (index <= selectedIndex) {
-        $(this).attr('disabled', true);
-      } else {
-        $(this).attr('disabled', false);
-      }
-    });
-  });
+  // Cross-block time restrictions removed.
 }
 
 listenChange('#selGap', function () {
@@ -8139,12 +8129,6 @@ listenClick('.add-session-time', function () {
     if ($('#selGap').val() == '') {
       return false;
     }
-  }
-
-  var selectedIndex = 0;
-
-  if ($(this).parent().prev().children('.session-times').find('.timeSlot:last-child').length > 0) {
-    selectedIndex = $(this).parent().prev().children('.session-times').find('.timeSlot:last-child').children('.add-slot').find('select[name^="endTimes"] option:selected')[0].index;
   }
 
   var day = $(this).closest('.weekly-content').attr('data-day');
@@ -8163,14 +8147,7 @@ listenClick('.add-session-time', function () {
       weeklyEle.find('input[name="checked_week_days[]"').prop('checked', true).prop('disabled', false);
       $ele.closest('.weekly-content').find('.session-times').append(data.data);
       weeklyEle.find('select[data-control="select2"]').select2();
-      var startTimeOptions = $('.add-session-time').parent().prev().children('.session-times').find('.timeSlot:last-child').children('.add-slot').find('select[name^="startTimes"] option');
-      startTimeOptions.each(function (index) {
-        if (index <= selectedIndex) {
-          $(this).attr('disabled', true);
-        } else {
-          $(this).attr('disabled', false);
-        }
-      });
+      // New block start-time options are NOT restricted by previous block's end time.
     }
   });
 });
@@ -8218,26 +8195,13 @@ listenClick('.copy-btn', function () {
   }
 });
 listenClick('.deleteBtn', function () {
-  var selectedIndex = 0;
-
-  if ($(this).closest('.timeSlot').prev().length > 0) {
-    selectedIndex = $(this).closest('.timeSlot').prev().children('.add-slot').find('select[name^="endTimes"] option:selected')[0].index;
-  }
-
   if ($(this).closest('.weekly-row').find('.session-times').find('select').length <= 3) {
     var dayChk = $(this).closest('.weekly-row').find('input[name="checked_week_days[]"');
     dayChk.prop('checked', false).prop('disabled', true);
     $(this).closest('.weekly-row').append('<div class="unavailable-time">' + Lang.get('js.unavailable') + '</div>');
   }
 
-  var startTimeOptions = $(this).closest('.timeSlot').next().children('.add-slot').find('select[name^="startTimes"] option');
-  startTimeOptions.each(function (index) {
-    if (index <= selectedIndex) {
-      $(this).attr('disabled', true);
-    } else {
-      $(this).attr('disabled', false);
-    }
-  });
+  // No cross-block re-enable needed; start-time options are not restricted across blocks.
   $(this).parent().siblings('.error-msg').remove();
   $(this).parent().closest('.timeSlot').remove();
   $(this).parent().remove();
@@ -8293,17 +8257,7 @@ listenChange('select[name^="startTimes"]', function (e) {
     }
   });
 });
-listenChange('select[name^="endTimes"]', function (e) {
-  var selectedIndex = $(this)[0].selectedIndex;
-  var startTimeOptions = $(this).closest('.timeSlot').next().find('select[name^="startTimes"] option');
-  startTimeOptions.each(function (index) {
-    if (index <= selectedIndex) {
-      $(this).attr('disabled', true);
-    } else {
-      $(this).attr('disabled', false);
-    }
-  });
-});
+// End-time change no longer restricts the next block's start-time options.
 listenClick('#addHolidayBtn', function () {
   var doctorSessionIsEdit = $('#doctorSessionIsEdit').val();
 });
