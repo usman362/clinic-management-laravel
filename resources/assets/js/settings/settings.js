@@ -117,11 +117,17 @@ listenChange('#settingStateId', function () {
 })
 
 listenClick('#settingSubmitBtn', function () {
-    let checkedPaymentMethod = $(
-        'input[name="payment_gateway[]"]:checked').length
-    if (!checkedPaymentMethod) {
-        displayErrorMessage(Lang.get('js.select_payment'))
-        return false
+    // Only run the payment-gateway validation on the section that actually
+    // has payment gateway checkboxes. Other tabs (SMTP, General, Contact
+    // Information, Booking Info, etc.) were incorrectly blocked by this
+    // check before.
+    let paymentCheckboxes = $('input[name="payment_gateway[]"]')
+    if (paymentCheckboxes.length > 0) {
+        let checkedPaymentMethod = paymentCheckboxes.filter(':checked').length
+        if (!checkedPaymentMethod) {
+            displayErrorMessage(Lang.get('js.select_payment'))
+            return false
+        }
     }
 
     if ($('#error-msg').text() !== '') {

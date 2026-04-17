@@ -11954,11 +11954,14 @@ listenChange('#settingStateId', function () {
   });
 });
 listenClick('#settingSubmitBtn', function () {
-  var checkedPaymentMethod = $('input[name="payment_gateway[]"]:checked').length;
-
-  if (!checkedPaymentMethod) {
-    displayErrorMessage(Lang.get('js.select_payment'));
-    return false;
+  // Only validate payment gateways on the section that actually shows them.
+  var paymentCheckboxes = $('input[name="payment_gateway[]"]');
+  if (paymentCheckboxes.length > 0) {
+    var checkedPaymentMethod = paymentCheckboxes.filter(':checked').length;
+    if (!checkedPaymentMethod) {
+      displayErrorMessage(Lang.get('js.select_payment'));
+      return false;
+    }
   }
 
   if ($('#error-msg').text() !== '') {
