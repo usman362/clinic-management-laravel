@@ -49,9 +49,13 @@ class UpdateSettingRequest extends FormRequest
         }
 
         if ($this->request->get('sectionName') == 'smtp') {
+            // `mail_password` is intentionally optional: the password field
+            // (Form::password) never renders the stored value, so forcing the
+            // admin to retype it every time they touch SMTP/API settings is
+            // brittle. The repository keeps the existing value when the
+            // field is left blank.
             return [
                 'mail_username' => 'required',
-                'mail_password' => 'required',
                 'mail_from_name' => 'required',
                 'mail_from_address' => 'required',
             ];

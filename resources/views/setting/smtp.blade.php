@@ -48,9 +48,16 @@
                     </div>
 
                     <div class="row mb-6">
-                        {{ Form::label('mail_password', 'Mail Password:', ['class' => 'col-lg-4 form-label required']) }}
+                        {{ Form::label('mail_password', 'Mail Password:', ['class' => 'col-lg-4 form-label']) }}
                         <div class="col-lg-8">
-                            {{ Form::password('mail_password', ['class' => 'form-control', 'placeholder' => 'Enter App Password']) }}
+                            {{ Form::password('mail_password', [
+                                'class' => 'form-control',
+                                'placeholder' => !empty($setting['mail_password']) ? 'Leave blank to keep existing password' : 'Enter App Password',
+                                'autocomplete' => 'new-password',
+                            ]) }}
+                            @if(!empty($setting['mail_password']))
+                                <small class="text-muted">Leave blank to keep the current password.</small>
+                            @endif
                         </div>
                     </div>
 

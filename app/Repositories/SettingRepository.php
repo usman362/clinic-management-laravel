@@ -67,11 +67,24 @@ class SettingRepository extends BaseRepository
             $inputArr['postal_code'] = (empty($inputArr['postal_code'])) ? '' : $inputArr['postal_code'];
         }
 
+        // Keys whose existing DB value should be kept when the form submits
+        // them blank (typically password/secret fields that never echo their
+        // current value back to the admin). The admin can still clear them
+        // explicitly later via tinker / a dedicated "clear" action.
+        $preserveIfBlank = ['mail_password'];
+
         foreach ($inputArr as $key => $value) {
 
             /** @var Setting $setting */
             $setting = Setting::where('key', $key)->first();
             if (! $setting) {
+                continue;
+            }
+
+            // Skip blank password-style fields so we don't wipe out the
+            // stored value when the admin saves other settings.
+            if (in_array($key, $preserveIfBlank, true)
+                && (is_null($value) || $value === '')) {
                 continue;
             }
 
