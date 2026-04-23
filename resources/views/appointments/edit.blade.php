@@ -2,6 +2,33 @@
 @section('title')
     {{ __('Book Appointment') }}
 @endsection
+@php
+    /*
+    |--------------------------------------------------------------------------
+    | CP-08: Resolve patient profile data with polymorphic-address fallback
+    |--------------------------------------------------------------------------
+    | Address is stored polymorphically (owner_id + owner_type). Historically
+    | some repositories wrote to the User-owned row, others to the
+    | Patient-owned row. Reading strictly from patient->address left the
+    | autofill empty whenever only the user-owned row existed.
+    | This block builds a single $childProfile array that the view uses
+    | everywhere, preferring the Patient-owned row and falling back to the
+    | User-owned row. When a booking submits, AppointmentRepository writes
+    | to BOTH rows, so on subsequent visits this fallback becomes a no-op.
+    */
+    $childProfileUser    = optional($appointment->patient)->user;
+    $childProfilePAddr   = optional($appointment->patient)->address;
+    $childProfileUAddr   = optional($childProfileUser)->address;
+    $childProfile = [
+        'first_name'   => optional($childProfileUser)->first_name,
+        'last_name'    => optional($childProfileUser)->last_name,
+        'dob'          => optional($childProfileUser)->dob,
+        'address'      => optional($childProfilePAddr)->address1   ?: optional($childProfileUAddr)->address1,
+        'tax_code'     => optional($childProfilePAddr)->tax_code    ?: optional($childProfileUAddr)->tax_code,
+        'school_name'  => optional($childProfilePAddr)->school_name ?: optional($childProfileUAddr)->school_name,
+        'school_grade' => optional($childProfilePAddr)->school_grade?: optional($childProfileUAddr)->school_grade,
+    ];
+@endphp
 @section('content')
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-end mb-5">
@@ -69,13 +96,14 @@
                                 'data-draft-get-url' => route('patients.appointments.draft.get', $appointment->id),
                                 'data-draft-save-url' => route('patients.appointments.draft.save', $appointment->id),
                                 'data-booking-mode' => $bookingMode ?? 'edit',
-                                'data-profile-first-name' => optional($appointment->patient->user)->first_name,
-                                'data-profile-last-name' => optional($appointment->patient->user)->last_name,
-                                'data-profile-address' => optional($appointment->patient->address)->address1,
-                                'data-profile-dob' => optional($appointment->patient->user)->dob,
-                                'data-profile-tax-code' => optional($appointment->patient->address)->tax_code,
-                                'data-profile-school-name' => optional($appointment->patient->address)->school_name,
-                                'data-profile-school-grade' => optional($appointment->patient->address)->school_grade,
+                                // CP-08: profile defaults read via $childProfile (polymorphic-address safe)
+                                'data-profile-first-name'   => $childProfile['first_name'],
+                                'data-profile-last-name'    => $childProfile['last_name'],
+                                'data-profile-address'      => $childProfile['address'],
+                                'data-profile-dob'          => $childProfile['dob'],
+                                'data-profile-tax-code'     => $childProfile['tax_code'],
+                                'data-profile-school-name'  => $childProfile['school_name'],
+                                'data-profile-school-grade' => $childProfile['school_grade'],
                             ]) }}
                         @else((getLogInUser()->hasRole('doctor')))
                             {{ Form::open(['route' => ['doctors.appointments.update', $appointment->id], 'id' => 'addAppointmentForm']) }}
@@ -96,43 +124,43 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">First Name</label>
                                 <input type="text" class="form-control" id="first_name" oninput="changeValue('client_name',this)" name="first_name"
-                                    value="{{ @$appointment->patient->user->first_name }}" required>
+                                    value="{{ $childProfile['first_name'] }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Last Name</label>
                                 <input type="text" class="form-control" id="last_name" oninput="changeValue('client_name',this)" name="last_name"
-                                    value="{{ @$appointment->patient->user->last_name }}" required>
+                                    value="{{ $childProfile['last_name'] }}" required>
                             </div>
 
                             <div class="col-md-12 mb-3">
                                 <label class="form-label">Address</label>
                                 <input type="text" class="form-control" id="address" oninput="changeValue('client_address',this)" name="address"
-                                    value="{{ @$appointment->patient->address->address1 }}" required>
+                                    value="{{ $childProfile['address'] }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Date of Birth</label>
                                 <input type="date" class="form-control" id="dob" oninput="changeValue('client_dob',this)" name="dob"
-                                    value="{{ @$appointment->patient->user->dob }}" required>
+                                    value="{{ $childProfile['dob'] }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tax Code (Codice Fiscale)</label>
                                 <input type="text" class="form-control" id="tax_code" oninput="changeValue('client_tax_code',this)" name="tax_code"
-                                    value="{{ @$appointment->patient->address->tax_code }}" required>
+                                    value="{{ $childProfile['tax_code'] }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">School Name</label>
                                 <input type="text" class="form-control" id="school_name" oninput="changeValue('client_school',this)" name="school_name"
-                                    value="{{ @$appointment->patient->address->school_name }}" required>
+                                    value="{{ $childProfile['school_name'] }}" required>
                             </div>
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">School Grade</label>
                                 <input type="text" class="form-control" id="school_grade" oninput="changeValue('client_grade',this)" name="school_grade"
-                                    value="{{ @$appointment->patient->address->school_grade }}" required>
+                                    value="{{ $childProfile['school_grade'] }}" required>
                             </div>
                         </div>
 
@@ -502,38 +530,38 @@
                                     </div>
                                     <div class="col-md-6">
                                         <h5 class="client_name">
-                                            {{ @$appointment->patient->user->first_name . ' ' . @$appointment->patient->user->last_name }}
+                                            {{ trim($childProfile['first_name'] . ' ' . $childProfile['last_name']) }}
                                         </h5>
                                     </div>
                                     <div class="col-md-6">
                                         <p style="font-size: 13px;color:#6c757d">Address:</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5 class="client_address">{{ @$appointment->patient->address->address1 }}</h5>
+                                        <h5 class="client_address">{{ $childProfile['address'] }}</h5>
                                     </div>
                                     <div class="col-md-6">
                                         <p style="font-size: 13px;color:#6c757d">Date of Birth:</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5 class="client_dob">{{ @$appointment->patient->user->dob }}</h5>
+                                        <h5 class="client_dob">{{ $childProfile['dob'] }}</h5>
                                     </div>
                                     <div class="col-md-6">
                                         <p style="font-size: 13px;color:#6c757d">Tax Code:</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5 class="client_tax_code">{{ @$appointment->patient->address->tax_code }}</h5>
+                                        <h5 class="client_tax_code">{{ $childProfile['tax_code'] }}</h5>
                                     </div>
                                     <div class="col-md-6">
                                         <p style="font-size: 13px;color:#6c757d">School:</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5 class="client_school">{{ @$appointment->patient->address->school_name }}</h5>
+                                        <h5 class="client_school">{{ $childProfile['school_name'] }}</h5>
                                     </div>
                                     <div class="col-md-6">
                                         <p style="font-size: 13px;color:#6c757d">Grade:</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <h5 class="client_grade">{{ @$appointment->patient->address->school_grade }}</h5>
+                                        <h5 class="client_grade">{{ $childProfile['school_grade'] }}</h5>
                                     </div>
                                 </div>
                             </div>

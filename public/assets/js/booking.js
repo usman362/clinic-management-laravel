@@ -51,6 +51,11 @@
         };
         var saveDraftTimer;
         var isRestoringDraft = false;
+        // CP-08: Once the booking submit succeeds the server deletes the
+        // draft row. Any late-fire beforeunload save would immediately
+        // re-create an orphan draft. Flip this flag in the success handler
+        // to disarm flushDraftOnUnload.
+        var draftSuppressed = false;
 
         function getDraftPayload() {
             var form = $form[0];
@@ -81,7 +86,10 @@
         }
 
         function saveDraft() {
-            if (!useDraft) return;
+            // Guard: never persist a draft while we're in the middle of
+            // applying one — otherwise a half-restored form can overwrite
+            // the good server-side snapshot with blank fields.
+            if (!useDraft || isRestoringDraft || draftSuppressed) return;
             var payload = getDraftPayload();
             console.log('[CP-08] saveDraft → step:', payload.currentStep);
             $.ajax({
@@ -94,15 +102,44 @@
             });
         }
 
-        function applyProfileChildToForm() {
-            // CP-08 fix: Always apply profile data as the authoritative source.
-            // Previously only applied if field was empty, but blade pre-fills from DB
-            // which blocked profile data from ever being applied.
+        // CP-08: Flush the latest field values to the server the moment the
+        // tab unloads (close, navigation, refresh). Uses sendBeacon so the
+        // browser ships the payload even after the page stops executing JS.
+        // Falls back to a synchronous XHR on browsers without Beacon.
+        function flushDraftOnUnload() {
+            if (!useDraft || isRestoringDraft || draftSuppressed) return;
+            try {
+                var csrf = $('meta[name="csrf-token"]').attr('content') || '';
+                var body = JSON.stringify({ form_data: getDraftPayload(), _token: csrf });
+                if (navigator.sendBeacon) {
+                    var blob = new Blob([body], { type: 'application/json' });
+                    navigator.sendBeacon(draftSaveUrl, blob);
+                    return;
+                }
+                // Legacy sync fallback
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', draftSaveUrl, false);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
+                xhr.setRequestHeader('Accept', 'application/json');
+                xhr.send(body);
+            } catch (e) { /* ignore — best-effort */ }
+        }
+
+        // CP-08: Apply profile defaults to the Step-1 form.
+        //   - When called with { overwrite: true }: forces profile values
+        //     onto every field (used on a fresh open to seed from profile
+        //     even when the blade cached older values).
+        //   - Default behaviour only fills fields that are currently empty,
+        //     so in-progress draft values / user edits are never clobbered.
+        function applyProfileChildToForm(opts) {
+            var overwrite = !!(opts && opts.overwrite);
             var form = $form[0];
             ['first_name', 'last_name', 'address', 'dob', 'tax_code', 'school_name', 'school_grade'].forEach(function (id) {
                 var el = form.querySelector('#' + id);
                 if (!el) return;
-                if (profileChild[id] != null && profileChild[id] !== '') {
+                if (profileChild[id] == null || profileChild[id] === '') return;
+                if (overwrite || !(el.value || '').trim()) {
                     el.value = profileChild[id];
                 }
             });
@@ -131,20 +168,54 @@
             $('.client_grade').text(data.school_grade || '');
         }
 
+        // CP-08: Required step-1 fields. Kept in sync with the `required`
+        // attributes on #step1 inputs so validation here can never drift.
+        var STEP1_REQUIRED_FIELDS = ['first_name', 'last_name', 'address', 'dob', 'tax_code', 'school_name', 'school_grade'];
+
+        function isStep1Complete() {
+            var form = $form[0];
+            if (!form) return false;
+            for (var i = 0; i < STEP1_REQUIRED_FIELDS.length; i++) {
+                var el = form.querySelector('#' + STEP1_REQUIRED_FIELDS[i]);
+                if (!el || !(el.value || '').trim()) return false;
+            }
+            return true;
+        }
+
         function applyDraftData(data) {
             if (!data) return;
             try {
                 isRestoringDraft = true;
                 clearTimeout(saveDraftTimer);
 
-                if (data.currentStep != null && data.currentStep >= 0 && data.currentStep < $steps.length) {
-                    currentStep = data.currentStep;
-                }
+                // First, merge child-detail fields from the draft. We do this
+                // BEFORE deciding the step, so the step-1 completeness check
+                // below reflects the draft-merged values.
                 var form = $form[0];
                 ['first_name', 'last_name', 'address', 'dob', 'tax_code', 'school_name', 'school_grade'].forEach(function (id) {
                     var el = form.querySelector('#' + id);
                     if (el && data[id] != null) el.value = data[id];
                 });
+                // If blade values (or merged draft) left required fields blank,
+                // overlay profile defaults so a returning patient sees their
+                // saved details rather than empties.
+                applyProfileChildToForm();
+
+                if (data.currentStep != null && data.currentStep >= 0 && data.currentStep < $steps.length) {
+                    // CP-08: Guard against jumping past step 1 with missing
+                    // required fields. If the draft wanted step > 0 but step
+                    // 1 is incomplete, snap back to step 0 so the user can
+                    // finish it. This protects against silent data loss where
+                    // the user would otherwise hit the final Finish button
+                    // with empty child details and get a 422.
+                    if (data.currentStep > 0 && !isStep1Complete()) {
+                        console.warn('[CP-08] Restored step was', data.currentStep,
+                            'but step 1 is incomplete — snapping back to step 0.');
+                        currentStep = 0;
+                    } else {
+                        currentStep = data.currentStep;
+                    }
+                }
                 if (data.consentConfirmed) $('#consentConfirmed').prop('checked', true);
                 if (data.assessmentInfoAccepted) $('#assessmentInfoAccepted').prop('checked', true);
                 if (data.paymentAcknowledged) $('#paymentAcknowledged').prop('checked', true);
@@ -219,7 +290,7 @@
             if (!useDraft) {
                 console.log('[CP-08] restoreDraft: useDraft=false, applying profile defaults');
                 // No server-side draft: initialize from profile, and skip details step for rebook mode
-                applyProfileChildToForm();
+                applyProfileChildToForm({ overwrite: true });
                 if (bookingMode === 'rebook') {
                     currentStep = 1;
                 }
@@ -238,7 +309,7 @@
                     applyDraftData(data);
                 } else {
                     // No existing draft for this appointment: use profile defaults
-                    applyProfileChildToForm();
+                    applyProfileChildToForm({ overwrite: true });
                     if (bookingMode === 'rebook') {
                         currentStep = 1;
                     }
@@ -246,7 +317,7 @@
                 if (done) done();
             }).fail(function () {
                 // On error, still initialize from profile
-                applyProfileChildToForm();
+                applyProfileChildToForm({ overwrite: true });
                 if (bookingMode === 'rebook') {
                     currentStep = 1;
                 }
@@ -424,6 +495,11 @@
                 data: formData,
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 success: function (res) {
+                    // CP-08: Disarm the draft pipeline — the server has just
+                    // deleted the draft row, we must not resurrect it via
+                    // the beforeunload flush on the redirect below.
+                    draftSuppressed = true;
+                    clearTimeout(saveDraftTimer);
                     if (res && res.data && res.data.url) {
                         showNotification('Booking completed successfully.');
                         setTimeout(function () { window.location.href = res.data.url; }, 800);
@@ -456,6 +532,13 @@
             $form.find('#first_name, #last_name, #address, #dob, #tax_code, #school_name, #school_grade').on('input change', scheduleSaveDraft);
             $form.find('.appointmentDate, .timeSlot, .toTime').on('change', scheduleSaveDraft);
             $form.find('#consentConfirmed, #assessmentInfoAccepted, #paymentAcknowledged, #documentationPolicy').on('change', scheduleSaveDraft);
+
+            // CP-08: Last-gasp draft save when the user closes, refreshes or
+            // navigates away. Debounced saves can be in-flight at that
+            // moment; this guarantees the server has the latest keystroke.
+            // We deliberately bind once with .off to survive Turbo re-inits.
+            $(window).off('beforeunload.cp08').on('beforeunload.cp08', flushDraftOnUnload);
+            $(window).off('pagehide.cp08').on('pagehide.cp08', flushDraftOnUnload);
         }
 
         /* ==========================

@@ -1,6 +1,18 @@
 #!/usr/bin/env php
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Silence PHP 8.4+ vendor deprecation notices (see public/index.php for
+| the full rationale).
+|--------------------------------------------------------------------------
+*/
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+ini_set('log_errors', '0');
+set_error_handler(static function (int $severity): bool {
+    return $severity === E_DEPRECATED || $severity === E_USER_DEPRECATED;
+});
+
 define('LARAVEL_START', microtime(true));
 
 /*

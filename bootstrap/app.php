@@ -2,6 +2,21 @@
 
 /*
 |--------------------------------------------------------------------------
+| Silence PHP 8.4+ vendor deprecation notices
+|--------------------------------------------------------------------------
+|
+| Safety net for entry points other than public/index.php and artisan
+| (queue workers spawned by third-party runners, PHPUnit bootstraps, etc.).
+| See public/index.php for the full rationale.
+*/
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+ini_set('log_errors', '0');
+set_error_handler(static function (int $severity): bool {
+    return $severity === E_DEPRECATED || $severity === E_USER_DEPRECATED;
+});
+
+/*
+|--------------------------------------------------------------------------
 | Create The Application
 |--------------------------------------------------------------------------
 |
