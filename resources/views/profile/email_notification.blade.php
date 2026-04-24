@@ -1,4 +1,4 @@
-<div class="modal show fade" tabindex="-1" id="emailNotificationModal"  aria-modal="true" role="dialog">
+<div class="modal fade" tabindex="-1" id="emailNotificationModal"  aria-modal="true" role="dialog">
     <div class="modal-dialog modal-dialog-centered mw-650px">
         <div class="modal-content">
             <div class="modal-header">

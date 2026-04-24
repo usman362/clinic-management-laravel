@@ -1,4 +1,4 @@
-<div class="modal show fade" id="createCurrencyModal" tabindex="-1" aria-modal="true" role="dialog">
+<div class="modal fade" id="createCurrencyModal" tabindex="-1" aria-modal="true" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">

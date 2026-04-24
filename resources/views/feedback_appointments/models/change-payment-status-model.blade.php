@@ -1,4 +1,4 @@
-<div class="modal show fade" tabindex="-1" id="paymentStatusModal"  aria-modal="true" role="dialog">
+<div class="modal fade" tabindex="-1" id="paymentStatusModal"  aria-modal="true" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
