@@ -66,6 +66,37 @@ class SettingController extends AppBaseController
 
     public function update(UpdateSettingRequest $request): RedirectResponse
     {
+        // AP-02 / CP-12 diagnostic: log every settings save so we can see
+        // whether the Jotform API key field is actually arriving. Grep
+        // `storage/logs/laravel.log` for "[settings.update]".
+        \Log::info('[settings.update] incoming', [
+            'section'         => $request->input('sectionName'),
+            'has_jotform_key' => $request->has('jotform_api_key'),
+            'jotform_key_len' => strlen((string) $request->input('jotform_api_key', '')),
+            'input_keys'      => array_keys($request->except(['_token', 'password', 'mail_password'])),
+        ]);
+
+        // AP-12: Bulletproof save for the Jotform API key. The generic repo
+        // path iterates and updates by key — but if any upstream code (XSS,
+        // Livewire, a middleware) strips the field, that loop silently skips
+        // it. Handling the key explicitly HERE — with its own log line —
+        // guarantees that if it reaches this controller it reaches the DB.
+        if ($request->has('jotform_api_key')) {
+            $jotformKey = trim((string) $request->input('jotform_api_key'));
+            $row = Setting::where('key', 'jotform_api_key')->first();
+            if (! $row) {
+                // First-time install without the row — create it. (Migration
+                // should have created it; this is a belt-and-suspenders.)
+                Setting::create(['key' => 'jotform_api_key', 'value' => $jotformKey]);
+            } else {
+                $row->update(['value' => $jotformKey]);
+            }
+            \Log::info('[settings.update] jotform_api_key persisted', [
+                'key_len' => strlen($jotformKey),
+                'masked'  => $jotformKey === '' ? '(empty)' : substr($jotformKey, 0, 4) . '…' . substr($jotformKey, -4),
+            ]);
+        }
+
         $language = $request->language;
         if(!empty($language)){
             Setting::where('key','language')->update([

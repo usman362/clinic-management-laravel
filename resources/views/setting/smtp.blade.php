@@ -4,7 +4,7 @@
 @endsection
 @section('content')
     <div class="container-fluid">
-        {{ Form::open(['route' => 'setting.update', 'files' => true, 'id' => 'generalSettingForm']) }}
+        {{ Form::open(['route' => 'setting.update', 'files' => true, 'id' => 'generalSettingForm', 'data-turbo' => 'false']) }}
         <div class="d-flex flex-column">
             @include('setting.setting_menu')
             {{ Form::hidden('sectionName', $sectionName) }}
