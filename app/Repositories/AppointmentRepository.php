@@ -190,9 +190,14 @@ class AppointmentRepository extends BaseRepository
                 $removedIds = array_diff($allPackageAppts, $submittedApptIds);
                 if (! empty($removedIds)) {
                     $note = 'Cancelled by clinic: this appointment was removed from the package.';
+                    // AP-07 / AP-11: `cancel_reason = clinic_removed` marks
+                    // this cancellation as NOT rebookable. Views guarding the
+                    // rebook icon check this field so the patient can't
+                    // rebook a service that's no longer offered in the package.
                     Appointment::whereIn('id', $removedIds)->update([
-                        'status'      => Appointment::CANCELLED,
-                        'description' => $note,
+                        'status'        => Appointment::CANCELLED,
+                        'cancel_reason' => 'clinic_removed',
+                        'description'   => $note,
                     ]);
                     // Notify patient about each cancelled appointment
                     foreach ($removedIds as $rid) {

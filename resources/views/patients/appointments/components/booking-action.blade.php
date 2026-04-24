@@ -20,8 +20,9 @@
             </a>
         @endif
     @else
-        {{-- CP-09: Rebook icon for cancelled assessment appointments --}}
-        @if ((int) $row->status === (int) \App\Models\Appointment::CANCELLED)
+        {{-- CP-09 / AP-11: Rebook icon only for patient-initiated cancellations;
+             clinic-removed appointments cannot be rebooked. --}}
+        @if ((int) $row->status === (int) \App\Models\Appointment::CANCELLED && $row->cancel_reason !== 'clinic_removed')
             <a href="{{ route('patients.appointments.book-by-token', $row->appointment_unique_id) }}"
                 class="btn px-1 text-success fs-3"
                 data-bs-toggle="tooltip"

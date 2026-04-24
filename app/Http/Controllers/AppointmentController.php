@@ -271,6 +271,15 @@ class AppointmentController extends AppBaseController
     public function bookByToken(string $token): \Illuminate\View\View
     {
         $appointment = Appointment::where('appointment_unique_id', $token)->firstOrFail();
+
+        // AP-11: Block rebooking of appointments that were cancelled because
+        // the clinic removed the service from the package. The UI hides the
+        // rebook icon for these, but we defend the server side too in case
+        // someone pastes an old token URL directly.
+        if ($appointment->cancel_reason === 'clinic_removed') {
+            abort(403, 'This appointment was removed from the package by the clinic and cannot be rebooked. Please contact the clinic to book a new appointment.');
+        }
+
         return $this->edit($appointment->id);
     }
 

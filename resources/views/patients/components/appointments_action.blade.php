@@ -20,8 +20,11 @@
             <i class="fa-solid fa-trash"></i>
         </a>
     @else
-        {{-- CP-09: Rebook icon for patient on cancelled appointments --}}
-        @if($isPatient && $isCancelled)
+        {{-- CP-09 / AP-11: Rebook icon for patient on cancelled appointments,
+             but only when the cancellation was patient-initiated. A
+             `cancel_reason = 'clinic_removed'` means the service was dropped
+             from the package by the clinic, so rebooking isn't applicable. --}}
+        @if($isPatient && $isCancelled && $row->cancel_reason !== 'clinic_removed')
             <a href="{{ route('patients.appointments.book-by-token', $row->appointment_unique_id) }}"
                class="btn px-2 text-success fs-2"
                data-bs-toggle="tooltip"

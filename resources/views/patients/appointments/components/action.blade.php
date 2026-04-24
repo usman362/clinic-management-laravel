@@ -5,7 +5,10 @@
         <i class="fas fa-edit"></i>
     </a>
     @endif
-    @if ($row->status === $cancel)
+    {{-- AP-11: Rebook icon only for patient-initiated cancellations.
+         If cancel_reason = 'clinic_removed', the service is no longer in the
+         package so rebooking makes no sense — hide the button. --}}
+    @if ($row->status === $cancel && $row->cancel_reason !== 'clinic_removed')
     <a href="{{ route('patients.appointments.book-by-token', $row->appointment_unique_id) }}" class="btn px-1 text-success fs-3"
         data-bs-toggle="tooltip" data-bs-original-title="{{ __('messages.appointment.rebook_appointment') }}"
         title="{{ __('messages.appointment.rebook_appointment') }}">

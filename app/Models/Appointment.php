@@ -81,6 +81,7 @@ class Appointment extends Model
         'payment_method',
         'relation_id',
         'appointment_type',
+        'cancel_reason',
     ];
 
     protected $casts = [
