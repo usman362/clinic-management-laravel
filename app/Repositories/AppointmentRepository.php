@@ -168,6 +168,53 @@ class AppointmentRepository extends BaseRepository
         try {
             DB::beginTransaction();
             // $relation_id = uniqid('appt_');
+
+            // AP-07: When an admin edits a package and REMOVES one or more
+            // appointment rows (via the "remove-appointment" trash button in
+            // Step 2 Services), the form only submits the rows that remain.
+            // The rest must be explicitly cancelled (not silently orphaned).
+            // We compare submitted IDs vs. the package's full appointment
+            // set BEFORE the update loop runs.
+            $submittedApptIds = [];
+            foreach ($input['appointments'] ?? [] as $appt) {
+                if (!empty($appt['appointment_id'])) {
+                    $submittedApptIds[] = (int) $appt['appointment_id'];
+                }
+            }
+            $editingAppointment = Appointment::find($id);
+            if ($editingAppointment && $editingAppointment->relation_id && ! getLogInUser()->hasRole('patient')) {
+                $allPackageAppts = Appointment::where('relation_id', $editingAppointment->relation_id)
+                    ->whereNotIn('status', [Appointment::CANCELLED, Appointment::CHECK_OUT])
+                    ->pluck('id')
+                    ->all();
+                $removedIds = array_diff($allPackageAppts, $submittedApptIds);
+                if (! empty($removedIds)) {
+                    $note = 'Cancelled by clinic: this appointment was removed from the package.';
+                    Appointment::whereIn('id', $removedIds)->update([
+                        'status'      => Appointment::CANCELLED,
+                        'description' => $note,
+                    ]);
+                    // Notify patient about each cancelled appointment
+                    foreach ($removedIds as $rid) {
+                        try {
+                            $removedAppt = Appointment::with('patient.user')->find($rid);
+                            if ($removedAppt && optional($removedAppt->patient)->user) {
+                                Notification::create([
+                                    'title'   => 'An appointment has been cancelled by the clinic because it was removed from your booking package.',
+                                    'type'    => Notification::CANCELED,
+                                    'user_id' => $removedAppt->patient->user->id,
+                                ]);
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning('AP-07: cancel-notification failed', [
+                                'appointment_id' => $rid,
+                                'error'          => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                }
+            }
+
             foreach ($input['appointments'] as $key => $appt) {
                 // $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
                 $appointment = Appointment::find($appt['appointment_id']);
@@ -243,11 +290,19 @@ class AppointmentRepository extends BaseRepository
                     }
                     $patientUser->save();
                 } else {
-                    $appointment->doctor_id = $appt['doctor_id'];
-                    $appointment->service_id = $appt['service_id'];
-                    $appointment->description = $input['description'];
-                    // Get the patient's user record from the appointment
-                    $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
+                    // AP-07: Admin/Doctor editing a package — only update
+                    // which service/doctor are assigned, keep the existing
+                    // date/time/status untouched (admin wizard has no slot
+                    // picker). Previously the post-save block below tried to
+                    // read $appt['date'] which this form never sends,
+                    // triggering "Undefined array key 'date'".
+                    $appointment->doctor_id   = $appt['doctor_id'];
+                    $appointment->service_id  = $appt['service_id'];
+                    if (array_key_exists('description', $input)) {
+                        $appointment->description = $input['description'];
+                    }
+                    $appointment->save();
+                    continue; // skip the patient-only booking-confirmation block
                 }
                 $appointment->save();
                 // $appointment->patient_id = $input['patient_id'];
@@ -255,18 +310,27 @@ class AppointmentRepository extends BaseRepository
                 // $appointment->relation_id = $relation_id;
                 // $appointment->payable_amount = $input['payable_amount'];
                 // $appointment->appointment_unique_id = $input['appointment_unique_id'];
+                //
+                // AP-07: Everything below is the PATIENT booking-confirmation
+                // path — sends doctor email + dispatches Google Calendar
+                // events. Runs ONLY when the caller is a patient (else branch
+                // above already `continue`d). Reads $appt['date'] safely.
                 $input['patient_name'] = $patient->user->full_name;
                 $input['original_from_time'] = $input['from_time'] . ' ' . $input['from_time_type'];
                 $input['original_to_time'] = $input['to_time'] . ' ' . $input['to_time_type'];
                 $service = Service::whereId($appointment->service_id)->first();
                 $input['service'] = $service->name;
-                $input['date'] = $appt['date'];
+                $input['date'] = $appt['date'] ?? $appointment->date ?? '';
 
                 // if ($patient->user->email_notification) {
                 //     Mail::to($patient->user->email)->send(new PatientAppointmentBookMail($input));
                 // }
 
-                $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
+                if (! empty($input['date'])) {
+                    $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
+                } else {
+                    $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'];
+                }
                 // if (! getLogInUser()->hasRole('patient')) {
                 //     $patientNotification = Notification::create([
                 //         'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG . ' ' . $input['full_time'],

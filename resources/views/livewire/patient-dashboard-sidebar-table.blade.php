@@ -61,13 +61,24 @@
                     <thead>
                         <tr class="text-uppercase">
                             <th class="text-muted mt-1 fw-bold fs-7">{{ __('Booking') }}</th>
-                            <th class="text-muted mt-1 fw-bold fs-7">{{ __('Link') }}</th>
-                            <th class="text-muted mt-1 fw-bold fs-7 text-center">
-                                {{ __('Action') }}</th>
+                            <th class="text-muted mt-1 fw-bold fs-7">{{ __('Status') }}</th>
+                            <th class="text-muted mt-1 fw-bold fs-7 text-center">{{ __('Action') }}</th>
                         </tr>
                     </thead>
                     <tbody id="monthlyReport">
                         @forelse($pendingAppointments as $appointment)
+                            @php
+                                // CP-19: route to the right page depending on whether the
+                                // package still needs action vs. is fully booked.
+                                $needsAction = $appointment->has_pending_in_package ?? false;
+                                if ($needsAction) {
+                                    $rowUrl = route('patients.appointments.book-by-token', $appointment->appointment_unique_id);
+                                } elseif ($appointment->appointment_type === 'feedback') {
+                                    $rowUrl = route('patients.feedback-booking.detail', $appointment->relation_id);
+                                } else {
+                                    $rowUrl = route('patients.booking.detail', $appointment->relation_id);
+                                }
+                            @endphp
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
@@ -77,32 +88,38 @@
                                             @else
                                                 <span class="badge bg-primary mb-1">Assessment</span>
                                             @endif
-                                            <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}"
-                                                class="text-primary-800 fs-6 text-decoration-none">
-                                                Booking – Action Required
+                                            <a href="{{ $rowUrl }}" class="text-primary-800 fs-6 text-decoration-none fw-semibold">
+                                                @if($needsAction)
+                                                    Booking – Action Required
+                                                @else
+                                                    Booking
+                                                @endif
                                             </a>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="d-flex flex-column">
-                                            <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}"
-                                                class="text-primary-800 mb-1 fs-6 text-decoration-none">
-                                                {{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}
-                                            </a>
-                                        </div>
-                                    </div>
+                                    {{-- CP-19: Client requested that raw booking URL be removed.
+                                         Replaced with a status badge: Booked vs Action Required. --}}
+                                    @if($needsAction)
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle me-1"></i> Action Required
+                                        </span>
+                                    @else
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i> Booked
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="mb-1 fs-6 text-muted fw-bold text-center">
-                                    <a href="{{route('patients.appointments.book-by-token', $appointment->appointment_unique_id)}}" class="badge bg-light-info">
-                                        <i class="fa fa-edit"></i>
+                                    <a href="{{ $rowUrl }}" class="badge bg-light-info" title="{{ $needsAction ? 'Continue booking' : 'View booked appointments' }}">
+                                        <i class="fa {{ $needsAction ? 'fa-edit' : 'fa-eye' }}"></i>
                                     </a>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted fw-bold">
+                                <td colspan="3" class="text-center text-muted fw-bold">
                                     {{ __('messages.common.no_data_available') }}
                                 </td>
                             </tr>

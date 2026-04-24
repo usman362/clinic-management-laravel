@@ -15,5 +15,11 @@ class VerifyCsrfToken extends Middleware
         'razorpay-payment-success',
         'razorpay-payment-failed',
         'paytm-callback',
+        // CP-12: Jotform posts from its own servers and can't send a CSRF
+        // token. The webhook endpoint verifies the submission via its own
+        // authorization logic (appointment ownership / optional shared
+        // secret) inside AppointmentController::consentWebhook().
+        'api/consent-webhook',
+        'consent-webhook',
     ];
 }

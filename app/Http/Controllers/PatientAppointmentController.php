@@ -61,20 +61,50 @@ class PatientAppointmentController extends AppBaseController
 
     public function pending_bookings()
     {
-        $query = Appointment::with([
-            'doctor.user',
-            'services',
-            'transaction',
-            'doctor.reviews',
-        ])->where('patient_id', getLoginUser()->patient->id)->where('status',5)->select('appointments.*');
+        // CP-19: Show one row per package for everything currently in flight
+        // (BOOKED + CHECK_IN + BOOKING_PENDING — not CHECK_OUT, not CANCELLED).
+        // The view decides how to render each row based on whether the
+        // package still has at least one BOOKING_PENDING appointment:
+        //   - has pending → label "Action Required", link to booking wizard
+        //   - fully booked → label "Booked", link to package detail (shows
+        //     the booked appointments)
+        //
+        // The subquery is scoped to THIS patient + the same status set so a
+        // race condition can never make a booked package show up as pending
+        // (and vice-versa).
+        $patientId     = getLoginUser()->patient->id;
+        $activeStatuses = [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::BOOKING_PENDING];
 
+        $appointments = Appointment::with([
+                'doctor.user',
+                'services',
+                'transaction',
+                'doctor.reviews',
+            ])
+            ->where('patient_id', $patientId)
+            ->whereIn('status', $activeStatuses)
+            ->whereIn('appointments.id', function ($q) use ($patientId, $activeStatuses) {
+                $q->selectRaw('MIN(id)')
+                    ->from('appointments')
+                    ->where('patient_id', $patientId)
+                    ->whereIn('status', $activeStatuses)
+                    ->groupBy('relation_id');
+            })
+            ->orderByDesc('appointments.id')
+            ->get();
 
-        $query->whereIn('appointments.id', function ($q) {
-            $q->selectRaw('MAX(appointments.id)')
-            ->from('appointments')
-            ->groupBy('appointments.relation_id');
-        });
-        $appointments = $query->select('appointments.*')->get();
-        return view('patients.appointments.pending-bookings',compact('appointments'));
+        // Per-package pending flag used by the view to switch between
+        // "Booked" and "Action Required" states. One SELECT total — O(1).
+        $pendingRelationIds = Appointment::where('patient_id', $patientId)
+            ->where('status', Appointment::BOOKING_PENDING)
+            ->distinct()
+            ->pluck('relation_id')
+            ->flip(); // allow O(1) isset() lookup
+
+        foreach ($appointments as $appt) {
+            $appt->setAttribute('has_pending_in_package', isset($pendingRelationIds[$appt->relation_id]));
+        }
+
+        return view('patients.appointments.pending-bookings', compact('appointments'));
     }
 }

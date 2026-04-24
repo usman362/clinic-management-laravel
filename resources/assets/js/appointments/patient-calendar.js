@@ -28,7 +28,8 @@ let viewEventName, viewEventDescription, viewEventStatus, viewStartDate,
     viewUId,
     viewAmount,
     viewLocation,
-    viewInstructions
+    viewInstructions,
+    viewDoctor
 
 function loadPatientAppointmentCalendar () {
     if (!$('#appointmentCalendar').length) {
@@ -150,6 +151,9 @@ const init = () => {
         '[data-calendar="event_location"]')
     viewInstructions = viewElement.querySelector(
         '[data-calendar="event_instructions"]')
+    // CP-18.2: dedicated Doctor row
+    viewDoctor = viewElement.querySelector(
+        '[data-calendar="event_doctor"]')
 }
 
 // Format FullCalendar responses
@@ -224,7 +228,9 @@ const handleViewEvent = () => {
     viewStartDate.innerText = ': ' + startDateMod
 
     // Populate view data
-    viewEventName.innerText = (data.doctorName ? 'Doctor: ' + data.doctorName : 'Doctor: Not assigned')
+    var doctorText = data.doctorName && data.doctorName.trim() ? data.doctorName : 'Not assigned'
+    viewEventName.innerText = 'Doctor: ' + doctorText
+    if (viewDoctor) viewDoctor.innerText = doctorText // CP-18.2 dedicated row
     $(viewEventStatus).val(data.eventStatus)
     viewAmount.innerText = addCommas(data.amount)
     viewUId.innerText = data.uId

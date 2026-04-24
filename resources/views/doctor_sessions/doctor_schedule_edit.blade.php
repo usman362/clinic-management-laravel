@@ -64,8 +64,11 @@
                             @elseif(!$loop->last && $clinicScheduleDay) checked="checked" @else disabled @endif>
                             <label class="form-check-label"
                                 for="chkShortWeekDay_{{ __('messages.weekdays.' . strtolower($shortWeekDay)) }}">
-                                <span
-                                    class="fs-5 fw-bold d-md-block d-none">{{ __('messages.weekdays.' . strtolower($shortWeekDay)) }}</span>
+                                {{-- DP-03: Day label must be visible at EVERY viewport.
+                                     Previously used `d-md-block d-none` which hid the label on
+                                     mobile / narrow browser windows — matching the client's
+                                     "days not shown in calendar" report. --}}
+                                <span class="fs-5 fw-bold d-block">{{ __('messages.weekdays.' . strtolower($shortWeekDay)) }}</span>
                             </label>
                         </div>
                         @if (isset($sessionWeekDays))

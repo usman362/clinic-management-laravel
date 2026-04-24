@@ -10,6 +10,7 @@ use App\Models\AppointmentDraft;
 use App\Models\Doctor;
 use App\Models\Document;
 use App\Models\Notification;
+use App\Models\Package;
 use App\Models\Patient;
 use App\Models\Service;
 use App\Models\Transaction;
@@ -430,13 +431,20 @@ class AppointmentController extends AppBaseController
         }
 
         $relationId = $appointment->relation_id;
+        // AP-03: Capture patient details BEFORE the transaction so we can
+        // notify them once the delete succeeds. We can't read the patient
+        // via the appointment anymore after its row is gone.
+        $patientUserId   = optional(optional($appointment->patient)->user)->id
+            ?? Patient::where('id', $appointment->patient_id)->value('user_id');
+        $deletedCount    = 0;
 
-        \DB::transaction(function () use ($appointment, $relationId) {
+        \DB::transaction(function () use ($appointment, $relationId, &$deletedCount) {
             if ($relationId) {
                 // Get ALL appointments in this package (any status, including cancelled)
                 $packageAppointments = Appointment::where('relation_id', $relationId)->get();
                 $apptIds       = $packageAppointments->pluck('id')->all();
                 $apptUniqueIds = $packageAppointments->pluck('appointment_unique_id')->filter()->all();
+                $deletedCount  = count($apptIds);
 
                 // Delete related transactions for ALL appointments in the package
                 if (! empty($apptUniqueIds)) {
@@ -455,6 +463,34 @@ class AppointmentController extends AppBaseController
                     \App\Models\UserGoogleAppointment::whereIn('appointment_id', $apptIds)->delete();
                 }
 
+                // AP-03: Hard-delete any child feedback packages tied to this
+                // assessment package (via parent_package_id), plus all their
+                // appointments / transactions / docs — same treatment as the
+                // primary package so nothing lingers on the client overview.
+                $parentPkg = Package::where('relation_id', $relationId)->first();
+                if ($parentPkg) {
+                    $feedbackPkgs = Package::where('parent_package_id', $parentPkg->id)->get();
+                    foreach ($feedbackPkgs as $fbPkg) {
+                        $fbAppts = Appointment::where('relation_id', $fbPkg->relation_id)->get();
+                        $fbApptIds  = $fbAppts->pluck('id')->all();
+                        $fbApptUids = $fbAppts->pluck('appointment_unique_id')->filter()->all();
+                        if (! empty($fbApptUids)) {
+                            Transaction::whereIn('appointment_id', $fbApptUids)->delete();
+                        }
+                        if (! empty($fbApptIds)) {
+                            \App\Models\Document::whereIn('appointment_id', $fbApptIds)
+                                ->where('type', 'consent')
+                                ->delete();
+                            if (class_exists(\App\Models\UserGoogleAppointment::class)) {
+                                \App\Models\UserGoogleAppointment::whereIn('appointment_id', $fbApptIds)->delete();
+                            }
+                        }
+                        Appointment::where('relation_id', $fbPkg->relation_id)->delete();
+                        $fbPkg->delete();
+                        $deletedCount += count($fbApptIds);
+                    }
+                }
+
                 // Hard-delete the Package record (no cascade SQL exists; we own it)
                 Package::where('relation_id', $relationId)->delete();
 
@@ -467,8 +503,29 @@ class AppointmentController extends AppBaseController
                     $transaction->delete();
                 }
                 $appointment->delete();
+                $deletedCount = 1;
             }
         });
+
+        // AP-03: Notify the patient that the package + all appointments were
+        // cancelled. Only when an admin/doctor triggered the delete — if the
+        // patient themselves deleted it there is no value notifying them.
+        if ($patientUserId && ! getLogInUser()->hasRole('patient')) {
+            try {
+                Notification::create([
+                    'title'   => $relationId
+                        ? 'Your booking package and ' . $deletedCount . ' appointment' . ($deletedCount === 1 ? '' : 's') . ' have been cancelled by the clinic.'
+                        : 'Your appointment has been cancelled by the clinic.',
+                    'type'    => Notification::CANCELED,
+                    'user_id' => $patientUserId,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::warning('AP-03: Failed to create cancellation notification', [
+                    'user_id' => $patientUserId,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        }
 
         return $this->sendSuccess(__('messages.flash.appointment_delete'));
     }
@@ -1017,6 +1074,23 @@ class AppointmentController extends AppBaseController
      */
     public function consentWebhook(Request $request)
     {
+        // CP-12 DIAGNOSTIC: Log every webhook entry so we can verify Jotform
+        // is actually reaching us. Grep `tail -f storage/logs/laravel.log`
+        // for "[CP-12] consentWebhook ENTRY" while submitting a form.
+        \Log::info('[CP-12] consentWebhook ENTRY', [
+            'method'        => $request->method(),
+            'has_session'   => $request->hasSession(),
+            'authed'        => \Auth::check(),
+            'user_id'       => optional(\Auth::user())->id,
+            'query'         => $request->query(),
+            'post_keys'     => array_keys($request->all()),
+            'referer'       => $request->header('Referer'),
+            'user_agent'    => $request->header('User-Agent'),
+            'submission_id' => $request->input('submission_id'),
+            'form_id'       => $request->input('formID') ?? $request->input('form_id'),
+            'ip'            => $request->ip(),
+        ]);
+
         // Try to get appointment_id and doctor_id from multiple sources:
         // 1. Query parameters (preferred when Jotform redirect includes them)
         // 2. POST form fields / hidden fields in Jotform
@@ -1167,12 +1241,32 @@ class AppointmentController extends AppBaseController
             $title = 'Consent Form - ' . $doctor->user->full_name;
         }
 
-        // Avoid duplicate consent records for same appointment + doctor
+        // CP-12 Requirement 3: "If the user already filled the consent form for
+        // the doctor he is no longer required to sign / fill in the consent
+        // form again." Per-doctor lookup (NOT per-appointment) so a second
+        // appointment with the same doctor reuses the existing signed PDF
+        // and skips the iframe in the wizard.
+        // Link the consent to this appointment id as well (so the blade's
+        // per-appointment reference still works) but only when the patient
+        // hasn't already signed for this doctor.
         $existingConsent = Document::where('user_id', $userId)
             ->where('type', 'consent')
             ->where('doctor_id', $doctorId)
-            ->where('appointment_id', $appointment->id)
+            ->orderByDesc('id')
             ->first();
+
+        // If an older consent exists for this doctor but wasn't bound to
+        // this appointment, reuse it — just stamp the current appointment_id
+        // so the Documents tab lists it under this booking too.
+        if ($existingConsent && (int) $existingConsent->appointment_id !== (int) $appointment->id) {
+            $existingConsent->update(['appointment_id' => $appointment->id]);
+            \Log::info('CP-12: Reusing existing consent for doctor', [
+                'user_id' => $userId,
+                'doctor_id' => $doctorId,
+                'appointment_id' => $appointment->id,
+                'document_id' => $existingConsent->id,
+            ]);
+        }
 
         if (! $existingConsent) {
             $submissionId = $request->input('submission_id', '');

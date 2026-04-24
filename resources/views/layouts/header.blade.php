@@ -193,11 +193,11 @@
                 </div>
             </div>
         </li>
-        <li>
-            <button type="button" class="btn px-0 d-block d-xl-none header-btn pb-2">
-                <i class="fa-solid fa-bars fs-1"></i>
-            </button>
-        </li>
+        {{-- CP-13: Top-right hamburger button removed per client feedback
+             ("REMOVE the top right menu entirely — it's confusing and
+             doesn't add value."). The left-side sidebar toggle is the
+             canonical way to open navigation on mobile, so this duplicate
+             trigger was redundant. --}}
     </ul>
 </header>
 <div class="bg-overlay" id="nav-overly"></div>

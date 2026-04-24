@@ -72,6 +72,9 @@ class PatientBookingAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        // CP-09: Keep CANCELLED appointments visible in the package booking
+        // detail view so the patient can see them with a rebook icon.
+        // Only BOOKING_PENDING (wizard never completed) is excluded.
         $query = Appointment::with([
             'doctor.user',
             'services',
@@ -79,7 +82,6 @@ class PatientBookingAppointmentTable extends LivewireTableComponent
             'doctor.reviews',
         ])->where('patient_id', getLoginUser()->patient->id)
         ->where('appointments.status','!=',Appointment::BOOKING_PENDING)
-        ->where('appointments.status','!=',Appointment::CANCELLED)
         ->where('relation_id',$this->relationId)->select('appointments.*');
 
         $query->when(

@@ -111,6 +111,15 @@ class FeedbackAppointmentRepository extends BaseRepository
                 $appointment->from_time_type = $input['from_time_type'];
                 $appointment->to_time = $input['to_time'];
                 $appointment->to_time_type = $input['to_time_type'];
+                // AP-05: Manually-created feedback packages must tag their
+                // appointments as 'feedback' so they show up in the patient's
+                // Pending Bookings widget + PatientFeedbackBookingsTable, and
+                // NOT in the assessment lists. Previously this field was never
+                // set and fell back to the DB default ('assessment'), so the
+                // package appeared in the admin feedback list (which queries
+                // Package.appointment_type) but the patient's dashboard widget
+                // (which queries Appointment.appointment_type) never found it.
+                $appointment->appointment_type = 'feedback';
                 $appointment->save();
                 $createdAppointmentIds[] = $appointment->id;
             }

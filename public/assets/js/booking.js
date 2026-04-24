@@ -350,7 +350,13 @@
             $progressBar.css('width', progress + '%');
 
             if (stepIndex === 5) {
-                updateStep6ChildDetails();
+                // CP-09: wrap so a render exception in review step never
+                // prevents the Finish button from working.
+                try {
+                    updateStep6ChildDetails();
+                } catch (err) {
+                    console.error('[CP-09] updateStep6ChildDetails failed:', err);
+                }
             }
         }
 
@@ -480,19 +486,29 @@
         /* ==========================
             SUBMIT
         ========================== */
-        $(document).off('submit.appointmentSubmit').on('submit.appointmentSubmit', '#addAppointmentForm', function (e) {
+        // CP-09: Re-entrancy guard so a double-click or belt-and-suspenders
+        // "click + native submit" doesn't fire two parallel PUT requests.
+        var submitInFlight = false;
 
-            e.preventDefault();
+        function performBookingSubmit(formEl) {
+            if (submitInFlight) return;
+            var $form = $(formEl);
+            if (!$form.length || !$form.attr('action')) {
+                console.error('[CP-09] performBookingSubmit: form or action URL missing',
+                    { hasForm: !!$form.length, action: $form.attr('action') });
+                return;
+            }
+            submitInFlight = true;
 
-            var $btn = $(this).find('.submitAppointmentBtn');
+            var $btn = $form.find('.submitAppointmentBtn');
             $btn.prop('disabled', true).text('Saving…');
 
-            var formData = $(this).serialize();
+            console.log('[CP-09] submit → PUT', $form.attr('action'), { bookingMode: bookingMode });
 
             $.ajax({
-                url: $(this).attr('action'),
+                url: $form.attr('action'),
                 method: 'PUT',
-                data: formData,
+                data: $form.serialize(),
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 success: function (res) {
                     // CP-08: Disarm the draft pipeline — the server has just
@@ -501,11 +517,14 @@
                     draftSuppressed = true;
                     clearTimeout(saveDraftTimer);
                     if (res && res.data && res.data.url) {
-                        showNotification('Booking completed successfully.');
+                        showNotification(bookingMode === 'rebook'
+                            ? 'Appointment rebooked successfully.'
+                            : 'Booking completed successfully.');
                         setTimeout(function () { window.location.href = res.data.url; }, 800);
                     } else {
                         showNotification('Booking saved.');
                         $btn.prop('disabled', false).text('Finish');
+                        submitInFlight = false;
                     }
                 },
                 error: function (xhr) {
@@ -518,11 +537,32 @@
                             if (errs.length) msg = errs.join('; ');
                         }
                     } catch (ex) {}
-                    console.error('Booking submit error:', xhr.status, msg);
+                    console.error('[CP-09] Booking submit error:', xhr.status, msg);
                     showNotification(msg);
                     $btn.prop('disabled', false).text('Finish');
+                    submitInFlight = false;
                 }
             });
+        }
+
+        // 1) Native form submit (standard path). type=submit button inside
+        //    the form triggers this.
+        $(document).off('submit.appointmentSubmit').on('submit.appointmentSubmit', '#addAppointmentForm', function (e) {
+            e.preventDefault();
+            performBookingSubmit(this);
+        });
+
+        // 2) CP-09: Direct click fallback on the Finish button. Protects
+        //    against edge cases where the native form submit event does NOT
+        //    fire (Turbo intercept, delegated-handler race after multi-init,
+        //    etc.) — seen in rebook flow where the user reported "Finish
+        //    does nothing". The re-entrancy guard prevents double-submits
+        //    when both handlers fire normally.
+        $(document).off('click.appointmentFinish').on('click.appointmentFinish', '.submitAppointmentBtn', function (e) {
+            var form = this.form || document.getElementById('addAppointmentForm');
+            if (!form) return;
+            e.preventDefault();
+            performBookingSubmit(form);
         });
 
         /* ==========================
@@ -729,6 +769,23 @@
             var $toTime = $section.find('.toTime');
             var $dateTime = $section.find('.date-time');
 
+            // CP-20: Capture the currently-selected slot BEFORE clearing so
+            // we can re-apply the blue `.activeSlot` highlight after the
+            // slots are rebuilt. This handles:
+            //   • Draft restore that programmatically triggers 'change' on
+            //     a section whose timeSlot was already set from the draft.
+            //   • Navigating back from step 6 to step 2 (the hidden input
+            //     still holds the selection; only the DOM gets rebuilt).
+            //   • Any future path that rebuilds slots without clearing the
+            //     saved from/to values first.
+            // We still clear $timeSlot/$toTime below so that if the user
+            // actively picks a DIFFERENT date, the old selection is treated
+            // as stale; the reapply step only restores a match when the old
+            // slot happens to appear in the newly-fetched list.
+            var preservedFrom = ($timeSlot.val() || '').trim();
+            var preservedTo   = ($toTime.val() || '').trim();
+            var preservedDateTime = $dateTime.text();
+
             // Clear previous slots
             $slotData.html('');
             $noSlot.removeClass('d-none');
@@ -775,6 +832,41 @@
                         var cls = 'time-slot col-lg-2' + (isBooked ? ' bookedSlot' : '');
                         $slotData.append('<span class="' + cls + '" data-id="' + value + '">' + value + '</span>');
                     });
+
+                    // CP-20: Re-apply the active (blue) highlight on the
+                    // previously-selected slot, if it still exists in the new
+                    // slot list. `preservedFrom` / `preservedTo` were captured
+                    // at the top of the handler BEFORE $timeSlot.val('') ran.
+                    // Match on data-id (normalised) so variations like
+                    // "03:15 PM - 04:15 PM" vs "03:15 PM-04:15 PM" still
+                    // resolve.
+                    if (preservedFrom && preservedTo) {
+                        var targetId = preservedFrom + ' - ' + preservedTo;
+                        var targetIdAlt = preservedFrom + '-' + preservedTo;
+                        var norm = function (s) { return (s || '').replace(/\s+/g, ' ').trim(); };
+                        var $match = $slotData.find('.time-slot:not(.bookedSlot)').filter(function () {
+                            var id = $(this).attr('data-id') || '';
+                            return norm(id) === norm(targetId)
+                                || norm(id) === norm(targetIdAlt)
+                                || (id.indexOf(preservedFrom) !== -1 && id.indexOf(preservedTo) !== -1);
+                        });
+                        if ($match.length) {
+                            // Restore hidden-input values + summary text that
+                            // the clear-step above wiped, and re-paint blue.
+                            $match.first().addClass('activeSlot');
+                            $timeSlot.val(preservedFrom);
+                            $toTime.val(preservedTo);
+                            if (preservedDateTime && preservedDateTime !== 'Date & Time not selected') {
+                                $dateTime.text(preservedDateTime);
+                            } else {
+                                $dateTime.text(selectedDate + ' ' + preservedFrom + '-' + preservedTo);
+                            }
+                        }
+                        // If no match: the previously-selected slot isn't
+                        // available in this date's list (or the date itself
+                        // changed). Leave the cleared state — user picks a
+                        // fresh slot.
+                    }
                 },
                 error: function () {
                     $noSlot.removeClass('d-none');

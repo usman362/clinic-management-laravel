@@ -20,6 +20,16 @@
             </a>
         @endif
     @else
+        {{-- CP-09: Rebook icon for cancelled assessment appointments --}}
+        @if ((int) $row->status === (int) \App\Models\Appointment::CANCELLED)
+            <a href="{{ route('patients.appointments.book-by-token', $row->appointment_unique_id) }}"
+                class="btn px-1 text-success fs-3"
+                data-bs-toggle="tooltip"
+                data-bs-original-title="{{ __('messages.appointment.rebook_appointment') }}"
+                title="{{ __('messages.appointment.rebook_appointment') }}">
+                <i class="fas fa-calendar-plus"></i>
+            </a>
+        @endif
         <a href="{{ route('patients.booking.detail', $row->relation_id) }}" title="{{ __('messages.common.show') }}"
             data-bs-toggle="tooltip" data-bs-original-title="{{ __('messages.common.show') }}"
             class="btn px-1 text-primary fs-3 user-edit-btn" data-id="{{ $row->id }}">

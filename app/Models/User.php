@@ -546,20 +546,22 @@ class User extends Authenticatable implements HasMedia
         self::FEMALE => 'Female',
     ];
 
+    // AP-01: Rules matched to the current doctor CREATE form
+    // (`resources/views/doctors/fields.blade.php`). contact / dob /
+    // experience / qualification / twitter_url / linkedin_url /
+    // instagram_url inputs are commented out in that view — their rules
+    // have been removed to keep backend surface in sync with the UI.
     public static $rules = [
-        'first_name' => 'required',
-        'last_name' => 'required',
+        'first_name'      => 'required',
+        'last_name'       => 'required',
         // Allow "+" and other valid characters in email (same pattern used in public forms)
-        'email' => 'required|unique:users,email|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix',
-        'contact' => 'nullable|unique:users,contact',
-        // 'password' => 'required|same:password_confirmation|min:6',
-        'dob' => 'nullable|date',
-        'experience' => 'nullable|numeric',
+        'email'           => 'required|unique:users,email|regex:/^([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$/ix',
         'specializations' => 'required',
-        'gender' => 'required',
-        'status' => 'nullable',
-        'postal_code' => 'nullable',
-        'profile' => 'nullable|mimes:jpeg,png,jpg|max:2000',
+        'gender'          => 'required',
+        'status'          => 'nullable',
+        'postal_code'     => 'nullable',
+        'profile'         => 'nullable|mimes:jpeg,png,jpg|max:2000',
+        'jotform_link'    => 'nullable|string',
     ];
 
     /**

@@ -4572,7 +4572,7 @@ var data = {
   instructions: ''
 }; // View event variables
 
-var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewEndDate, viewModal, viewEditButton, viewDeleteButton, viewService, viewUId, viewAmount, viewLocation, viewInstructions;
+var viewEventName, viewEventDescription, viewEventStatus, viewStartDate, viewEndDate, viewModal, viewEditButton, viewDeleteButton, viewService, viewUId, viewAmount, viewLocation, viewInstructions, viewDoctor;
 
 function loadPatientAppointmentCalendar() {
   if (!$('#appointmentCalendar').length) {
@@ -4685,6 +4685,8 @@ var init = function init() {
   viewEndDate = viewElement.querySelector('[data-calendar="event_end_date"]');
   viewLocation = viewElement.querySelector('[data-calendar="event_location"]');
   viewInstructions = viewElement.querySelector('[data-calendar="event_instructions"]');
+  // CP-18.2 dedicated Doctor row
+  viewDoctor = viewElement.querySelector('[data-calendar="event_doctor"]');
 }; // Format FullCalendar responses
 
 
@@ -4745,7 +4747,9 @@ var handleViewEvent = function handleViewEvent() {
   viewEndDate.innerText = ': ' + endDateMod;
   viewStartDate.innerText = ': ' + startDateMod; // Populate view data
 
-  viewEventName.innerText = (data.doctorName ? 'Doctor: ' + data.doctorName : 'Doctor: Not assigned');
+  var doctorText = data.doctorName && data.doctorName.trim() ? data.doctorName : 'Not assigned';
+  viewEventName.innerText = 'Doctor: ' + doctorText;
+  if (viewDoctor) viewDoctor.innerText = doctorText; // CP-18.2 dedicated row
   $(viewEventStatus).val(data.eventStatus);
   viewAmount.innerText = addCommas(data.amount);
   viewUId.innerText = data.uId;
@@ -5714,7 +5718,8 @@ function tooltip() {
 }
 
 function alertInitialize() {
-  $('.alert').delay(5000).slideUp(300);
+  // AP-05: Never auto-slide `.alert-important` nor the feedback instructions banner.
+  $('.alert:not(.alert-important):not(#feedbackInstructionsBox)').delay(5000).slideUp(300);
 }
 
 function refreshCsrfToken() {
@@ -8231,11 +8236,16 @@ listenSubmit('#saveFormDoctor', function (e) {
       }
     },
     error: function error(result) {
-      var _result$responseJSON$ = result.responseJSON.message,
-          day = _result$responseJSON$.day,
-          key = _result$responseJSON$.key;
+      var _payload = (result.responseJSON && result.responseJSON.message) || {};
+      var day = _payload.day;
+      var key = _payload.key;
+      var reason = _payload.reason;
+      if (day === undefined) return;
+      var msg = reason === 'slot_duration_required'
+        ? 'Please select a slot duration for this block. Each block must have an explicit slot size so it can be offered to patients booking a matching-duration service.'
+        : 'Slot timing overlaps with another block of the same duration. Overlapping blocks are only allowed when their durations differ.';
       $(".weekly-content[data-day=\"".concat(day, "\"]")).find('.error-msg').text('');
-      $(".weekly-content[data-day=\"".concat(day, "\"]")).find('.error-msg').eq(key).text('Slot timing is overlap with other slot timing');
+      $(".weekly-content[data-day=\"".concat(day, "\"]")).find('.error-msg').eq(key).text(msg);
     },
     complete: function complete() {}
   });

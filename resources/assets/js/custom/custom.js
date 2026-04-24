@@ -34,9 +34,13 @@ function tooltip() {
 }
 
 function alertInitialize() {
-    // Only auto-dismiss alerts that don't have the 'alert-important' class
-    // This preserves manually-dismissible alerts like the feedback instructions banner
-    $('.alert:not(.alert-important):not(#feedbackInstructions)').delay(5000).slideUp(300)
+    // AP-05: Only auto-dismiss alerts that are neither `.alert-important` NOR
+    // the feedback-instructions banner. The ID was previously misspelled
+    // (`#feedbackInstructions` vs the real `#feedbackInstructionsBox`), so the
+    // exclusion never matched and the banner was getting slideUp'd globally.
+    $('.alert:not(.alert-important):not(#feedbackInstructionsBox)')
+        .delay(5000)
+        .slideUp(300);
 }
 
 function refreshCsrfToken() {

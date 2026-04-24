@@ -80,7 +80,12 @@ class UserRepository extends BaseRepository
             preg_match('/src=["\']([^"\']+)["\']/', $input['jotform_link'], $matches);
             $input['jotform_link'] = $matches[1] ?? $input['jotform_link'];
         }
-        $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
+        // AP-01: Only keep fields that the current doctor form actually sends.
+        // Social-url/experience/qualification inputs were removed from the UI
+        // and must not be referenced on the backend — old code expecting
+        // `experience`, `twitter_url`, `linkedin_url`, `instagram_url` in
+        // $input would silently store empty strings into doctor rows.
+        $doctorArray = Arr::only($input, ['jotform_link']);
         $specialization = $input['specializations'];
         try {
             DB::beginTransaction();
@@ -116,7 +121,8 @@ class UserRepository extends BaseRepository
             preg_match('/src=["\']([^"\']+)["\']/', $input['jotform_link'], $matches);
             $input['jotform_link'] = $matches[1] ?? $input['jotform_link'];
         }
-        $doctorArray = Arr::only($input, ['experience', 'twitter_url', 'linkedin_url', 'instagram_url', 'jotform_link']);
+        // AP-01: See store() above — only the fields the form actually sends.
+        $doctorArray = Arr::only($input, ['jotform_link']);
         $specialization = $input['specializations'] ?? [];
         try {
             DB::beginTransaction();

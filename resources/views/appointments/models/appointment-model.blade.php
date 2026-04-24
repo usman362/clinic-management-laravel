@@ -41,6 +41,13 @@
                     <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.appointment_unique_id')}}:</label>
                     <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_uId"></span></div>
                 </div>
+                {{-- CP-18.2: Dedicated Doctor row — previously the doctor name only
+                     appeared embedded in the top title span, which visually read as
+                     an empty "Doctor:" label when the backend returned a blank name. --}}
+                <div class="d-flex align-items-center mt-3">
+                    <label {{ $styleCss }}="width: 125px"><i class="fas fa-user-md me-1"></i> Doctor:</label>
+                    <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_doctor"></span></div>
+                </div>
                 <div class="d-flex align-items-center mt-3">
                     <label {{ $styleCss }}="width: 125px">{{__('messages.appointment.service')}}:</label>
                     <div class="fs-6 fw-bold ms-3"><span class="ms-1" data-calendar="event_service"></span></div>

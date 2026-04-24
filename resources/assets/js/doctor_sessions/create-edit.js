@@ -199,12 +199,17 @@ listenSubmit('#saveFormDoctor', function (e) {
             }
         },
         error: function (result) {
-            let { day, key } = result.responseJSON.message
+            let { day, key, reason } = result.responseJSON.message || {}
+            if (day === undefined) return
+            // DP-02 V9: distinct messages for missing-duration vs overlap.
+            let msg = reason === 'slot_duration_required'
+                ? 'Please select a slot duration for this block. Each block must have an explicit slot size so it can be offered to patients booking a matching-duration service.'
+                : 'Slot timing overlaps with another block of the same duration. Overlapping blocks are only allowed when their durations differ.'
             $(`.weekly-content[data-day="${day}"]`).find('.error-msg').text('')
             $(`.weekly-content[data-day="${day}"]`).
                 find('.error-msg').
                 eq(key).
-                text('Slot timing is overlap with other slot timing')
+                text(msg)
         },
         complete: function () {
         },

@@ -36,10 +36,17 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 | Optional: attach a PDF file as 'file' in the multipart request.
 |
 */
-// CP-12 fix: Removed 'auth' middleware. JotForm redirects from an iframe (cross-origin)
-// which has NO session cookie, so 'auth' blocks all JotForm POSTs with 401.
-// The consentWebhook() method has its own authorization logic inside (checks
-// appointment ownership when user IS authenticated, allows recording when not).
-Route::middleware(['web'])
-    ->match(['get', 'post'], '/consent-webhook', [AppointmentController::class, 'consentWebhook'])
+// CP-12: Jotform's servers post here directly from jotform.com (not through
+// the browser), so there is NO session, NO cookies, NO CSRF token. Running
+// this route under the `web` middleware group was causing every external
+// webhook to be rejected with 419 "Page Expired" before the controller ran.
+//
+// We deliberately register it WITHOUT the `web` group. CSRF is further
+// exempted in VerifyCsrfToken::$except. Authorization is handled inside
+// AppointmentController::consentWebhook():
+//   * when a session IS present (in-page AJAX path from booking.js) it
+//     verifies the patient owns the appointment
+//   * when no session (Jotform server call) it falls back to submission_id
+//     + appointment_id/doctor_id resolved from POST/query/referer
+Route::match(['get', 'post'], '/consent-webhook', [AppointmentController::class, 'consentWebhook'])
     ->name('api.consent.webhook');

@@ -61,10 +61,13 @@ class DoctorPanelAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        // CP-09: Keep CANCELLED appointments visible in the doctor panel so
+        // the doctor retains context of cancelled work. Only incomplete
+        // BOOKING_PENDING rows are filtered out here.
         $query = Appointment::with(['patient.user', 'services', 'transaction'])
         ->where('appointments.appointment_type','!=','feedback')
         ->where('doctor_id', getLoginUser()->doctor->id)
-        ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
+        ->where('appointments.status', '!=', Appointment::BOOKING_PENDING)
         ->select('appointments.*');
 
         $query->when($this->statusFilter != '' && $this->statusFilter != Appointment::ALL_STATUS,

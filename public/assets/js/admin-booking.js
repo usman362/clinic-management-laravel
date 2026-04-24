@@ -124,18 +124,24 @@ $(function () {
         `;
     }
 
-    /* ADD APPOINTMENT ROW */
-    $('#addAppointment').on('click', function () {
+    /* ADD APPOINTMENT ROW
+       AP-09: Each visit to the page re-runs this IIFE (via Turbo navigation
+       or subsequent re-entries), which previously stacked a new `click`
+       handler on top of the old ones — so clicking + Add Appointment ONCE
+       appended TWO (or more) rows. Namespaced `.off()` before `.on()`
+       guarantees exactly one live binding regardless of how many times
+       this script runs. Same pattern applied to all other handlers below. */
+    $('#addAppointment').off('click.addAppointment').on('click.addAppointment', function () {
         appointmentIndex++;
         $('.appointments-wrapper').append(buildAppointmentRow(appointmentIndex));
     });
 
-    $(document).on('click', '.remove-appointment', function () {
+    $(document).off('click.removeAppointment').on('click.removeAppointment', '.remove-appointment', function () {
         $(this).closest('.appointments-section').remove();
     });
 
     /* NEXT / PREV */
-    $(document).on('click', '.next-btn', function () {
+    $(document).off('click.nextBtn').on('click.nextBtn', '.next-btn', function () {
 
         if (currentStep === 0 && !$('#client_id').val()) {
             notify('Please select a client');
@@ -208,7 +214,7 @@ $(function () {
         showStep(currentStep);
     });
 
-    $(document).on('click', '.prev-btn', function () {
+    $(document).off('click.prevBtn').on('click.prevBtn', '.prev-btn', function () {
         currentStep--;
         showStep(currentStep);
     });

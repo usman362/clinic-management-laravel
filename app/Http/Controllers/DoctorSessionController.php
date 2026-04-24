@@ -218,27 +218,60 @@ class DoctorSessionController extends AppBaseController
             $startTime = date('H:i', strtotime($doctorWeekDaySession->full_start_time));
             $endTime = date('H:i', strtotime($doctorWeekDaySession->full_end_time));
 
-            // DP-02 V8: Block's session_meeting_time IS the slot size.
-            // Only use blocks whose slot size matches the service duration.
-            // If the service is 2hr, only 2hr-duration blocks produce slots.
-            // Doctor can create overlapping blocks of different sizes (1hr AND 2hr)
-            // for the same time range — each generates its own slots.
-            $blockDuration = (int) $doctorWeekDaySession->session_meeting_time;
-            if ($blockDuration <= 0) {
-                // Fall back to session's global meeting time if block-level is missing
-                $blockDuration = (int) ($doctorSession->session_meeting_time ?? 0);
-            }
-            if ($blockDuration <= 0) {
-                $blockDuration = 30; // final safety default
+            // DP-02 V9: Block's session_meeting_time IS the slot size and is
+            // the ONLY source of truth when a patient books a specific-duration
+            // service. The previous fallback to the session's global
+            // session_meeting_time leaked 1-hour blocks into 2-hour services
+            // (and vice-versa) because stale global values matched any request.
+            //
+            // Strict rule now:
+            //   - Service duration specified (patient booking) →
+            //     block MUST have explicit session_meeting_time equal to the
+            //     service duration. Blocks with NULL/0 duration are treated
+            //     as ambiguous and silently skipped.
+            //   - No service duration (admin/calendar check without service)
+            //     → fall back to session-level / default so we still generate
+            //     *some* slot preview for the admin UI.
+            $rawBlockMeeting = $doctorWeekDaySession->session_meeting_time;
+            $blockDuration   = null;
+            if ($rawBlockMeeting !== null && $rawBlockMeeting !== '' && (int) $rawBlockMeeting > 0) {
+                $blockDuration = (int) $rawBlockMeeting;
             }
 
-            // If we have a service duration, the block must match it EXACTLY.
-            // Otherwise skip this block — it doesn't fit the service.
-            if ($duration > 0 && $blockDuration !== (int) $duration) {
-                continue;
+            if ((int) $duration > 0) {
+                // Patient booking flow — strict match only.
+                if ($blockDuration === null || $blockDuration !== (int) $duration) {
+                    \Log::debug('DP-02 V9 skip block (duration mismatch)', [
+                        'doctor_id'      => $doctorId,
+                        'block_id'       => $doctorWeekDaySession->id,
+                        'block_start'    => $startTime,
+                        'block_end'      => $endTime,
+                        'block_duration' => $blockDuration,
+                        'service_duration' => (int) $duration,
+                    ]);
+                    continue;
+                }
+                $slotDuration = $blockDuration;
+            } else {
+                // Admin / no-service flow — permissive fallback
+                if ($blockDuration === null) {
+                    $blockDuration = (int) ($doctorSession->session_meeting_time ?? 0);
+                }
+                if ($blockDuration <= 0) {
+                    $blockDuration = 30;
+                }
+                $slotDuration = $blockDuration;
             }
 
-            $slotDuration = $blockDuration;
+            \Log::debug('DP-02 V9 use block', [
+                'doctor_id'      => $doctorId,
+                'block_id'       => $doctorWeekDaySession->id,
+                'block_start'    => $startTime,
+                'block_end'      => $endTime,
+                'block_duration' => $blockDuration,
+                'service_duration' => (int) $duration,
+            ]);
+
             $slots = $this->getTimeSlot($slotDuration, $startTime, $endTime);
             $gap = $doctorSession->session_gap;
             $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));
@@ -338,19 +371,30 @@ class DoctorSessionController extends AppBaseController
                 $startTime = date('H:i', strtotime($doctorWeekDaySession->full_start_time));
                 $endTime = date('H:i', strtotime($doctorWeekDaySession->full_end_time));
 
-                // DP-02 V8: Block's session_meeting_time IS the slot size.
-                // Only use blocks whose slot size matches the service duration.
-                $blockDuration = (int) $doctorWeekDaySession->session_meeting_time;
-                if ($blockDuration <= 0) {
-                    $blockDuration = (int) ($doctorSession->session_meeting_time ?? 0);
+                // DP-02 V9: Strict per-block duration match — see detailed
+                // comment in getDoctorSession(). Ambiguous (null/0) blocks
+                // are skipped for specific-service queries to prevent mis-
+                // matched slots from leaking into the availability list.
+                $rawBlockMeeting = $doctorWeekDaySession->session_meeting_time;
+                $blockDuration   = null;
+                if ($rawBlockMeeting !== null && $rawBlockMeeting !== '' && (int) $rawBlockMeeting > 0) {
+                    $blockDuration = (int) $rawBlockMeeting;
                 }
-                if ($blockDuration <= 0) {
-                    $blockDuration = 30;
+                if ((int) $duration > 0) {
+                    if ($blockDuration === null || $blockDuration !== (int) $duration) {
+                        continue;
+                    }
+                    $slotDuration = $blockDuration;
+                } else {
+                    if ($blockDuration === null) {
+                        $blockDuration = (int) ($doctorSession->session_meeting_time ?? 0);
+                    }
+                    if ($blockDuration <= 0) {
+                        $blockDuration = 30;
+                    }
+                    $slotDuration = $blockDuration;
                 }
-                if ($duration > 0 && $blockDuration !== (int) $duration) {
-                    continue;
-                }
-                $slotDuration = $blockDuration;
+
                 $slots = $this->getTimeSlot($slotDuration, $startTime, $endTime);
                 $gap = $doctorSession->session_gap;
                 $isSameWeekDay = (Carbon::now()->dayOfWeek == $date->dayOfWeek) && (Carbon::now()->isSameDay($date));

@@ -50,15 +50,18 @@ class PatientShowPageAppointmentTable extends LivewireTableComponent
 
     public function builder(): Builder
     {
+        // CP-09: Keep CANCELLED appointments visible so patient/doctor can
+        // see them and the patient can click the rebook icon. Only truly
+        // incomplete (BOOKING_PENDING) appointments are hidden here.
         $query = Appointment::with(['doctor', 'services'])
             ->where('patient_id', '=', $this->patientId)
-            ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
+            ->where('appointments.status', '!=', Appointment::BOOKING_PENDING)
             ->select('appointments.*');
 
         if (getLogInUser()->hasRole('doctor')) {
             $query = Appointment::with(['doctor.user', 'doctor.reviews', 'services'])
                 ->where('patient_id', '=', $this->patientId)
-                ->whereNotIn('appointments.status', [Appointment::BOOKING_PENDING, Appointment::CANCELLED])
+                ->where('appointments.status', '!=', Appointment::BOOKING_PENDING)
                 ->whereDoctorId(getLogInUser()->doctor->id)
                 ->select('appointments.*');
         }

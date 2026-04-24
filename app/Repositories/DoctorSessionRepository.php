@@ -158,6 +158,23 @@ class DoctorSessionRepository extends BaseRepository
         $endTimeArr = $input['endTimes'][$day] ?? [];
         $slotDurations = $input['slotDurations'][$day] ?? [];
 
+        // DP-02 V9: Every block MUST have a slot duration. Ambiguous blocks
+        // (no duration) cannot be offered to patients because we can no longer
+        // fall back to a session-level default — that was producing slot
+        // mismatches (1hr blocks filling 2hr-service requests).
+        foreach ($startTimeArr as $key => $startTime) {
+            $dur = $slotDurations[$key] ?? null;
+            if ($dur === null || $dur === '' || (int) $dur <= 0) {
+                return [
+                    'day'       => $day,
+                    'startTime' => $startTime,
+                    'success'   => false,
+                    'key'       => $key,
+                    'reason'    => 'slot_duration_required',
+                ];
+            }
+        }
+
         foreach ($startTimeArr as $key => $startTime) {
             $slotStartTime = Carbon::instance(DateTime::createFromFormat('h:i A', $startTime));
             $myMeetingTime = (int) ($slotDurations[$key] ?? 0);

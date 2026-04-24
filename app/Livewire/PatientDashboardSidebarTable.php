@@ -83,22 +83,39 @@ class PatientDashboardSidebarTable extends Component
             ->whereNotIn('status', [Appointment::CANCELLED, Appointment::BOOKING_PENDING])
             ->get();
 
-        // CP-01/CP-06 fix: "Pending Bookings" should show packages that are still
-        // in progress (BOOKED or BOOKING_PENDING) — matching the counter above.
-        // Previously only showed BOOKING_PENDING which mismatched the counter.
+        // CP-19: Show one row per active package (BOOKED + CHECK_IN +
+        // BOOKING_PENDING). The blade uses the per-row
+        // `has_pending_in_package` flag set below to decide the label:
+        //   - any pending appointment in the package → "Action Required"
+        //     + link to the booking wizard (book-by-token)
+        //   - all appointments booked                → "Booked"
+        //     + link to the package detail page (shows booked appointments)
+        // The raw URL column is removed from the view.
+        $activeStatuses = [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::BOOKING_PENDING];
+
         $this->pendingAppointments = Appointment::with(['patient.user', 'doctor.user', 'services'])
             ->wherePatientId($patientId)
-            ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::BOOKING_PENDING])
-            ->whereIn('appointments.id', function ($q) use ($patientId) {
-                $q->selectRaw('MAX(id)')
+            ->whereIn('status', $activeStatuses)
+            ->whereIn('appointments.id', function ($q) use ($patientId, $activeStatuses) {
+                $q->selectRaw('MIN(id)')
                     ->from('appointments')
                     ->where('patient_id', $patientId)
-                    ->whereIn('status', [Appointment::BOOKED, Appointment::CHECK_IN, Appointment::BOOKING_PENDING])
+                    ->whereIn('status', $activeStatuses)
                     ->groupBy('relation_id');
             })
             ->whereIn('appointment_type', ['assessment', 'feedback'])
             ->orderByDesc('appointments.id')
             ->get();
+
+        // Flag each row — O(1) lookup via a pluck-and-flip
+        $pendingRelationIds = Appointment::wherePatientId($patientId)
+            ->where('status', Appointment::BOOKING_PENDING)
+            ->distinct()
+            ->pluck('relation_id')
+            ->flip();
+        foreach ($this->pendingAppointments as $appt) {
+            $appt->setAttribute('has_pending_in_package', isset($pendingRelationIds[$appt->relation_id]));
+        }
 
         // Past pending appointments: BOOKED or CHECK_IN with date < today
         $this->pastPendingAppointments = Appointment::with(['patient.user', 'doctor.user', 'services'])

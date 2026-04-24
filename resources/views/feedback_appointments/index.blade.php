@@ -13,9 +13,16 @@
 
              Wrapped in @once so any duplicate rendering wouldn't cause flicker. --}}
         @if(!getLogInUser()->hasRole('patient'))
+            {{-- AP-05: Banner is marked `alert-important` so the global
+                 `alertInitialize()` (which auto-slides any `.alert` after a
+                 few seconds) never touches it, and inline `display:block
+                 !important` overrides any framework CSS that tries to hide
+                 sibling elements during Livewire morphs. The JS only wires
+                 the manual close button. --}}
             <div id="feedbackInstructionsBox"
-                 class="bg-info bg-opacity-10 border border-info rounded p-4 position-relative mb-4"
-                 role="region" aria-label="Feedback Package Instructions">
+                 class="alert alert-important bg-info bg-opacity-10 border border-info rounded p-4 position-relative mb-4"
+                 role="region" aria-label="Feedback Package Instructions"
+                 style="display:block !important; opacity:1 !important;">
                 <h5 class="fw-bold mb-2"><i class="fas fa-info-circle me-2"></i>What is a Feedback Package?</h5>
                 <p class="mb-2">
                     A <strong>feedback package</strong> is a follow-up appointment set created after an assessment package has been completed.
@@ -36,33 +43,60 @@
             </div>
 
             <script>
-                // Run immediately on page load AND on every Turbo/Livewire navigation
+                // AP-05: Self-contained banner handler.
+                // - Does NOT auto-dismiss.
+                // - Honours the user's manual dismissal via localStorage across
+                //   page reloads, Turbo navigations and Livewire morphs.
+                // - Re-applies the visible state on every navigation, defending
+                //   against any global auto-hide code that may slip through.
                 (function () {
-                    function setupFeedbackInfoBox() {
+                    var STORAGE_KEY = 'feedbackInstructionsDismissed';
+
+                    function applyState() {
                         var box = document.getElementById('feedbackInstructionsBox');
                         if (!box) return;
-                        try {
-                            if (localStorage.getItem('feedbackInstructionsDismissed') === '1') {
-                                box.style.display = 'none';
-                                return;
-                            }
-                        } catch (e) { /* localStorage may be blocked */ }
-                        box.style.display = ''; // make sure it's visible (defensive)
+                        var dismissed = false;
+                        try { dismissed = (localStorage.getItem(STORAGE_KEY) === '1'); } catch (e) {}
+                        if (dismissed) {
+                            box.style.setProperty('display', 'none', 'important');
+                        } else {
+                            // Force visible + fully opaque even if something else
+                            // tried to slideUp/fade it.
+                            box.style.setProperty('display', 'block', 'important');
+                            box.style.setProperty('opacity', '1', 'important');
+                            box.style.removeProperty('height');
+                            box.style.removeProperty('margin-top');
+                            box.style.removeProperty('margin-bottom');
+                            box.style.removeProperty('padding-top');
+                            box.style.removeProperty('padding-bottom');
+                        }
                         var btn = document.getElementById('feedbackInstructionsCloseBtn');
                         if (btn && !btn.dataset.bound) {
                             btn.dataset.bound = '1';
                             btn.addEventListener('click', function () {
-                                box.style.display = 'none';
-                                try { localStorage.setItem('feedbackInstructionsDismissed', '1'); } catch (e) {}
+                                box.style.setProperty('display', 'none', 'important');
+                                try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
                             });
                         }
                     }
-                    setupFeedbackInfoBox();
-                    document.addEventListener('turbo:load', setupFeedbackInfoBox);
-                    document.addEventListener('turbo:render', setupFeedbackInfoBox);
+
+                    applyState();
+                    document.addEventListener('DOMContentLoaded', applyState);
+                    document.addEventListener('turbo:load',   applyState);
+                    document.addEventListener('turbo:render', applyState);
                     if (window.Livewire) {
-                        window.Livewire.hook('morph.updated', setupFeedbackInfoBox);
+                        window.Livewire.hook('morph.updated', applyState);
+                        window.Livewire.hook('message.processed', applyState);
                     }
+                    // Safety net: if ANY script later tries to slideUp/hide the
+                    // banner, this interval restores it for the next 10s
+                    // (only during that initial page-paint race window).
+                    var ticks = 0;
+                    var guard = setInterval(function () {
+                        ticks++;
+                        applyState();
+                        if (ticks >= 20) clearInterval(guard); // ~10s @ 500ms
+                    }, 500);
                 })();
             </script>
         @endif
