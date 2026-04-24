@@ -7,6 +7,13 @@
         <div class="maincard-section p-0 pb-4">
             <div class="row">
                 <input type="hidden" name="doctor_id" value="{{ getLogInUser()->doctor->id }}" />
+                {{-- DP-03: Doctor's self-edit of My Schedule IS an edit flow.
+                     `create-edit.js` disables all start/end time selects when
+                     `#doctorSessionIsEdit` is absent/empty, forcing the user to
+                     first click Schedule Gap before any slot becomes editable.
+                     This flag matches the admin edit page so slots are
+                     immediately editable on the doctor's own schedule. --}}
+                {{ Form::hidden('is_edit', true, ['id' => 'doctorSessionIsEdit']) }}
                 <div class="col-12 p-0 mb-4">
                     <div class="alert alert-info d-flex align-items-start mb-0" role="alert">
                         <i class="fas fa-info-circle me-2 mt-1"></i>
