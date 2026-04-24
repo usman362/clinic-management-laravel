@@ -125,13 +125,14 @@ $(function () {
     }
 
     /* ADD APPOINTMENT ROW
-       AP-09: Each visit to the page re-runs this IIFE (via Turbo navigation
-       or subsequent re-entries), which previously stacked a new `click`
-       handler on top of the old ones — so clicking + Add Appointment ONCE
-       appended TWO (or more) rows. Namespaced `.off()` before `.on()`
-       guarantees exactly one live binding regardless of how many times
-       this script runs. Same pattern applied to all other handlers below. */
-    $('#addAppointment').off('click.addAppointment').on('click.addAppointment', function () {
+       AP-09: Two sources bind a click on #addAppointment — this script and a
+       legacy inline handler in layouts/app.blade.php that clones the first
+       row. Both firing produced TWO rows per click. `.off('click')` (no
+       namespace) removes ALL existing click handlers on this button so only
+       the packages-page handler below runs on this page. The legacy handler
+       remains active on the older appointment create/edit pages where this
+       script isn't loaded. */
+    $('#addAppointment').off('click').on('click.addAppointment', function () {
         appointmentIndex++;
         $('.appointments-wrapper').append(buildAppointmentRow(appointmentIndex));
     });

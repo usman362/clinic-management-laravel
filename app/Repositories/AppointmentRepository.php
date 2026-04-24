@@ -221,8 +221,51 @@ class AppointmentRepository extends BaseRepository
             }
 
             foreach ($input['appointments'] as $key => $appt) {
-                // $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
-                $appointment = Appointment::find($appt['appointment_id']);
+                // AP-12: Admin "+ Add Appointment" rows have no
+                // appointment_id (they're net-new). Previously `Arr::...`
+                // + `Appointment::find($appt['appointment_id'])` crashed
+                // with "Undefined array key 'appointment_id'".
+                // - If ID present → update existing row.
+                // - If ID missing (new row, admin/doctor flow only) →
+                //   create a fresh BOOKING_PENDING appointment linked to
+                //   the same package (relation_id + patient_id from the
+                //   appointment being edited).
+                $apptId = $appt['appointment_id'] ?? null;
+                if (! empty($apptId)) {
+                    $appointment = Appointment::find($apptId);
+                } else {
+                    // New appointment added via "+ Add Appointment"
+                    if (getLogInUser()->hasRole('patient')) {
+                        // Patients can't add new appointments mid-edit.
+                        continue;
+                    }
+                    $parent = $editingAppointment ?? Appointment::find($id);
+                    $appointment = new Appointment();
+                    $appointment->patient_id            = $parent->patient_id;
+                    $appointment->relation_id           = $parent->relation_id;
+                    $appointment->appointment_type      = $parent->appointment_type ?? 'assessment';
+                    $appointment->appointment_unique_id = strtoupper(Appointment::generateAppointmentUniqueId());
+                    $appointment->status                = Appointment::BOOKING_PENDING;
+                    $appointment->date                  = '';
+                    $appointment->from_time             = '';
+                    $appointment->from_time_type        = '';
+                    $appointment->to_time               = '';
+                    $appointment->to_time_type          = '';
+                    $appointment->payable_amount        = 0;
+                    $appointment->payment_type          = Appointment::PENDING;
+                    $appointment->payment_method        = Appointment::MANUALLY;
+                }
+
+                // If the find() returned null (stale/bad ID), skip this row
+                // rather than crash on the next property access.
+                if (! $appointment) {
+                    \Log::warning('AP-12: appointment lookup failed, skipping row', [
+                        'submitted_id' => $apptId,
+                        'index'        => $key,
+                    ]);
+                    continue;
+                }
+
                 $fromTime = explode(' ', ($appt['from_time'] ?? ''));
                 $toTime = explode(' ', ($appt['to_time'] ?? ''));
                 $input['from_time'] = $fromTime[0] ?? '';
@@ -301,8 +344,21 @@ class AppointmentRepository extends BaseRepository
                     // picker). Previously the post-save block below tried to
                     // read $appt['date'] which this form never sends,
                     // triggering "Undefined array key 'date'".
-                    $appointment->doctor_id   = $appt['doctor_id'];
-                    $appointment->service_id  = $appt['service_id'];
+                    // AP-12: Guard against new rows that arrived without
+                    // service_id/doctor_id (e.g. JS validation bypassed).
+                    // Skip such rows instead of crashing / writing empty FKs.
+                    $doctorId  = $appt['doctor_id']  ?? null;
+                    $serviceId = $appt['service_id'] ?? null;
+                    if (empty($doctorId) || empty($serviceId)) {
+                        \Log::warning('AP-12: admin package row missing service/doctor, skipping', [
+                            'appointment_id' => $apptId,
+                            'doctor_id'      => $doctorId,
+                            'service_id'     => $serviceId,
+                        ]);
+                        continue;
+                    }
+                    $appointment->doctor_id  = $doctorId;
+                    $appointment->service_id = $serviceId;
                     if (array_key_exists('description', $input)) {
                         $appointment->description = $input['description'];
                     }
