@@ -294,6 +294,10 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
 
     Route::delete('/documents/{id}', [PatientController::class, 'deleteDocumet'])
         ->name('documents.destroy');
+
+    // CP-33: Smart download — refreshes consent PDFs from Jotform on demand.
+    Route::get('/documents/{id}/download', [\App\Http\Controllers\AppointmentController::class, 'downloadConsentDocument'])
+        ->name('documents.download');
     });
 
     //smart patient cardsd

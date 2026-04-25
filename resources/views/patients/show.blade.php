@@ -367,6 +367,10 @@
                                                                 // Legacy records that never got a real file
                                                                 $downloadUrl = null;
                                                                 $externalLabel = 'JotForm #' . substr($docPath, 8);
+                                                            } elseif ($doc->type === 'consent') {
+                                                                // CP-33: Route consent downloads through the smart endpoint
+                                                                // so each click can lazy-refresh the official Jotform PDF.
+                                                                $downloadUrl = route('documents.download', $doc->id);
                                                             } elseif ($docPath) {
                                                                 $downloadUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($docPath);
                                                             } else {
@@ -375,10 +379,22 @@
                                                             }
                                                         @endphp
                                                         @if($downloadUrl)
-                                                            <a href="{{ $downloadUrl }}" target="_blank"
-                                                                class="btn btn-sm btn-outline-primary mx-2" download>
-                                                                Download
-                                                            </a>
+                                                            @if($doc->type === 'consent')
+                                                                {{-- CP-38: Consent download hits Jotform API and may take
+                                                                    several seconds. Show a spinner so the user doesn't
+                                                                    spam-click the button. --}}
+                                                                <a href="{{ $downloadUrl }}"
+                                                                    class="btn btn-sm btn-outline-primary mx-2 js-consent-download"
+                                                                    data-url="{{ $downloadUrl }}"
+                                                                    data-filename="consent_{{ $doc->id }}.pdf">
+                                                                    <span class="btn-label">Download</span>
+                                                                </a>
+                                                            @else
+                                                                <a href="{{ $downloadUrl }}" target="_blank"
+                                                                    class="btn btn-sm btn-outline-primary mx-2" download>
+                                                                    Download
+                                                                </a>
+                                                            @endif
                                                         @elseif(!empty($externalLabel))
                                                             <span class="btn btn-sm btn-outline-secondary mx-2 disabled"
                                                                   title="Original submission stored on JotForm — reference ID shown">
@@ -416,4 +432,64 @@
             </div>
         </div>
     </div>
+
+    {{-- CP-38: Consent download spinner. Fetches the PDF as a blob so the
+         button stays in "downloading" state until the file actually arrives,
+         then triggers a save. Prevents spam-clicking while Jotform's signed
+         PDF takes a few seconds to fetch on the backend. --}}
+    <script>
+        (function () {
+            document.querySelectorAll('.js-consent-download').forEach(function (btn) {
+                btn.addEventListener('click', async function (e) {
+                    e.preventDefault();
+                    if (btn.dataset.busy === '1') return;
+                    btn.dataset.busy = '1';
+
+                    var label  = btn.querySelector('.btn-label');
+                    var orig   = label ? label.textContent : 'Download';
+                    var origHt = btn.innerHTML;
+
+                    btn.classList.add('disabled');
+                    btn.style.pointerEvents = 'none';
+                    btn.innerHTML =
+                        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>' +
+                        '<span>Preparing…</span>';
+
+                    try {
+                        var url = btn.dataset.url;
+                        var resp = await fetch(url, {
+                            credentials: 'same-origin',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                        var blob = await resp.blob();
+                        var disp = resp.headers.get('Content-Disposition') || '';
+                        var m    = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(disp);
+                        var name = (m && m[1]) ? decodeURIComponent(m[1]) : (btn.dataset.filename || 'document.pdf');
+
+                        var blobUrl = URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = name;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 5000);
+                    } catch (err) {
+                        console.error('Consent download failed', err);
+                        alert('Download failed. Please try again.');
+                    } finally {
+                        btn.innerHTML = origHt;
+                        if (btn.querySelector('.btn-label')) {
+                            btn.querySelector('.btn-label').textContent = orig;
+                        }
+                        btn.classList.remove('disabled');
+                        btn.style.pointerEvents = '';
+                        btn.dataset.busy = '0';
+                    }
+                });
+            });
+        })();
+    </script>
 @endsection

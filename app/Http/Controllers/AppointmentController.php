@@ -1457,7 +1457,29 @@ class AppointmentController extends AppBaseController
         }
 
         if (! $existingConsent) {
-            $submissionId = $request->input('submission_id', '');
+            // CP-30: Jotform's own webhook POST uses camelCase `submissionID`
+            // while booking.js sends `submission_id` (snake_case). Previously
+            // we only read the snake_case key — so when Jotform POSTed
+            // directly (the most reliable path) the id was lost and the
+            // PDF fetch downgraded to dompdf. Check both, plus rawRequest.
+            $submissionId = (string) (
+                $request->input('submission_id')
+                ?? $request->input('submissionID')
+                ?? $request->query('submissionID')
+                ?? $request->query('submission_id')
+                ?? ''
+            );
+            if (! $submissionId) {
+                $raw = $request->input('rawRequest');
+                if (is_string($raw)) {
+                    $decoded = json_decode($raw, true);
+                    if (is_array($decoded)) {
+                        foreach (['submissionID', 'submission_id', 'sid', 'id'] as $k) {
+                            if (!empty($decoded[$k])) { $submissionId = (string) $decoded[$k]; break; }
+                        }
+                    }
+                }
+            }
 
             // Handle file upload if a PDF was attached (legacy path, kept for backward-compat)
             if ($request->hasFile('file')) {
@@ -1514,6 +1536,92 @@ class AppointmentController extends AppBaseController
                                 }
                             }
                         }
+                    }
+                }
+
+                // CP-31: Derive formId from the doctor's `jotform_link` when
+                // the iframe / postMessage path didn't pass it. The doctor
+                // record holds e.g. https://form.jotform.com/250000000000
+                // — the trailing numeric segment IS the form id.
+                if (empty($formId) && $doctor && !empty($doctor->jotform_link)) {
+                    if (preg_match('~(?:form\.jotform\.com|jotform\.com/form|form/)/?(\d{6,})~', $doctor->jotform_link, $m)) {
+                        $formId = $m[1];
+                    } elseif (preg_match('~(\d{6,})~', $doctor->jotform_link, $m)) {
+                        $formId = $m[1];
+                    }
+                    if ($formId) {
+                        \Log::info('CP-31: derived formId from doctor.jotform_link', [
+                            'doctor_id' => $doctorId,
+                            'form_id'   => $formId,
+                        ]);
+                    }
+                }
+
+                // CP-31: If submissionId is still missing AND we have an API
+                // key + formId, query Jotform for this form's MOST RECENT
+                // submission (within the last 10 minutes — anything older
+                // is unrelated to this booking) and use that. This makes
+                // the signed-PDF fetch resilient to the iframe-redirect
+                // path where submissionID never reaches us.
+                $jotformApiKeyEarly = null;
+                try { $jotformApiKeyEarly = trim((string) getSettingValue('jotform_api_key')); } catch (\Throwable $ignored) {}
+                if (empty($jotformApiKeyEarly)) {
+                    $jotformApiKeyEarly = config('services.jotform.api_key');
+                }
+                if (empty($submissionId) && $jotformApiKeyEarly && $formId) {
+                    try {
+                        $listUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/')
+                            . '/form/' . urlencode($formId) . '/submissions?limit=1&orderBy=created_at&apiKey=' . urlencode($jotformApiKeyEarly);
+                        $resp = \Illuminate\Support\Facades\Http::timeout(20)
+                            ->withHeaders(['APIKEY' => $jotformApiKeyEarly])
+                            ->get($listUrl);
+                        if ($resp->successful()) {
+                            $json = $resp->json();
+                            $latest = $json['content'][0] ?? null;
+                            if ($latest && !empty($latest['id'])) {
+                                // CP-36: Jotform's `created_at` is rendered in
+                                // the form-owner's account timezone (NOT UTC),
+                                // which makes age math via that string
+                                // unreliable across server/account TZ combos.
+                                // The API also returns a Unix `timestamp`
+                                // field — trust that when present.
+                                $createdTs = 0;
+                                if (!empty($latest['timestamp']) && is_numeric($latest['timestamp'])) {
+                                    $createdTs = (int) $latest['timestamp'];
+                                } else {
+                                    try {
+                                        $dt = new \DateTime(($latest['created_at'] ?? 'now'));
+                                        $createdTs = $dt->getTimestamp();
+                                    } catch (\Throwable $ignored) {
+                                        $createdTs = strtotime((string) ($latest['created_at'] ?? 'now'));
+                                    }
+                                }
+                                $ageSec = time() - $createdTs;
+                                // 30 min window so patient can finish the
+                                // wizard after signing.
+                                if ($ageSec < 1800 && $ageSec > -300) {
+                                    $submissionId = (string) $latest['id'];
+                                    \Log::info('CP-36: pulled latest submission id from Jotform', [
+                                        'form_id'       => $formId,
+                                        'submission_id' => $submissionId,
+                                        'age_seconds'   => $ageSec,
+                                    ]);
+                                } else {
+                                    \Log::warning('CP-36: latest submission outside window', [
+                                        'form_id'     => $formId,
+                                        'age_seconds' => $ageSec,
+                                        'created_at'  => $latest['created_at'] ?? null,
+                                        'timestamp'   => $latest['timestamp'] ?? null,
+                                    ]);
+                                }
+                            }
+                        } else {
+                            \Log::warning('CP-31: Jotform list-submissions non-2xx', [
+                                'status' => $resp->status(),
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::warning('CP-31: list-submissions lookup failed', ['error' => $e->getMessage()]);
                     }
                 }
 
@@ -1757,10 +1865,311 @@ class AppointmentController extends AppBaseController
             ]);
         }
 
-        // Browser redirect from Jotform — show a friendly success page
+        // Browser redirect from Jotform — show a friendly success page.
+        // CP-30: Pass the submission id forward so the fallback view can
+        // postMessage it to the parent booking wizard. If a subsequent
+        // AJAX record attempt follows, it will carry the id and the
+        // backend can then fetch the real Jotform PDF.
         return response()->view('errors.consent-success-fallback', [
-            'message' => 'Consent form signed successfully! You can close this window and continue with your booking.',
-            'appointment' => $appointment,
+            'message'       => 'Consent form signed successfully! You can close this window and continue with your booking.',
+            'appointment'   => $appointment,
+            'submissionId'  => $submissionId ?? '',
+            'doctorId'      => $doctorId,
         ]);
+    }
+
+    /**
+     * CP-33: Smart consent download — lazy refresh from Jotform.
+     *
+     * The consent PDF stored in `documents` may be a dompdf_fallback if
+     * Jotform's submission ID never reached the backend at booking time
+     * (cross-origin postMessage / Thank-You URL flows). Rather than make
+     * the admin re-trigger a sign-up, every download attempt:
+     *
+     *   1. Loads the Document row + linked appointment + doctor + patient
+     *   2. Pulls latest submissions from Jotform for the doctor's form
+     *   3. Picks the one that matches the patient's email/name
+     *   4. Fetches the official signed PDF (CP-29 endpoint chain)
+     *   5. Overwrites the stored file and re-streams it
+     *
+     * On any failure, falls back to whatever file is on disk so the admin
+     * still gets *something*.
+     */
+    public function downloadConsentDocument($id)
+    {
+        $doc = Document::with(['user', 'doctor.user', 'appointment.patient.user'])->findOrFail($id);
+
+        $disk    = \Illuminate\Support\Facades\Storage::disk('public');
+        $path    = $doc->path;
+        $isPdf   = $doc->mime_type === 'application/pdf' || str_ends_with(strtolower((string) $path), '.pdf');
+        $title   = $doc->title ?: 'document';
+        $isConsent = $doc->type === 'consent';
+
+        // Try a Jotform refresh only for consent PDFs that look like our
+        // dompdf summary (title contains "(summary)") OR have no jotform
+        // submission marker (no "JotForm #" tag in title). Admin can also
+        // force a refresh with ?refresh=1.
+        $forceRefresh = request()->boolean('refresh');
+        $needsRefresh = $isConsent && $isPdf && (
+            $forceRefresh
+            || str_contains((string) $title, '(summary)')
+            || ! str_contains((string) $title, 'JotForm #')
+        );
+
+        if ($needsRefresh) {
+            try {
+                $apiKey = trim((string) getSettingValue('jotform_api_key'));
+            } catch (\Throwable $ignored) {
+                $apiKey = null;
+            }
+            if (empty($apiKey)) {
+                $apiKey = config('services.jotform.api_key');
+            }
+
+            $doctor   = $doc->doctor;
+            $jotLink  = $doctor ? trim((string) $doctor->jotform_link) : '';
+            $formId   = null;
+            if ($jotLink && preg_match('~jotform\.com/(?:form/)?(\d{6,})~i', $jotLink, $m)) {
+                $formId = $m[1];
+            }
+
+            $patientUser = optional(optional($doc->appointment)->patient)->user
+                ?? optional($doc->user);
+            $patientEmail = strtolower(trim((string) optional($patientUser)->email));
+            $patientName  = strtolower(trim((string) optional($patientUser)->full_name));
+
+            if ($apiKey && $formId) {
+                try {
+                    $baseUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
+                    $listUrl = $baseUrl . '/form/' . urlencode($formId)
+                                . '/submissions?limit=100&orderBy=created_at&apiKey=' . urlencode($apiKey);
+                    $resp = \Illuminate\Support\Facades\Http::timeout(20)
+                        ->withHeaders(['APIKEY' => $apiKey])
+                        ->get($listUrl);
+
+                    $matchedId       = null;
+                    $latestId        = null;
+                    $latestAgeSec    = null;
+                    if ($resp->successful()) {
+                        $items = $resp->json('content') ?? [];
+                        // Items come ordered by created_at desc.
+                        foreach ($items as $idx => $sub) {
+                            // Capture the most recent submission so we can
+                            // use it as a fallback if email/name matching
+                            // misses (common in testing where the signer's
+                            // identity differs from the booking patient).
+                            if ($idx === 0 && !empty($sub['id'])) {
+                                $latestId = (string) $sub['id'];
+                                // CP-35: Jotform's `created_at` is in the
+                                // form-owner's account TZ (not UTC), so we
+                                // can't trust it for age math. The API
+                                // also returns a Unix `timestamp` field —
+                                // use that when present.
+                                if (!empty($sub['timestamp']) && is_numeric($sub['timestamp'])) {
+                                    $latestAgeSec = time() - (int) $sub['timestamp'];
+                                } else {
+                                    try {
+                                        $dt = new \DateTime(($sub['created_at'] ?? 'now'));
+                                        $latestAgeSec = time() - $dt->getTimestamp();
+                                    } catch (\Throwable $ignored) {
+                                        $latestAgeSec = null;
+                                    }
+                                }
+                            }
+
+                            $answers = $sub['answers'] ?? [];
+                            $hayEmail = '';
+                            $hayName  = '';
+                            foreach ($answers as $ans) {
+                                $val = $ans['answer'] ?? null;
+                                if (is_array($val)) {
+                                    $val = trim(implode(' ', array_filter(array_map('strval', $val))));
+                                }
+                                $val = strtolower(trim((string) $val));
+                                if ($val === '') continue;
+                                $type = strtolower((string) ($ans['type'] ?? ''));
+                                $name = strtolower((string) ($ans['name'] ?? ''));
+                                if ($type === 'control_email' || str_contains($name, 'email')) {
+                                    $hayEmail = $val;
+                                } elseif ($type === 'control_fullname' || str_contains($name, 'name')) {
+                                    $hayName = $val;
+                                }
+                            }
+                            if ($patientEmail && $hayEmail === $patientEmail) {
+                                $matchedId = $sub['id'] ?? null;
+                                break;
+                            }
+                            if (!$matchedId && $patientName && $hayName && str_contains($hayName, $patientName)) {
+                                $matchedId = $sub['id'] ?? null;
+                                // keep looking for a better email match
+                            }
+                        }
+
+                        // CP-34/35: If email/name matching missed but a
+                        // recent submission exists, use it. Real patients
+                        // sign right before finishing the booking, so the
+                        // most recent submission for the doctor's form is
+                        // overwhelmingly the right one. With ?refresh=1
+                        // we skip the age check entirely (admin override).
+                        if (! $matchedId && $latestId !== null) {
+                            $useIt = $forceRefresh
+                                || $latestAgeSec === null
+                                || $latestAgeSec < 86400; // 24h default
+                            if ($useIt) {
+                                $matchedId = $latestId;
+                                \Log::info('CP-34: no email/name match — using most recent submission', [
+                                    'document_id'   => $doc->id,
+                                    'submission_id' => $matchedId,
+                                    'age_seconds'   => $latestAgeSec,
+                                    'force'         => $forceRefresh,
+                                ]);
+                            }
+                        }
+                    } else {
+                        \Log::warning('CP-33: list submissions failed', ['status' => $resp->status()]);
+                    }
+
+                    if ($matchedId) {
+                        $pdfBytes = $this->fetchJotformSignedPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                        if ($pdfBytes !== null) {
+                            // Overwrite stored file with the official signed PDF.
+                            $newRel = $path;
+                            if (! $newRel) {
+                                $folder = 'documents/user_' . $doc->user_id;
+                                $disk->makeDirectory($folder);
+                                $newRel = $folder . '/consent_dr_' . ($doc->doctor_id ?: 0)
+                                        . '_appt_' . ($doc->appointment_id ?: 0)
+                                        . '_' . time() . '.pdf';
+                            }
+                            $disk->put($newRel, $pdfBytes);
+
+                            $newTitle = preg_replace('/\s*\(summary\)\s*/', '', (string) $doc->title);
+                            if (! str_contains($newTitle, 'JotForm #')) {
+                                $newTitle = trim($newTitle . ' [JotForm #' . $matchedId . ']');
+                            }
+
+                            $doc->fill([
+                                'path'      => $newRel,
+                                'mime_type' => 'application/pdf',
+                                'size'      => round(strlen($pdfBytes) / 1024, 2),
+                                'title'     => $newTitle,
+                            ])->save();
+
+                            $path = $newRel;
+                            \Log::info('CP-33: refreshed consent PDF from Jotform', [
+                                'document_id'   => $doc->id,
+                                'submission_id' => $matchedId,
+                                'bytes'         => strlen($pdfBytes),
+                            ]);
+                        } else {
+                            \Log::warning('CP-33: matched submission but PDF fetch failed', [
+                                'document_id'   => $doc->id,
+                                'submission_id' => $matchedId,
+                            ]);
+                        }
+                    } else {
+                        \Log::info('CP-33: no Jotform submission matched patient', [
+                            'document_id' => $doc->id,
+                            'form_id'     => $formId,
+                            'email'       => $patientEmail,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning('CP-33: refresh from Jotform threw', [
+                        'document_id' => $doc->id,
+                        'error'       => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        if (! $path || ! $disk->exists($path)) {
+            abort(404, 'Document file not found.');
+        }
+
+        $filename = basename($path);
+        return response()->download($disk->path($path), $filename, [
+            'Content-Type'  => $doc->mime_type ?: 'application/pdf',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'        => 'no-cache',
+            'Expires'       => '0',
+        ]);
+    }
+
+    /**
+     * CP-33: Run the CP-29 endpoint chain for a known submissionId.
+     * Returns raw PDF bytes on success, null on failure.
+     */
+    private function fetchJotformSignedPdf(string $baseUrl, string $apiKey, ?string $formId, string $submissionId): ?string
+    {
+        // CP-37: Jotform's signed-PDF render is asynchronous — right after
+        // submit, /generatePDF can return HTML "still generating" pages or
+        // 404 for a few seconds. Retry the whole chain twice with a short
+        // backoff so the very-first download click after sign-up doesn't
+        // permanently lock in a bad PDF.
+        for ($try = 1; $try <= 3; $try++) {
+            $bytes = $this->fetchJotformSignedPdfOnce($baseUrl, $apiKey, $formId, $submissionId);
+            if ($bytes !== null) {
+                return $bytes;
+            }
+            if ($try < 3) {
+                usleep(1500000); // 1.5s
+            }
+        }
+        return null;
+    }
+
+    private function fetchJotformSignedPdfOnce(string $baseUrl, string $apiKey, ?string $formId, string $submissionId): ?string
+    {
+        $attempts = [];
+        $attempts[] = ['url' => $baseUrl . '/submission/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey), 'kind' => 'metadata'];
+        if ($formId) {
+            $attempts[] = ['url' => $baseUrl . '/generatePDF?formID=' . urlencode($formId) . '&submissionID=' . urlencode($submissionId) . '&apikey=' . urlencode($apiKey), 'kind' => 'pdf'];
+            $attempts[] = ['url' => $baseUrl . '/generatePDF?formid=' . urlencode($formId) . '&submissionid=' . urlencode($submissionId) . '&apiKey=' . urlencode($apiKey), 'kind' => 'pdf'];
+            $attempts[] = ['url' => $baseUrl . '/pdf-converter/' . urlencode($formId) . '/fill-pdf?download=1&submissionID=' . urlencode($submissionId) . '&apikey=' . urlencode($apiKey), 'kind' => 'pdf'];
+        }
+        $attempts[] = ['url' => 'https://www.jotform.com/server.php?action=getSubmissionPDF&sid=' . urlencode($submissionId) . ($formId ? '&formID=' . urlencode($formId) : '') . '&apiKey=' . urlencode($apiKey), 'kind' => 'pdf'];
+
+        foreach ($attempts as $a) {
+            try {
+                $resp = \Illuminate\Support\Facades\Http::timeout(30)
+                    ->withHeaders(['APIKEY' => $apiKey])
+                    ->get($a['url']);
+                if (! $resp->successful()) continue;
+                $body = $resp->body();
+
+                if ($a['kind'] === 'metadata') {
+                    $json = json_decode($body, true);
+                    $pdfUrl = null;
+                    if (is_array($json) && isset($json['content'])) {
+                        foreach (['pdf_url', 'pdfUrl', 'pdf', 'download_url', 'downloadUrl'] as $k) {
+                            if (!empty($json['content'][$k]) && is_string($json['content'][$k])) {
+                                $pdfUrl = $json['content'][$k];
+                                break;
+                            }
+                        }
+                    }
+                    if ($pdfUrl) {
+                        $pdfResp = \Illuminate\Support\Facades\Http::timeout(30)
+                            ->withHeaders(['APIKEY' => $apiKey])
+                            ->get($pdfUrl);
+                        if ($pdfResp->successful()) {
+                            $pdfBody = $pdfResp->body();
+                            if (is_string($pdfBody) && strncmp($pdfBody, '%PDF-', 5) === 0) {
+                                return $pdfBody;
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                if (is_string($body) && strncmp($body, '%PDF-', 5) === 0) {
+                    return $body;
+                }
+            } catch (\Throwable $ignored) {
+                // try next
+            }
+        }
+        return null;
     }
 }

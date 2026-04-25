@@ -43,13 +43,19 @@
         <p class="note">This page will close automatically if opened in an iframe.</p>
     </div>
     <script>
-        // If this page is loaded inside an iframe (Jotform redirect), notify the parent
+        // CP-30: Pass the real Jotform submission id back to the parent
+        // booking wizard so its next /api/consent-webhook call (AJAX) can
+        // carry it — that is what unlocks the official Jotform PDF fetch
+        // on the backend. Without this the AJAX sent an empty id and the
+        // backend silently fell back to the dompdf summary PDF.
         if (window.parent !== window) {
             try {
                 window.parent.postMessage({
                     action: 'consent-form-completed',
                     source: 'clinic-consent-webhook',
-                    success: true
+                    success: true,
+                    submissionId: @json($submissionId ?? ''),
+                    doctorId: @json($doctorId ?? '')
                 }, '*');
             } catch (e) {}
         }

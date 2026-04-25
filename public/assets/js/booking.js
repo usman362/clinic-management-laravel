@@ -683,13 +683,26 @@
             // Handle our OWN success page postMessage (from consent-success-fallback view)
             if (data.action === 'consent-form-completed' && data.source === 'clinic-consent-webhook') {
                 showNotification('Consent form signed successfully!');
-                // Record consent for all unsigned doctors
-                $('.consent-form-wrapper .consent-form-container').each(function () {
-                    var doctorId = $(this).data('doctor-id');
-                    if (doctorId && !signedConsentForms[doctorId]) {
-                        recordConsentForDoctor(doctorId, '');
+                // CP-30: the fallback page now forwards the real Jotform
+                // submission id — use it here so the AJAX record call
+                // carries it to the backend. Targets the specific doctor
+                // that was signed rather than every unsigned one.
+                var incomingSub = (data && data.submissionId) || '';
+                var incomingDoc = (data && data.doctorId) ? String(data.doctorId) : '';
+                if (incomingDoc) {
+                    if (!signedConsentForms[incomingDoc]) {
+                        recordConsentForDoctor(incomingDoc, incomingSub);
                     }
-                });
+                } else {
+                    // No doctor id forwarded — fall back to prior behaviour
+                    // (mark any unsigned doctor). Should rarely hit after CP-30.
+                    $('.consent-form-wrapper .consent-form-container').each(function () {
+                        var doctorId = $(this).data('doctor-id');
+                        if (doctorId && !signedConsentForms[doctorId]) {
+                            recordConsentForDoctor(doctorId, incomingSub);
+                        }
+                    });
+                }
                 scheduleSaveDraft();
                 return;
             }
@@ -749,8 +762,26 @@
                 // If iframe navigated to our domain (consent webhook redirect), it means form was submitted
                 var iframeUrl = $iframe[0].contentWindow.location.href;
                 if (iframeUrl && iframeUrl.indexOf('consent-webhook') !== -1) {
-                    // The iframe was redirected to our webhook — record consent
-                    recordConsentForDoctor(doctorId, '');
+                    // CP-30: Extract JotForm's submission id from the redirect
+                    // URL query string. Without this the webhook received
+                    // submission_id='' and the backend's Jotform API lookup
+                    // was skipped (guarded by `if ($apiKey && $submissionId)`)
+                    // — the Document row ended up as a dompdf summary instead
+                    // of the real signed PDF.
+                    var submissionId = '';
+                    try {
+                        var u = new URL(iframeUrl);
+                        submissionId = u.searchParams.get('submissionID')
+                                    || u.searchParams.get('submission_id')
+                                    || u.searchParams.get('sid')
+                                    || u.searchParams.get('submissionId')
+                                    || '';
+                    } catch (e) { /* URL parse failed — fall through */ }
+                    // Last-ditch fallback — if postMessage previously captured an ID, use it.
+                    if (!submissionId && window._lastJotformSubmission && window._lastJotformSubmission.id) {
+                        submissionId = window._lastJotformSubmission.id;
+                    }
+                    recordConsentForDoctor(doctorId, submissionId);
                     showNotification('Consent form signed successfully!');
                 }
             } catch (e) {
