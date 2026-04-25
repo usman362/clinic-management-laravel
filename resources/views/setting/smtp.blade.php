@@ -118,20 +118,30 @@
                         </div>
                     @endif
 
-                    {{-- AP-02 / CP-12: Jotform API Key --}}
+                    {{-- AP-02 / CP-12 / AP-20: Jotform API Key.
+                         Independent save — the Save button below posts via
+                         AJAX to `setting.jotform-key.save` so this field
+                         persists even when the main SMTP form has validation
+                         errors (or the admin just doesn't want to re-save
+                         all of SMTP to update this one key). --}}
                     <div class="row mb-6 mt-6 pt-6 border-top">
                         <div class="col-lg-4">
                             <div class="mb-4">
                                 <h3 class="m-0">Jotform API Settings</h3>
                             </div>
-                            {{ Form::label('jotform_api_key', 'Jotform API Key:', ['class' => 'form-label']) }}
+                            <label for="jotform_api_key" class="form-label">Jotform API Key:</label>
                         </div>
                         <div class="col-lg-8 mt-4">
-                            {{ Form::text('jotform_api_key', $setting['jotform_api_key'] ?? null, [
-                                'class' => 'form-control',
-                                'placeholder' => 'Paste your Jotform API key here',
-                                'autocomplete' => 'off',
-                            ]) }}
+                            <div class="d-flex gap-2">
+                                <input type="text" name="jotform_api_key" id="jotform_api_key"
+                                       value="{{ $setting['jotform_api_key'] ?? '' }}"
+                                       class="form-control"
+                                       placeholder="Paste your Jotform API key here"
+                                       autocomplete="off">
+                                <button type="button" id="saveJotformKeyBtn" class="btn btn-primary" style="white-space:nowrap;">
+                                    <i class="fas fa-save me-1"></i> Save Key
+                                </button>
+                            </div>
                             <small class="text-muted d-block mt-2">
                                 Used to download the official signed consent PDF from Jotform into the patient's documents.
                                 Create a key at
@@ -141,17 +151,57 @@
                                 with <strong>Full Access</strong> permission.
                                 Leave blank to fall back to a generated summary PDF.
                             </small>
-                            @if(!empty($setting['jotform_api_key']))
-                                <span class="badge bg-success mt-2">
-                                    <i class="fas fa-check me-1"></i> API key configured
-                                </span>
-                            @else
-                                <span class="badge bg-warning text-dark mt-2">
-                                    <i class="fas fa-exclamation-triangle me-1"></i> Not configured — consent PDFs will use fallback format
-                                </span>
-                            @endif
+                            <div id="jotformKeyStatus" class="mt-2">
+                                @if(!empty($setting['jotform_api_key']))
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i> API key configured
+                                    </span>
+                                @else
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-exclamation-triangle me-1"></i> Not configured — consent PDFs will use fallback format
+                                    </span>
+                                @endif
+                            </div>
                         </div>
                     </div>
+
+                    @push('scripts')
+                    <script>
+                    (function () {
+                        var btn = document.getElementById('saveJotformKeyBtn');
+                        if (!btn) return;
+                        btn.addEventListener('click', function () {
+                            var input = document.getElementById('jotform_api_key');
+                            var status = document.getElementById('jotformKeyStatus');
+                            btn.disabled = true;
+                            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving…';
+                            $.ajax({
+                                url: '{{ route('setting.jotform-key.save') }}',
+                                type: 'POST',
+                                data: { jotform_api_key: input.value },
+                                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                                success: function () {
+                                    btn.innerHTML = '<i class="fas fa-check me-1"></i> Saved';
+                                    if (status) {
+                                        status.innerHTML = input.value.trim()
+                                            ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i> API key configured</span>'
+                                            : '<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i> Not configured — consent PDFs will use fallback format</span>';
+                                    }
+                                    setTimeout(function () {
+                                        btn.disabled = false;
+                                        btn.innerHTML = '<i class="fas fa-save me-1"></i> Save Key';
+                                    }, 1500);
+                                },
+                                error: function (xhr) {
+                                    btn.disabled = false;
+                                    btn.innerHTML = '<i class="fas fa-save me-1"></i> Save Key';
+                                    alert((xhr.responseJSON && xhr.responseJSON.message) || 'Save failed.');
+                                }
+                            });
+                        });
+                    })();
+                    </script>
+                    @endpush
 
 
                     <div class="row">

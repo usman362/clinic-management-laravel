@@ -13,16 +13,32 @@
 
              Wrapped in @once so any duplicate rendering wouldn't cause flicker. --}}
         @if(!getLogInUser()->hasRole('patient'))
-            {{-- AP-05: Banner is marked `alert-important` so the global
-                 `alertInitialize()` (which auto-slides any `.alert` after a
-                 few seconds) never touches it, and inline `display:block
-                 !important` overrides any framework CSS that tries to hide
-                 sibling elements during Livewire morphs. The JS only wires
-                 the manual close button. --}}
+            {{-- AP-18: Suppress the flash for users who previously dismissed
+                 the banner. Without this guard, the HTML rendered with
+                 `display:block` for ~1 second before applyState() ran and
+                 hid it again — visible flicker. By injecting a CSS rule
+                 synchronously *before* the banner element parses (via a
+                 plain inline script + document.write of a <style> tag),
+                 the browser never paints the banner for dismissed users. --}}
+            <script>
+                (function () {
+                    try {
+                        if (localStorage.getItem('feedbackInstructionsDismissed') === '1') {
+                            document.write('<style>#feedbackInstructionsBox{display:none !important;}</style>');
+                        }
+                    } catch (e) { /* localStorage disabled — fall through to default visible */ }
+                })();
+            </script>
+            {{-- Banner is marked `alert-important` so the global
+                 `alertInitialize()` (which auto-slides any `.alert` after
+                 a few seconds) never touches it, and inline opacity:1
+                 overrides any framework CSS that tries to fade sibling
+                 elements during Livewire morphs. The JS below only wires
+                 the manual close button + handles state changes. --}}
             <div id="feedbackInstructionsBox"
                  class="alert alert-important bg-info bg-opacity-10 border border-info rounded p-4 position-relative mb-4"
                  role="region" aria-label="Feedback Package Instructions"
-                 style="display:block !important; opacity:1 !important;">
+                 style="opacity:1 !important;">
                 <h5 class="fw-bold mb-2"><i class="fas fa-info-circle me-2"></i>What is a Feedback Package?</h5>
                 <p class="mb-2">
                     A <strong>feedback package</strong> is a follow-up appointment set created after an assessment package has been completed.

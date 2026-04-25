@@ -67,14 +67,44 @@ function loadDoctorShowApptmentFilterDate () {
     cb(doctorShowApptmentStart, doctorShowApptmentEnd)
 }
 
+// CP-21: Doctor's trash icon used to hit the resource `destroy` route,
+// which (since AP-16 trash) cascades the WHOLE package out of view —
+// one click and every appointment vanishes. The trash now performs a
+// single-appointment cancel (status=CANCELLED, cancel_reason=null) so
+// the row stays visible with a rebook button per AP-11.
 listenClick('.doctor-show-apptment-delete-btn', function (event) {
-    let doctorShowApptmentRecordId = $(event.currentTarget).attr('data-id')
-    let doctorShowApptmentUrl = !isEmpty($('#patientRoleDoctorDetail').val()) ? route(
-        'patients.appointments.destroy',
-        doctorShowApptmentRecordId) : route('appointments.destroy',
-        doctorShowApptmentRecordId)
-    deleteItem(doctorShowApptmentUrl, 'Appointment')
-})
+    let recordId = $(event.currentTarget).attr('data-id');
+    let cancelUrl = !isEmpty($('#patientRoleDoctorDetail').val())
+        ? route('patients.cancel-status')           // doctor viewing a patient detail page (rare)
+        : route('doctors.appointments.cancel-single');
+    swal({
+        title: Lang.get('js.cancelled_appointment'),
+        text: Lang.get('js.are_you_sure_cancel'),
+        icon: 'warning',
+        buttons: { confirm: Lang.get('js.yes'), cancel: Lang.get('js.no') },
+        reverseButtons: true,
+        dangerMode: true,
+    }).then(function (ok) {
+        if (!ok) return;
+        $.ajax({
+            url: cancelUrl,
+            type: 'POST',
+            data: { appointmentId: recordId },
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function () {
+                if (typeof Livewire !== 'undefined') Livewire.dispatch('refresh');
+                swal({ icon: 'success', title: Lang.get('js.cancelled_appointment'), timer: 1500, buttons: false });
+            },
+            error: function (xhr) {
+                swal({
+                    icon: 'error',
+                    title: 'Error',
+                    text: (xhr.responseJSON && xhr.responseJSON.message) || 'Cancel failed.',
+                });
+            },
+        });
+    });
+});
 
 listenChange('.doctor-show-apptment-status', function () {
     let doctorShowAppointmentStatus = $(this).val()

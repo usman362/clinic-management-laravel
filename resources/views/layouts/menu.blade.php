@@ -246,6 +246,17 @@
         </li>
     @endcan
 
+    {{-- AP-16: Trash bin for soft-deleted packages (assessment + feedback). --}}
+    @can('manage_appointments')
+        <li class="nav-item {{ Request::is('admin/packages/trash*') ? 'active' : '' }}">
+            <a class="nav-link d-flex align-items-center py-4" aria-current="page"
+                href="{{ route('packages.trash.index') }}">
+                <span class="aside-menu-icon pe-3"><i class="fas fa-trash-can"></i></span>
+                <span class="aside-menu-title">{{ __('Deleted Packages') }}</span>
+            </a>
+        </li>
+    @endcan
+
     <li
         class="nav-item {{ Request::is('admin/emails*') ? 'active' : '' }}">
         <a class="nav-link d-flex align-items-center py-4" aria-current="page"

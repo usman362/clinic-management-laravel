@@ -77,19 +77,41 @@ class AppointmentRepository extends BaseRepository
             DB::beginTransaction();
             $relation_id = uniqid('appt_');
 
-            // Create the first-class Package record for this booking group
+            // Create the first-class Package record for this booking group.
+            // AP-17: When the standalone "Create Feedback Package" wizard
+            // submits, `appointment_type=feedback` and `parent_package_id`
+            // arrive on the request — both must propagate to the Package
+            // row so the new package shows up in the Feedback Packages
+            // listing and is correctly linked to its parent assessment.
             Package::create([
-                'relation_id'      => $relation_id,
-                'patient_id'       => $input['patient_id'],
-                'created_by'       => Auth::id(),
-                'appointment_type' => $input['appointment_type'] ?? 'assessment',
-                'description'      => $input['description'] ?? null,
-                'payable_amount'   => $input['payable_amount'] ?? null,
-                'payment_type'     => $input['payment_type'] ?? null,
-                'payment_method'   => $input['payment_method'] ?? null,
+                'relation_id'       => $relation_id,
+                'patient_id'        => $input['patient_id'],
+                'created_by'        => Auth::id(),
+                'appointment_type'  => $input['appointment_type'] ?? 'assessment',
+                'parent_package_id' => ! empty($input['parent_package_id']) ? (int) $input['parent_package_id'] : null,
+                'description'       => $input['description'] ?? null,
+                'payable_amount'    => $input['payable_amount'] ?? null,
+                'payment_type'      => $input['payment_type'] ?? null,
+                'payment_method'    => $input['payment_method'] ?? null,
             ]);
 
             foreach ($input['appointments'] as $key => $appt) {
+                // AP-19: Defensively skip incomplete rows. PHP 8.1+ throws
+                // "Undefined array key" on direct subscript, and saving a
+                // row with NULL service_id / doctor_id would produce a
+                // ghost appointment with broken FKs that breaks every
+                // downstream view. Client-side validation already gates
+                // submission, but the wizard has many entry points + a
+                // legacy clone handler — be safe.
+                if (empty($appt['service_id']) || empty($appt['doctor_id'])) {
+                    \Log::warning('AP-19: store skipping incomplete appointment row', [
+                        'key'        => $key,
+                        'service_id' => $appt['service_id'] ?? null,
+                        'doctor_id'  => $appt['doctor_id']  ?? null,
+                    ]);
+                    continue;
+                }
+
                 $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
                 $fromTime = explode(' ', ($appt['from_time'] ?? ''));
                 $toTime = explode(' ', ($appt['to_time'] ?? ''));
@@ -105,6 +127,13 @@ class AppointmentRepository extends BaseRepository
                 $appointment->status = 5;
                 $appointment->relation_id = $relation_id;
                 $appointment->service_id = $appt['service_id'];
+                // AP-17: Mirror the package's appointment_type onto each
+                // appointment row. Without this the column relied on the DB
+                // default ('assessment'), so feedback wizard submissions
+                // produced feedback Package rows with assessment-typed
+                // appointments — breaking every list/filter that scopes by
+                // appointment_type.
+                $appointment->appointment_type = $input['appointment_type'] ?? 'assessment';
                 $appointment->appointment_unique_id = $input['appointment_unique_id'];
                 $appointment->from_time = $input['from_time'];
                 $appointment->from_time_type = $input['from_time_type'];
@@ -183,6 +212,23 @@ class AppointmentRepository extends BaseRepository
             }
             $editingAppointment = Appointment::find($id);
             if ($editingAppointment && $editingAppointment->relation_id && ! getLogInUser()->hasRole('patient')) {
+                // AP-15: Mirror the admin's top-level client/notes changes
+                // to the Package row as well. The Package table stores
+                // patient_id and description independently of the
+                // underlying appointment rows, so leaving it stale would
+                // make the package detail / listing views show the old
+                // client after an edit.
+                $pkg = Package::where('relation_id', $editingAppointment->relation_id)->first();
+                if ($pkg) {
+                    if (array_key_exists('patient_id', $input) && ! empty($input['patient_id'])) {
+                        $pkg->patient_id = $input['patient_id'];
+                    }
+                    if (array_key_exists('description', $input)) {
+                        $pkg->description = $input['description'];
+                    }
+                    $pkg->save();
+                }
+
                 $allPackageAppts = Appointment::where('relation_id', $editingAppointment->relation_id)
                     ->whereNotIn('status', [Appointment::CANCELLED, Appointment::CHECK_OUT])
                     ->pluck('id')
@@ -344,23 +390,44 @@ class AppointmentRepository extends BaseRepository
                     // picker). Previously the post-save block below tried to
                     // read $appt['date'] which this form never sends,
                     // triggering "Undefined array key 'date'".
-                    // AP-12: Guard against new rows that arrived without
-                    // service_id/doctor_id (e.g. JS validation bypassed).
-                    // Skip such rows instead of crashing / writing empty FKs.
+
+                    // AP-15: Client (patient_id) and description are
+                    // top-level fields on the wizard — they apply to EVERY
+                    // appointment in the package. Prior to this fix the
+                    // admin branch never copied them, so changing the
+                    // client or notes in the edit form was a silent no-op
+                    // (the form submitted, the request succeeded, nothing
+                    // persisted). Apply them on every row here.
+                    if (array_key_exists('patient_id', $input) && ! empty($input['patient_id'])) {
+                        $appointment->patient_id = $input['patient_id'];
+                    }
+                    if (array_key_exists('description', $input)) {
+                        $appointment->description = $input['description'];
+                    }
+
+                    // AP-15: Service/doctor are per-row fields. The
+                    // feedback-package edit form hides + disables them
+                    // because feedback appointments inherit those from
+                    // the parent assessment. Previously the repo treated
+                    // their absence as "row invalid" and skipped the
+                    // entire row — which also dropped the client/notes
+                    // changes above. Only skip the service/doctor write
+                    // when the values are missing; still save the other
+                    // top-level fields that did come in.
                     $doctorId  = $appt['doctor_id']  ?? null;
                     $serviceId = $appt['service_id'] ?? null;
-                    if (empty($doctorId) || empty($serviceId)) {
-                        \Log::warning('AP-12: admin package row missing service/doctor, skipping', [
+                    if (! empty($doctorId) && ! empty($serviceId)) {
+                        $appointment->doctor_id  = $doctorId;
+                        $appointment->service_id = $serviceId;
+                    } elseif (! empty($doctorId) xor ! empty($serviceId)) {
+                        // One present, the other missing — ambiguous,
+                        // skip both to avoid orphaning a FK. Still save
+                        // the other top-level changes collected above.
+                        \Log::warning('AP-15: admin package row has partial service/doctor; keeping existing FKs', [
                             'appointment_id' => $apptId,
                             'doctor_id'      => $doctorId,
                             'service_id'     => $serviceId,
                         ]);
-                        continue;
-                    }
-                    $appointment->doctor_id  = $doctorId;
-                    $appointment->service_id = $serviceId;
-                    if (array_key_exists('description', $input)) {
-                        $appointment->description = $input['description'];
                     }
                     $appointment->save();
                     continue; // skip the patient-only booking-confirmation block

@@ -239,7 +239,14 @@ listenChange(dateEle, function () {
     });
 });
 
+// CP-22: Front booking single-section handler. On the multi-section
+// wizard booking.js owns selection per section — early-return when a
+// `.appointments-section` ancestor is present so other sections keep
+// their blue highlight.
 listenClick(".time-slot", function () {
+    if ($(this).closest('.appointments-section').length) {
+        return;
+    }
     if ($(".time-slot").hasClass("activeSlot")) {
         $(".time-slot").removeClass("activeSlot");
         $(this).addClass("activeSlot");

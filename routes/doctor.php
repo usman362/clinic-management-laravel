@@ -27,6 +27,12 @@ Route::prefix('doctors')->name('doctors.')->middleware('auth', 'xss', 'checkUser
 
     // Doctor Session Routes
     Route::resource('appointments', AppointmentController::class)->except(['index', 'edit', 'update']);
+    // CP-21: Single-appointment cancel — same controller method as the
+    // admin route, scoped to the logged-in doctor by `role:doctor`
+    // middleware on this group + the per-row doctor_id ownership check
+    // inside cancelStatusByActor().
+    Route::post('appointments-cancel', [AppointmentController::class, 'cancelStatusByActor'])
+        ->name('appointments.cancel-single');
 
     Route::get('doctor-session-time',
         [DoctorSessionController::class, 'getDoctorSession'])->name('doctor-session-time');

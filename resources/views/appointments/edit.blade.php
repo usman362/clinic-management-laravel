@@ -567,12 +567,16 @@
                             </div>
                         </div>
 
-                        <div class="container mb-4"
+                        {{-- CP-26: see feedback_appointments/edit.blade.php for
+                             explanation. Marker classes let booking.js mirror
+                             step-2 selections into the confirmation rows in
+                             real time. --}}
+                        <div class="container mb-4 confirmation-booked-appointments"
                             style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
                             <h2 class="h3 fw-bold mb-4">Booked Appointments</h2>
 
                             @foreach ($appointmentsToShow as $key => $relation)
-                                <div class="mt-4 container"
+                                <div class="mt-4 container confirmation-appt-row" data-index="{{ $key }}"
                                     style="background-color: #eaecef;border-radius: 13px;padding-top: 15px;padding-bottom: 15px;">
                                     <div class="row">
                                         <div class="col-md-2">
@@ -586,7 +590,7 @@
                                             <p style="color:#6c757d;font-size:13px" class="m-0">
                                                 {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . $relation->services->duration . ' min)' }}
                                             </p>
-                                            <p style="color:#6c757d;font-size:13px" id="date-time{{$relation->id}}" class="m-0 date-time">Date & Time not
+                                            <p style="color:#6c757d;font-size:13px" id="date-time{{$relation->id}}" class="m-0 confirmation-date-time">Date & Time not
                                                 selected</p>
                                         </div>
                                     </div>
@@ -685,8 +689,18 @@
                                         ->pluck('doctor_id');
                                     $docs = \App\Models\Doctor::with('user')->whereIn('id', $doctersService)->get();
                                 @endphp
-                                {{ Form::hidden('appointments[' . $key . '][appointment_id]', $pkg->id, ['id' => 'appointment_id']) }}
                                 <div class="appointments-section mb-4" data-index="{{ $key }}">
+                                    {{-- AP-13: Hidden appointment_id MUST live inside
+                                         `.appointments-section` so the remove-appointment
+                                         trash button takes it with the row when the admin
+                                         deletes an appointment from the package. Previously
+                                         this hidden was a sibling of the section div and
+                                         got left behind as an orphan on removal — the
+                                         backend then read it as a row with no service/doctor
+                                         (or, worse, it collided with the index of a fresh
+                                         row added afterwards), silently dropping one saved
+                                         appointment from the package. --}}
+                                    {{ Form::hidden('appointments[' . $key . '][appointment_id]', $pkg->id) }}
                                     <div class="card-body" style="background-color: #eff3f7;border-radius: 12px;">
                                         <div class="row">
                                             <div class="col-12 text-end">

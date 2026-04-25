@@ -76,6 +76,55 @@ class FeedbackAppointmentController extends AppBaseController
     }
 
     /**
+     * AP-17: AJAX endpoint feeding the "Parent Assessment Package" dropdown
+     * on the standalone "Create Feedback Package" wizard. Returns this
+     * patient's assessment packages that DO NOT already have a child
+     * feedback package linked via `parent_package_id` — i.e. only those
+     * for which a feedback package can still be created without
+     * duplicating an existing one.
+     */
+    public function getPatientAssessmentPackages(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
+    {
+        $patientId = (int) $request->input('patient_id');
+        if ($patientId <= 0) {
+            return $this->sendResponse(['packages' => []], '');
+        }
+
+        $childParentIds = \App\Models\Package::where('appointment_type', 'feedback')
+            ->whereNotNull('parent_package_id')
+            ->pluck('parent_package_id')
+            ->all();
+
+        $packages = \App\Models\Package::where('patient_id', $patientId)
+            ->where('appointment_type', 'assessment')
+            ->whereNotIn('id', $childParentIds)
+            ->orderByDesc('created_at')
+            ->get(['id', 'relation_id', 'description', 'status', 'created_at'])
+            ->map(function ($p) {
+                $created = $p->created_at ? $p->created_at->format('d M Y') : '';
+                $label   = 'Package #' . $p->id . ' • ' . $created;
+                if ($p->description) {
+                    $label .= ' — ' . \Illuminate\Support\Str::limit($p->description, 40);
+                }
+                // AP-19: Surface the package status so the Select2 dropdown
+                // can render a coloured badge next to each option, matching
+                // the badge colours used elsewhere in the admin UI.
+                $statusKey   = $p->status ?: \App\Models\Package::STATUS_PENDING;
+                $statusLabel = \App\Models\Package::STATUSES[$statusKey] ?? ucfirst(str_replace('_', ' ', $statusKey));
+                return [
+                    'id'                 => $p->id,
+                    'label'              => $label,
+                    'status'             => $statusKey,
+                    'status_label'       => $statusLabel,
+                    'status_badge_class' => $p->status_badge_class,
+                ];
+            })
+            ->values();
+
+        return $this->sendResponse(['packages' => $packages], '');
+    }
+
+    /**
      * @throws ApiErrorException
      */
     public function store(Request $request)
@@ -101,9 +150,15 @@ class FeedbackAppointmentController extends AppBaseController
         $input = $request->all();
         $appointment = $this->appointmentRepository->store($input);
 
-        $url = route('appointments.index');
+        // AP-19: Redirect to the FEEDBACK packages list — previously this
+        // dropped the admin onto `appointments.index` (the assessment list)
+        // even though they just finished the feedback wizard, which made
+        // the new package look like it had vanished.
+        $url = route('feedback-appointments.index');
 
         if (getLogInUser()->hasRole('patient')) {
+            // CP-27: Patient lands on the unified appointments list for
+            // any booking (assessment OR feedback).
             $url = route('patients.patient-appointments-index');
         }
         $data = [
@@ -206,7 +261,9 @@ class FeedbackAppointmentController extends AppBaseController
         $url = route('appointments.index');
 
         if (getLogInUser()->hasRole('patient')) {
-            $url = route('patients.booking.detail', $appointment->relation_id);
+            // CP-27: Unified patient appointment list for both assessment
+            // and feedback flows.
+            $url = route('patients.patient-appointments-index');
         }
         $data = [
             'url' => $url,
@@ -327,6 +384,10 @@ class FeedbackAppointmentController extends AppBaseController
         $appointment->update([
             'status' => $input['appointmentStatus'],
         ]);
+
+        // CP-28: see AppointmentController::changeStatus for full context.
+        \App\Models\Package::refreshForRelation($appointment->relation_id);
+
         $fullTime = $appointment->from_time . '' . $appointment->from_time_type . ' - ' . $appointment->to_time . '' . $appointment->to_time_type . ' ' . ' ' . Carbon::parse($appointment->date)->format('jS M, Y');
         // $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
         $patient = Patient::whereId($appointment->patient_id)->with('user')->first();

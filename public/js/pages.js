@@ -3430,8 +3430,11 @@ function initAppointmentAvailableDates() {
     var serviceId = section.find('.appointmentServiceId').val();
 
     if (!doctorId) {
-      fp.config.enable = undefined;
-      fp.config.disable = undefined;
+      // CP-25: flatpickr's `disable` setter calls .slice() on the value;
+      // assigning undefined throws "Cannot read properties of undefined".
+      // Use empty arrays.
+      fp.config.enable = [];
+      fp.config.disable = [];
       fp.config.minDate = fp.config.minDate || new Date();
       fp.redraw();
       return;
@@ -3450,7 +3453,7 @@ function initAppointmentAvailableDates() {
       success: function success(result) {
         if (result.success && result.data && result.data.dates && result.data.dates.length) {
           fp.config.enable = result.data.dates;
-          fp.config.disable = undefined;
+          fp.config.disable = []; // CP-25
           fp._availableDates = result.data.dates;
         } else {
           fp.config.enable = [];
@@ -3464,8 +3467,8 @@ function initAppointmentAvailableDates() {
         }
       },
       error: function error() {
-        fp.config.enable = undefined;
-        fp.config.disable = undefined;
+        fp.config.enable = [];
+        fp.config.disable = [];
         fp.redraw();
       }
     });
@@ -4016,13 +4019,25 @@ listenChange('#appointmentDate', function () {
     }
   });
 });
+// CP-22: Legacy single-section slot click handler. The original code
+// stripped `.activeSlot` from EVERY .time-slot in the document, which
+// wiped the highlight in OTHER appointment sections of a multi-row
+// booking package. booking.js provides a properly scoped handler at
+// .time-slot:not(.bookedSlot); we now scope this legacy version the
+// same way so old single-section pages still work AND multi-section
+// pages keep each section's selection independent.
 listenClick('.time-slot', function () {
-  if ($('.time-slot').hasClass('activeSlot')) {
-    $('.time-slot').removeClass('activeSlot');
-    selectedSlotTime = $(this).addClass('activeSlot');
-  } else {
-    selectedSlotTime = $(this).addClass('activeSlot');
+  var $section = $(this).closest('.appointments-section');
+  if ($section.length) {
+    // Multi-section flow — leave it to booking.js's namespaced handler.
+    // This branch keeps the click harmless on the new wizard.
+    return;
   }
+  // Legacy single-section page (no `.appointments-section` ancestor):
+  // preserve original behaviour, scoped to whatever container the
+  // slots live in (fall back to document for the strict legacy case).
+  $('.time-slot').removeClass('activeSlot');
+  selectedSlotTime = $(this).addClass('activeSlot');
 
   var fromToTime = $(this).attr('data-id').split('-');
   var fromTime = fromToTime[0];
@@ -8707,10 +8722,37 @@ function loadDoctorShowApptmentFilterDate() {
   cb(doctorShowApptmentStart, doctorShowApptmentEnd);
 }
 
+// CP-21: trash icon = single-appointment cancel (was wiping the whole
+// package via AP-16 trash cascade). Row stays as CANCELLED so the
+// patient can rebook it.
 listenClick('.doctor-show-apptment-delete-btn', function (event) {
-  var doctorShowApptmentRecordId = $(event.currentTarget).attr('data-id');
-  var doctorShowApptmentUrl = !isEmpty($('#patientRoleDoctorDetail').val()) ? route('patients.appointments.destroy', doctorShowApptmentRecordId) : route('appointments.destroy', doctorShowApptmentRecordId);
-  deleteItem(doctorShowApptmentUrl, 'Appointment');
+  var recordId = $(event.currentTarget).attr('data-id');
+  var cancelUrl = !isEmpty($('#patientRoleDoctorDetail').val())
+    ? route('patients.cancel-status')
+    : route('doctors.appointments.cancel-single');
+  swal({
+    title: Lang.get('js.cancelled_appointment'),
+    text: Lang.get('js.are_you_sure_cancel'),
+    icon: 'warning',
+    buttons: { confirm: Lang.get('js.yes'), cancel: Lang.get('js.no') },
+    reverseButtons: true,
+    dangerMode: true
+  }).then(function (ok) {
+    if (!ok) return;
+    $.ajax({
+      url: cancelUrl,
+      type: 'POST',
+      data: { appointmentId: recordId },
+      headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+      success: function () {
+        if (typeof Livewire !== 'undefined') Livewire.dispatch('refresh');
+        swal({ icon: 'success', title: Lang.get('js.cancelled_appointment'), timer: 1500, buttons: false });
+      },
+      error: function (xhr) {
+        swal({ icon: 'error', title: 'Error', text: (xhr.responseJSON && xhr.responseJSON.message) || 'Cancel failed.' });
+      }
+    });
+  });
 });
 listenChange('.doctor-show-apptment-status', function () {
   var doctorShowAppointmentStatus = $(this).val();
@@ -9051,7 +9093,14 @@ listenChange(dateEle, function () {
     }
   });
 });
+// CP-22: Second legacy single-section slot handler (front booking flow).
+// On the multi-section wizard booking.js owns slot selection — bail out
+// when an .appointments-section ancestor is present so each section's
+// blue highlight stays independent.
 listenClick(".time-slot", function () {
+  if ($(this).closest('.appointments-section').length) {
+    return;
+  }
   if ($(".time-slot").hasClass("activeSlot")) {
     $(".time-slot").removeClass("activeSlot");
     $(this).addClass("activeSlot");

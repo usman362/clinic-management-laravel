@@ -108,7 +108,15 @@ listenChange('#appointmentDate', function () {
     });
 });
 
+// CP-22: Legacy single-section slot click handler. Was stripping
+// `.activeSlot` from every .time-slot in the document, wiping the
+// highlight in other sections of a multi-row booking package. On the
+// multi-section wizard booking.js owns slot selection — bail out here
+// when a `.appointments-section` ancestor is present.
 listenClick('.time-slot', function () {
+    if ($(this).closest('.appointments-section').length) {
+        return; // booking.js handles per-section selection.
+    }
     if ($('.time-slot').hasClass('activeSlot')) {
         $('.time-slot').removeClass('activeSlot');
         selectedSlotTime = $(this).addClass('activeSlot');

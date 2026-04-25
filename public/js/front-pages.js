@@ -4199,7 +4199,14 @@ listenChange(dateEle, function () {
     }
   });
 });
+// CP-22: Even though front-pages.js usually only loads on the public
+// booking page, scope this in case it's ever loaded alongside the
+// multi-section patient wizard. Bail when click happens inside a
+// .appointments-section so booking.js can own per-section selection.
 listenClick(".time-slot", function () {
+  if ($(this).closest('.appointments-section').length) {
+    return;
+  }
   if ($(".time-slot").hasClass("activeSlot")) {
     $(".time-slot").removeClass("activeSlot");
     $(this).addClass("activeSlot");

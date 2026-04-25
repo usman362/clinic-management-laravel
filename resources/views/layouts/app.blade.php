@@ -290,7 +290,18 @@
     <script>
 
         $('#addAppointment').on('click', function(e) {
-            let appointmentIndex = $('.appointments-wrapper .appointments-section').length;
+            // AP-13: `.length` produced the wrong index whenever rows were
+            // removed leaving a sparse sequence (e.g., after deleting row 1
+            // the remaining data-indexes are [0, 2] and length is 2 — but
+            // row 2 already exists, so the new row collides and PHP drops
+            // one entry on POST). Derive the next index from the max
+            // data-index currently in the DOM.
+            let maxIdx = -1;
+            $('.appointments-wrapper .appointments-section').each(function () {
+                let i = parseInt($(this).attr('data-index'), 10);
+                if (!isNaN(i) && i > maxIdx) { maxIdx = i; }
+            });
+            let appointmentIndex = maxIdx + 1;
             e.preventDefault();
 
             let $source = $('.appointments-section:first');
@@ -350,7 +361,20 @@
         });
 
         $(document).on('click', '.remove-appointment', function() {
-            $(this).closest('.appointments-section').remove();
+            // AP-13: On the EDIT page, each row has a sibling hidden input
+            // `appointments[N][appointment_id]` rendered outside the
+            // `.appointments-section` div. If left behind on remove, the
+            // orphan hidden posts a row with only an appointment_id which
+            // the backend treats as a "service/doctor missing" skip or,
+            // worse, collides with a fresh row's index and overwrites the
+            // original appointment. Strip all hidden siblings that share
+            // the removed row's data-index.
+            let $section = $(this).closest('.appointments-section');
+            let idx = $section.attr('data-index');
+            if (idx !== undefined && idx !== '') {
+                $section.siblings('input[name^="appointments[' + idx + ']"]').remove();
+            }
+            $section.remove();
             calculateTotal();
         });
 

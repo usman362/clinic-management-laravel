@@ -151,11 +151,15 @@
                                             </div>
                                         @endif
 
-                                        <div class="col-lg-6 col-sm-12 mb-5 d-none">
-                                            {{ Form::label('Service', __('messages.appointment.service') . ':', ['class' => 'form-label']) }}
-                                            {{ Form::select('appointments[' . $key . '][service_id]', $data['services'], $relation->service_id, ['disabled', 'class' => 'io-select2 form-select appointmentServiceId', 'data-control' => '', 'id' => 'appointmentServiceId', 'placeholder' => __('messages.appointment.service')]) }}
-                                        </div>
-
+                                        {{-- AP-15: Admin view of feedback edit previously had these
+                                             two fields both `d-none` (hidden) and `disabled`, plus a
+                                             hard-coded `name="appointments[0][doctor_id]"` on the
+                                             doctor select (wrong index for every row after the first).
+                                             Disabled fields don't submit, so the admin's edit form was
+                                             a silent no-op: the repository saw missing service/doctor
+                                             and skipped every row. For admin the fields are now
+                                             visible and editable; patients still hit the @if branches
+                                             above for their own slot-picker flow. --}}
                                         @php
                                             $doctersService = \Illuminate\Support\Facades\DB::table('service_doctor')
                                                 ->where('service_id', $relation->service_id)
@@ -163,13 +167,20 @@
                                             $docs = \App\Models\Doctor::with('user')
                                                 ->whereIn('id', $doctersService)
                                                 ->get();
+                                            $isPatientView = getLogInUser()->hasRole('patient');
                                         @endphp
-                                        <div class="col-sm-12 col-lg-6 mb-5 d-none">
+                                        <div class="col-lg-6 col-sm-12 mb-5 {{ $isPatientView ? 'd-none' : '' }}">
+                                            {{ Form::label('Service', __('messages.appointment.service') . ':', ['class' => 'form-label']) }}
+                                            {{ Form::select('appointments[' . $key . '][service_id]', $data['services'], $relation->service_id, array_merge(['class' => 'io-select2 form-select appointmentServiceId', 'data-control' => '', 'id' => 'appointmentServiceId', 'placeholder' => __('messages.appointment.service')], $isPatientView ? ['disabled'] : [])) }}
+                                        </div>
+
+                                        <div class="col-sm-12 col-lg-6 mb-5 {{ $isPatientView ? 'd-none' : '' }}">
                                             {{ Form::label('Doctor', __('messages.doctor.doctor') . ':', ['class' => 'form-label']) }}
 
                                             <select class="io-select2 form-select adminAppointmentDoctorId"
-                                                id="adminAppointmentDoctorId" data-control="" disabled
-                                                name="appointments[0][doctor_id]">
+                                                id="adminAppointmentDoctorId" data-control=""
+                                                {{ $isPatientView ? 'disabled' : '' }}
+                                                name="appointments[{{ $key }}][doctor_id]">
                                                 <option value="">Select Doctor</option>
                                                 @foreach ($docs as $doc)
                                                     <option value="{{ $doc->id }}" @selected($doc->id == $relation->doctor_id)>
@@ -460,12 +471,21 @@
                         </div>
                     </div>
 
-                    <div class="container mb-4"
+                    {{-- CP-26: Confirmation step's booked-appointments list is
+                         server-rendered from the DB, which holds stale empty
+                         date/time for BOOKING_PENDING rows. The patient's
+                         step-2 selections live only in hidden inputs +
+                         summary text — until form submit they don't reach
+                         the DB. We add `confirmation-appt-row` here so
+                         booking.js can mirror each step-2 section's live
+                         pick into the matching confirmation row whenever
+                         step 6 becomes visible. --}}
+                    <div class="container mb-4 confirmation-booked-appointments"
                         style="border: 1px solid #e1e1e1;border-radius: 15px;padding-top: 16px;padding-bottom:24px;">
                         <h2 class="h3 fw-bold mb-4">Booked Appointments</h2>
 
                         @foreach (\App\Models\Appointment::where('relation_id', $appointment->relation_id)->get() as $key => $relation)
-                            <div class="mt-4 container"
+                            <div class="mt-4 container confirmation-appt-row" data-index="{{ $key }}"
                                 style="background-color: #eaecef;border-radius: 13px;padding-top: 15px;padding-bottom: 15px;">
                                 <div class="row">
                                     <div class="col-md-2">
@@ -479,8 +499,8 @@
                                         <p style="color:#6c757d;font-size:13px" class="m-0">
                                             {{ $relation->services->name . ' ' . ' with ' . ($relation->doctor->user->first_name . ' ' . $relation->doctor->user->last_name) . ' (' . '60 min)' }}
                                         </p>
-                                        <p style="color:#6c757d;font-size:13px" class="m-0 date-time">Date & Time not
-                                            selected</p>
+                                        <p style="color:#6c757d;font-size:13px" class="m-0 confirmation-date-time">Date &
+                                            Time not selected</p>
                                     </div>
                                 </div>
                             </div>

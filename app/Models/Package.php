@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * First-class Package entity.
@@ -24,41 +25,20 @@ use Illuminate\Database\Eloquent\Model;
 class Package extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
-    /**
-     * AP-03 V8: When a Package is deleted, HARD DELETE all related appointments
-     * (including already-cancelled ones), their transactions, consent documents
-     * and Google Calendar links. Client requirement: "The cancelled appointment
-     * should no longer exist, as we deleted the package."
-     *
-     * Note: The primary entry point is AppointmentController::destroy() which already
-     * does this cleanup. This event ensures consistency for any direct Package::delete()
-     * call (e.g. via tinker, future admin tools).
-     */
-    protected static function booted(): void
-    {
-        static::deleting(function (Package $package) {
-            $relationId = $package->relation_id;
-            if (! $relationId) {
-                return;
-            }
-
-            $appointments = Appointment::where('relation_id', $relationId)->get();
-            $apptIds       = $appointments->pluck('id')->all();
-            $apptUniqueIds = $appointments->pluck('appointment_unique_id')->filter()->all();
-
-            if (! empty($apptUniqueIds)) {
-                \App\Models\Transaction::whereIn('appointment_id', $apptUniqueIds)->delete();
-            }
-            if (! empty($apptIds)) {
-                Document::whereIn('appointment_id', $apptIds)->where('type', 'consent')->delete();
-                if (class_exists(UserGoogleAppointment::class)) {
-                    UserGoogleAppointment::whereIn('appointment_id', $apptIds)->delete();
-                }
-            }
-            Appointment::where('relation_id', $relationId)->delete();
-        });
-    }
+    // AP-16: The previous V8 `static::deleting` hook hard-cascaded
+    // appointments + transactions + documents whenever a Package was
+    // deleted. With SoftDeletes that hook would fire on EVERY soft
+    // delete and defeat the whole feature (transactions and docs would
+    // vanish on a recoverable trash, leaving nothing to restore).
+    //
+    // The cascade now lives explicitly inside the controller:
+    //   - Soft delete:  AppointmentController::softDeletePackageCascade()
+    //                   stamps a shared delete_batch_id and soft-deletes
+    //                   Package + appointments (transactions/docs untouched).
+    //   - Permanent:    AppointmentController::hardDeleteCascade()
+    //                   does the V8 wipe (force-delete from PackageTrashController).
 
     // AP-04: Package lifecycle statuses.
     const STATUS_PENDING             = 'pending';
@@ -92,6 +72,7 @@ class Package extends Model
         'payment_notes',
         'feedback_sent_at',
         'parent_package_id',
+        'delete_batch_id',
     ];
 
     protected $casts = [
@@ -207,9 +188,17 @@ class Package extends Model
                 }
             } elseif ($this->feedback_sent_at) {
                 $status = self::STATUS_FEEDBACK_SENT;
-            } elseif ($total > 0 && $done === $total) {
-                $status = self::STATUS_COMPLETED;
             } elseif ($booked > 0) {
+                // AP-17: An assessment package can only reach STATUS_COMPLETED
+                // through the feedback path (handled in the
+                // `$feedbackPkgs->isNotEmpty()` branch above). Without a
+                // corresponding feedback package — even if every
+                // assessment appointment is checked-out — we cap the
+                // status at APPOINTMENTS_BOOKED. Admin must send / link a
+                // feedback package before the assessment can be marked
+                // complete. Per client rule: "A package can only be
+                // 'finalised'/'completed' once the corresponding feedback
+                // package has been completed."
                 $status = self::STATUS_APPOINTMENTS_BOOKED;
             } elseif ($total > 0) {
                 $status = self::STATUS_LINK_SENT;
@@ -392,5 +381,41 @@ class Package extends Model
     public static function findByRelationId(string $relationId): ?self
     {
         return static::where('relation_id', $relationId)->first();
+    }
+
+    /**
+     * CP-28: Refresh the derived status for whichever Package owns this
+     * relation_id, and — for feedback packages — also roll up to the
+     * parent assessment package so its status reflects the full
+     * assessment→feedback→completed lifecycle.
+     *
+     * Call this after ANY change to an appointment's status (check-in,
+     * check-out, cancel) so the listing columns never drift from the
+     * underlying appointment state. Wrapped in try/catch here too —
+     * status rollup must never be the reason a status update fails.
+     */
+    public static function refreshForRelation(?string $relationId): void
+    {
+        if (! $relationId) {
+            return;
+        }
+        try {
+            $pkg = static::where('relation_id', $relationId)->first();
+            if (! $pkg) {
+                return;
+            }
+            $pkg->refreshStatus();
+            if ($pkg->appointment_type === 'feedback' && $pkg->parent_package_id) {
+                $parent = static::find($pkg->parent_package_id);
+                if ($parent) {
+                    $parent->refreshStatus();
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('CP-28: Package::refreshForRelation failed', [
+                'relation_id' => $relationId,
+                'error'       => $e->getMessage(),
+            ]);
+        }
     }
 }

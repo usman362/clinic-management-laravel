@@ -370,11 +370,14 @@ class AppointmentController extends AppBaseController
         $url = route('appointments.index');
 
         if (getLogInUser()->hasRole('patient')) {
-            if ($appointment->appointment_type === 'feedback') {
-                $url = route('patients.patient-bookings-feedback');
-            } else {
-                $url = route('patients.booking.detail', $appointment->relation_id);
-            }
+            // CP-27: Patient post-booking redirects standardised to the
+            // redesigned `patients.patient-appointments-index` list. The
+            // old `patients.booking.detail` (assessment) and
+            // `patients.patient-bookings-feedback` (feedback) pages were
+            // the legacy minimal layout — the unified Appointments page
+            // shows date/time, status, doctor with the new design and is
+            // the single place patients now manage all their bookings.
+            $url = route('patients.patient-appointments-index');
         }
         $data = [
             'url' => $url,
@@ -422,14 +425,16 @@ class AppointmentController extends AppBaseController
     /**
      * Remove the specified Appointment from storage.
      *
-     * AP-03 V8: When an appointment is deleted from the admin Packages page (or any
-     * delete action), HARD DELETE all appointments in the same package — including
-     * already-cancelled ones — plus their transactions, consent documents, Google
-     * Calendar links, and the Package record itself.
+     * AP-16: Soft-delete cascade. The trash button now stamps a shared
+     * `delete_batch_id` (ULID) on the Package + every appointment with the
+     * same relation_id + every child feedback Package + their appointments,
+     * then soft-deletes those rows (deleted_at). Transactions, consent
+     * documents, Google calendar links are NOT touched — they stay linked
+     * so a Restore puts the package back exactly as it was.
      *
-     * Previously we only soft-cancelled (status=CANCELLED) sibling appointments,
-     * leaving cancelled rows visible in the patient overview. Client requirement:
-     * "The cancelled appointment should no longer exist, as we deleted the package."
+     * The original V8 hard-cascade is preserved as `hardDeleteCascade()`
+     * and is invoked by `PackageTrashController::forceDestroy()` when the
+     * admin permanently deletes a trashed package.
      */
     public function destroy(Appointment $appointment): JsonResponse
     {
@@ -440,78 +445,30 @@ class AppointmentController extends AppBaseController
         }
 
         $relationId = $appointment->relation_id;
-        // AP-03: Capture patient details BEFORE the transaction so we can
-        // notify them once the delete succeeds. We can't read the patient
-        // via the appointment anymore after its row is gone.
-        $patientUserId   = optional(optional($appointment->patient)->user)->id
+        // Capture patient user id BEFORE the transaction. We need it for
+        // the notification fired after commit, and the appointment row may
+        // be soft-deleted before then (relations on a trashed model still
+        // resolve, but it's clearer to read it once up front).
+        $patientUserId = optional(optional($appointment->patient)->user)->id
             ?? Patient::where('id', $appointment->patient_id)->value('user_id');
-        $deletedCount    = 0;
+        $deletedCount  = 0;
+        $batchId       = (string) Str::ulid();
 
-        \DB::transaction(function () use ($appointment, $relationId, &$deletedCount) {
+        DB::transaction(function () use ($appointment, $relationId, $batchId, &$deletedCount) {
             if ($relationId) {
-                // Get ALL appointments in this package (any status, including cancelled)
-                $packageAppointments = Appointment::where('relation_id', $relationId)->get();
-                $apptIds       = $packageAppointments->pluck('id')->all();
-                $apptUniqueIds = $packageAppointments->pluck('appointment_unique_id')->filter()->all();
-                $deletedCount  = count($apptIds);
-
-                // Delete related transactions for ALL appointments in the package
-                if (! empty($apptUniqueIds)) {
-                    Transaction::whereIn('appointment_id', $apptUniqueIds)->delete();
-                }
-
-                // Delete consent documents tied to these appointments
-                if (! empty($apptIds)) {
-                    \App\Models\Document::whereIn('appointment_id', $apptIds)
-                        ->where('type', 'consent')
-                        ->delete();
-                }
-
-                // Delete Google Calendar links
-                if (! empty($apptIds) && class_exists(\App\Models\UserGoogleAppointment::class)) {
-                    \App\Models\UserGoogleAppointment::whereIn('appointment_id', $apptIds)->delete();
-                }
-
-                // AP-03: Hard-delete any child feedback packages tied to this
-                // assessment package (via parent_package_id), plus all their
-                // appointments / transactions / docs — same treatment as the
-                // primary package so nothing lingers on the client overview.
-                $parentPkg = Package::where('relation_id', $relationId)->first();
-                if ($parentPkg) {
-                    $feedbackPkgs = Package::where('parent_package_id', $parentPkg->id)->get();
-                    foreach ($feedbackPkgs as $fbPkg) {
-                        $fbAppts = Appointment::where('relation_id', $fbPkg->relation_id)->get();
-                        $fbApptIds  = $fbAppts->pluck('id')->all();
-                        $fbApptUids = $fbAppts->pluck('appointment_unique_id')->filter()->all();
-                        if (! empty($fbApptUids)) {
-                            Transaction::whereIn('appointment_id', $fbApptUids)->delete();
-                        }
-                        if (! empty($fbApptIds)) {
-                            \App\Models\Document::whereIn('appointment_id', $fbApptIds)
-                                ->where('type', 'consent')
-                                ->delete();
-                            if (class_exists(\App\Models\UserGoogleAppointment::class)) {
-                                \App\Models\UserGoogleAppointment::whereIn('appointment_id', $fbApptIds)->delete();
-                            }
-                        }
-                        Appointment::where('relation_id', $fbPkg->relation_id)->delete();
-                        $fbPkg->delete();
-                        $deletedCount += count($fbApptIds);
-                    }
-                }
-
-                // Hard-delete the Package record (no cascade SQL exists; we own it)
-                Package::where('relation_id', $relationId)->delete();
-
-                // Hard-delete every appointment in the package
-                Appointment::where('relation_id', $relationId)->delete();
+                $deletedCount = $this->softDeletePackageCascade($relationId, $batchId);
             } else {
-                // Orphan appointment without relation_id — just delete its transaction + itself
-                $transaction = Transaction::whereAppointmentId($appointment->appointment_unique_id)->first();
-                if ($transaction) {
-                    $transaction->delete();
+                // Orphan appointment without a package — cancel in place
+                // (same pattern as packaged appointments). Hard-delete
+                // path is reserved for the trash's "Permanent Delete"
+                // action which only operates on Package rows.
+                if ((int) $appointment->status !== Appointment::CANCELLED) {
+                    $appointment->pre_cancel_status = (int) $appointment->status;
+                    $appointment->status            = Appointment::CANCELLED;
+                    $appointment->cancel_reason     = 'clinic_removed';
                 }
-                $appointment->delete();
+                $appointment->delete_batch_id = $batchId;
+                $appointment->save();
                 $deletedCount = 1;
             }
         });
@@ -529,7 +486,7 @@ class AppointmentController extends AppBaseController
                     'user_id' => $patientUserId,
                 ]);
             } catch (\Throwable $e) {
-                \Log::warning('AP-03: Failed to create cancellation notification', [
+                \Log::warning('AP-16: Failed to create cancellation notification', [
                     'user_id' => $patientUserId,
                     'error'   => $e->getMessage(),
                 ]);
@@ -537,6 +494,142 @@ class AppointmentController extends AppBaseController
         }
 
         return $this->sendSuccess(__('messages.flash.appointment_delete'));
+    }
+
+    /**
+     * AP-16: Soft-delete the Package row(s) identified by $relationId
+     * (plus any child feedback packages) and CANCEL their appointments
+     * in place — the appointments stay visible to the patient as
+     * "Cancelled by clinic" with the rebook button suppressed via the
+     * existing `cancel_reason = 'clinic_removed'` view guards. Each
+     * affected row (Package + Appointment) is stamped with the shared
+     * $batchId so Restore can reverse exactly this set later.
+     *
+     * Appointments that were ALREADY cancelled at the time of the trash
+     * have their status / cancel_reason left intact (preserves any prior
+     * cancellation history) — only the batch id is stamped on them so
+     * Restore can still find them.
+     *
+     * Returns the total number of appointments touched (used in the
+     * patient notification message).
+     */
+    private function softDeletePackageCascade(string $relationId, string $batchId): int
+    {
+        $count = 0;
+
+        $count += $this->cancelAppointmentsForBatch($relationId, $batchId);
+
+        // The Package row itself — soft-delete + stamp batch id.
+        $primaryPkg = Package::where('relation_id', $relationId)->first();
+        if ($primaryPkg) {
+            $primaryPkg->delete_batch_id = $batchId;
+            $primaryPkg->save();
+            $primaryPkg->delete();
+
+            // Cascade to child feedback packages (only assessment packages
+            // have children; this is a no-op for feedback packages).
+            $feedbackPkgs = Package::where('parent_package_id', $primaryPkg->id)->get();
+            foreach ($feedbackPkgs as $fbPkg) {
+                $count += $this->cancelAppointmentsForBatch($fbPkg->relation_id, $batchId);
+                $fbPkg->delete_batch_id = $batchId;
+                $fbPkg->save();
+                $fbPkg->delete();
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * AP-16 helper: cancel every appointment under a given relation_id and
+     * stamp them with the shared $batchId. Already-cancelled rows are
+     * stamped only (preserve original status + cancel_reason).
+     */
+    private function cancelAppointmentsForBatch(string $relationId, string $batchId): int
+    {
+        $appts = Appointment::where('relation_id', $relationId)->get();
+        foreach ($appts as $appt) {
+            if ((int) $appt->status === Appointment::CANCELLED) {
+                // Preserve prior cancellation; just link to this batch.
+                $appt->delete_batch_id = $batchId;
+                $appt->save();
+                continue;
+            }
+            $appt->pre_cancel_status = (int) $appt->status;
+            $appt->status            = Appointment::CANCELLED;
+            $appt->cancel_reason     = 'clinic_removed';
+            $appt->delete_batch_id   = $batchId;
+            $appt->save();
+        }
+        return $appts->count();
+    }
+
+    /**
+     * AP-16 / AP-03 V8: Permanent (hard) delete of a package and everything
+     * it owns. Mirrors the original V8 destroy logic. Invoked by
+     * PackageTrashController::forceDestroy() against an already
+     * soft-deleted Package row.
+     *
+     * Note: appointments are NOT soft-deleted (only marked CANCELLED);
+     * Package IS soft-deleted, so Package queries below use
+     * `Package::withTrashed()` while Appointment queries are direct.
+     *
+     * Returns total appointments hard-deleted.
+     */
+    public function hardDeleteCascade(string $relationId): int
+    {
+        $count = 0;
+
+        DB::transaction(function () use ($relationId, &$count) {
+            $packageAppointments = Appointment::where('relation_id', $relationId)->get();
+            $apptIds       = $packageAppointments->pluck('id')->all();
+            $apptUniqueIds = $packageAppointments->pluck('appointment_unique_id')->filter()->all();
+            $count         = count($apptIds);
+
+            if (! empty($apptUniqueIds)) {
+                Transaction::whereIn('appointment_id', $apptUniqueIds)->delete();
+            }
+            if (! empty($apptIds)) {
+                Document::whereIn('appointment_id', $apptIds)
+                    ->where('type', 'consent')
+                    ->delete();
+                if (class_exists(UserGoogleAppointment::class)) {
+                    UserGoogleAppointment::whereIn('appointment_id', $apptIds)->delete();
+                }
+            }
+
+            // Cascade: child feedback packages
+            $parentPkg = Package::withTrashed()->where('relation_id', $relationId)->first();
+            if ($parentPkg) {
+                $feedbackPkgs = Package::withTrashed()
+                    ->where('parent_package_id', $parentPkg->id)
+                    ->get();
+                foreach ($feedbackPkgs as $fbPkg) {
+                    $fbAppts = Appointment::where('relation_id', $fbPkg->relation_id)->get();
+                    $fbApptIds  = $fbAppts->pluck('id')->all();
+                    $fbApptUids = $fbAppts->pluck('appointment_unique_id')->filter()->all();
+                    if (! empty($fbApptUids)) {
+                        Transaction::whereIn('appointment_id', $fbApptUids)->delete();
+                    }
+                    if (! empty($fbApptIds)) {
+                        Document::whereIn('appointment_id', $fbApptIds)
+                            ->where('type', 'consent')
+                            ->delete();
+                        if (class_exists(UserGoogleAppointment::class)) {
+                            UserGoogleAppointment::whereIn('appointment_id', $fbApptIds)->delete();
+                        }
+                    }
+                    Appointment::where('relation_id', $fbPkg->relation_id)->delete();
+                    $fbPkg->forceDelete();
+                    $count += count($fbApptIds);
+                }
+            }
+
+            Package::withTrashed()->where('relation_id', $relationId)->forceDelete();
+            Appointment::where('relation_id', $relationId)->delete();
+        });
+
+        return $count;
     }
 
     /**
@@ -661,6 +754,11 @@ class AppointmentController extends AppBaseController
         $appointment->update([
             'status' => $input['appointmentStatus'],
         ]);
+
+        // CP-28: Roll up Package.status after any appointment state change
+        // so listings don't show "Pending" while badges say Completed.
+        Package::refreshForRelation($appointment->relation_id);
+
         $fullTime = $appointment->from_time . '' . $appointment->from_time_type . ' - ' . $appointment->to_time . '' . $appointment->to_time_type . ' ' . ' ' . Carbon::parse($appointment->date)->format('jS M, Y');
         // $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
         $patient = Patient::whereId($appointment->patient_id)->with('user')->first();
@@ -710,9 +808,19 @@ class AppointmentController extends AppBaseController
         if ($appointment->patient_id !== getLogInUser()->patient->id) {
             return $this->sendError(__('messages.common.not_allow__assess_record'));
         }
+        // CP-21: Always clear cancel_reason on a patient-initiated cancel.
+        // The same column is reused by AP-11 / V8 to mark
+        // `clinic_removed` (NOT rebookable). If a row had previously been
+        // marked clinic-removed and somehow ended up here, an explicit
+        // `null` keeps the rebook button visible — patient cancellations
+        // are always rebookable while the package is active.
         $appointment->update([
-            'status' => Appointment::CANCELLED,
+            'status'        => Appointment::CANCELLED,
+            'cancel_reason' => null,
         ]);
+
+        // CP-28: Roll up Package.status so the listing reflects the cancel.
+        Package::refreshForRelation($appointment->relation_id);
 
         $events = UserGoogleAppointment::with('user')
             ->where('appointment_id', $appointment->id)
@@ -733,6 +841,77 @@ class AppointmentController extends AppBaseController
             'type' => Notification::CANCELED,
             'user_id' => $doctor->user_id,
         ]);
+
+        return $this->sendSuccess(__('messages.flash.appointment_cancel'));
+    }
+
+    /**
+     * CP-21: Single-appointment cancel from the doctor / admin panel.
+     *
+     * The doctor's trash icon used to hit `appointments.destroy`, which
+     * (since the AP-16 soft-delete cascade) wipes the ENTIRE package out
+     * of view — making one click look like "all my appointments
+     * disappeared". This method cancels JUST the one appointment, keeping
+     * the row visible (status = CANCELLED, cancel_reason = NULL so it
+     * stays rebookable per AP-11), and notifies the patient.
+     */
+    public function cancelStatusByActor(Request $request): JsonResponse
+    {
+        $appointment = Appointment::findOrFail($request['appointmentId']);
+
+        // Doctor can only cancel their own appointments; admin can cancel any.
+        if (getLogInUser()->hasRole('doctor')) {
+            $doctor = getLogInUser()->doctor;
+            if (! $doctor || $appointment->doctor_id !== $doctor->id) {
+                return $this->sendError(__('messages.common.not_allow__assess_record'));
+            }
+        }
+
+        $appointment->update([
+            'status'        => Appointment::CANCELLED,
+            'cancel_reason' => null,
+        ]);
+
+        // CP-28: Roll up Package.status after doctor/admin single-row cancel.
+        Package::refreshForRelation($appointment->relation_id);
+
+        // Detach Google Calendar events for this appointment, mirroring
+        // the patient cancel path so neither side sees a stale slot.
+        try {
+            $events = UserGoogleAppointment::with('user')
+                ->where('appointment_id', $appointment->id)
+                ->get()
+                ->groupBy('user_id');
+            foreach ($events as $userID => $event) {
+                $user = $event[0]->user;
+                DeleteAppointmentFromGoogleCalendar::dispatch($event, $user);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('CP-21: google calendar detach failed', ['error' => $e->getMessage()]);
+        }
+
+        // Notify the patient that this specific appointment was cancelled.
+        try {
+            $patient = Patient::with('user')->find($appointment->patient_id);
+            if ($patient && $patient->user) {
+                $when = trim(
+                    ($appointment->from_time ? $appointment->from_time . ' ' . $appointment->from_time_type : '')
+                    . ' - '
+                    . ($appointment->to_time ? $appointment->to_time . ' ' . $appointment->to_time_type : '')
+                );
+                $title = 'Your appointment'
+                    . ($appointment->date ? ' on ' . Carbon::parse($appointment->date)->format('jS M, Y') : '')
+                    . ($when !== '-' ? ' (' . $when . ')' : '')
+                    . ' has been cancelled. You can rebook it from your appointments list.';
+                Notification::create([
+                    'title'   => $title,
+                    'type'    => Notification::CANCELED,
+                    'user_id' => $patient->user->id,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('CP-21: cancel notification failed', ['error' => $e->getMessage()]);
+        }
 
         return $this->sendSuccess(__('messages.flash.appointment_cancel'));
     }
@@ -1363,54 +1542,142 @@ class AppointmentController extends AppBaseController
                 $baseUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
 
                 if ($apiKey && $submissionId) {
-                    // Jotform exposes two endpoints that return the rendered PDF.
-                    // We try them in order — whichever one succeeds wins.
+                    // CP-29: Try the full set of Jotform PDF endpoints. Historically
+                    // this code tried only 3 URLs with inconsistent param casing
+                    // (`formid` vs `formID`, `submissionid` vs `submissionID`,
+                    // `apiKey` vs `apikey`) — Jotform's endpoints are strict about
+                    // case on some instances, so the fetch silently fell through
+                    // to the dompdf fallback and the admin ended up with a
+                    // generated summary PDF instead of the official signed one
+                    // the client wanted. Cover every known variant.
                     $attempts = [];
-                    if ($formId) {
-                        $attempts[] = $baseUrl . '/generatePDF?formid=' . urlencode($formId)
-                            . '&submissionid=' . urlencode($submissionId)
-                            . '&apiKey=' . urlencode($apiKey);
-                        $attempts[] = $baseUrl . '/pdf-converter/' . urlencode($formId)
-                            . '/fill-pdf?download=1'
-                            . '&submissionID=' . urlencode($submissionId)
-                            . '&apikey=' . urlencode($apiKey);
-                    }
-                    // Fallback URL that doesn't require formID
-                    $attempts[] = 'https://www.jotform.com/server.php?action=getSubmissionPDF'
-                        . '&sid=' . urlencode($submissionId)
-                        . ($formId ? '&formID=' . urlencode($formId) : '')
-                        . '&apiKey=' . urlencode($apiKey);
 
-                    foreach ($attempts as $url) {
+                    // (1) Submission metadata → follow the canonical `pdf_url`.
+                    //     Most reliable because Jotform itself returns the
+                    //     fully-rendered signed PDF path.
+                    $attempts[] = [
+                        'url'     => $baseUrl . '/submission/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey),
+                        'kind'    => 'metadata',
+                    ];
+
+                    // (2) /generatePDF — legacy but widely supported.
+                    if ($formId) {
+                        $attempts[] = [
+                            'url'  => $baseUrl . '/generatePDF?formID=' . urlencode($formId)
+                                        . '&submissionID=' . urlencode($submissionId)
+                                        . '&apikey=' . urlencode($apiKey),
+                            'kind' => 'pdf',
+                        ];
+                        $attempts[] = [
+                            'url'  => $baseUrl . '/generatePDF?formid=' . urlencode($formId)
+                                        . '&submissionid=' . urlencode($submissionId)
+                                        . '&apiKey=' . urlencode($apiKey),
+                            'kind' => 'pdf',
+                        ];
+
+                        // (3) PDF converter (Smart PDF / Signed PDF endpoint).
+                        $attempts[] = [
+                            'url'  => $baseUrl . '/pdf-converter/' . urlencode($formId)
+                                        . '/fill-pdf?download=1'
+                                        . '&submissionID=' . urlencode($submissionId)
+                                        . '&apikey=' . urlencode($apiKey),
+                            'kind' => 'pdf',
+                        ];
+                    }
+
+                    // (4) Legacy server.php fallback.
+                    $attempts[] = [
+                        'url'  => 'https://www.jotform.com/server.php?action=getSubmissionPDF'
+                                    . '&sid=' . urlencode($submissionId)
+                                    . ($formId ? '&formID=' . urlencode($formId) : '')
+                                    . '&apiKey=' . urlencode($apiKey),
+                        'kind' => 'pdf',
+                    ];
+
+                    foreach ($attempts as $attempt) {
+                        $url  = $attempt['url'];
+                        $kind = $attempt['kind'];
                         try {
                             $response = \Illuminate\Support\Facades\Http::timeout(30)
                                 ->withHeaders(['APIKEY' => $apiKey])
                                 ->get($url);
 
-                            if ($response->successful()) {
-                                $body = $response->body();
-                                // PDF files start with "%PDF-"
-                                if (is_string($body) && strncmp($body, '%PDF-', 5) === 0) {
-                                    $pdfBytes  = $body;
-                                    $pdfSource = 'jotform_api';
-                                    break;
-                                }
+                            if (! $response->successful()) {
+                                \Log::debug('CP-29: Jotform attempt non-2xx', [
+                                    'url'    => preg_replace('/apikey=[^&]+/i', 'apikey=***', $url),
+                                    'status' => $response->status(),
+                                ]);
+                                continue;
                             }
+
+                            $body = $response->body();
+
+                            if ($kind === 'metadata') {
+                                // JSON response — extract pdf_url if present.
+                                $json = json_decode($body, true);
+                                $pdfUrl = null;
+                                if (is_array($json) && isset($json['content'])) {
+                                    $c = $json['content'];
+                                    // Jotform exposes the PDF under various keys depending
+                                    // on instance; try the common ones.
+                                    foreach (['pdf_url', 'pdfUrl', 'pdf', 'download_url', 'downloadUrl'] as $key) {
+                                        if (!empty($c[$key]) && is_string($c[$key])) {
+                                            $pdfUrl = $c[$key];
+                                            break;
+                                        }
+                                    }
+                                }
+                                if ($pdfUrl) {
+                                    $pdfResp = \Illuminate\Support\Facades\Http::timeout(30)
+                                        ->withHeaders(['APIKEY' => $apiKey])
+                                        ->get($pdfUrl);
+                                    if ($pdfResp->successful()) {
+                                        $pdfBody = $pdfResp->body();
+                                        if (is_string($pdfBody) && strncmp($pdfBody, '%PDF-', 5) === 0) {
+                                            $pdfBytes  = $pdfBody;
+                                            $pdfSource = 'jotform_api';
+                                            \Log::info('CP-29: signed PDF fetched via metadata→pdf_url', [
+                                                'submission_id' => $submissionId,
+                                                'bytes'         => strlen($pdfBody),
+                                            ]);
+                                            break;
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // Direct PDF endpoints — body should be %PDF-...
+                            if (is_string($body) && strncmp($body, '%PDF-', 5) === 0) {
+                                $pdfBytes  = $body;
+                                $pdfSource = 'jotform_api';
+                                \Log::info('CP-29: signed PDF fetched directly', [
+                                    'endpoint'      => preg_replace('/apikey=[^&]+/i', 'apikey=***', $url),
+                                    'submission_id' => $submissionId,
+                                    'bytes'         => strlen($body),
+                                ]);
+                                break;
+                            }
+
+                            \Log::debug('CP-29: Jotform attempt returned non-PDF', [
+                                'url'         => preg_replace('/apikey=[^&]+/i', 'apikey=***', $url),
+                                'body_preview'=> substr((string) $body, 0, 120),
+                            ]);
                         } catch (\Throwable $e) {
-                            \Log::warning('Jotform PDF fetch attempt failed', [
-                                'url'            => $url,
+                            \Log::warning('CP-29: Jotform PDF fetch attempt failed', [
+                                'url'            => preg_replace('/apikey=[^&]+/i', 'apikey=***', $url),
                                 'error'          => $e->getMessage(),
                                 'appointment_id' => $appointment->id,
                             ]);
-                            // try next URL
                         }
                     }
 
                     if ($pdfSource !== 'jotform_api') {
-                        \Log::warning('Jotform API did not return a valid PDF — falling back to dompdf', [
+                        \Log::warning('CP-29: Jotform API did not return a valid PDF — falling back to dompdf', [
                             'appointment_id' => $appointment->id,
                             'submission_id'  => $submissionId,
                             'form_id'        => $formId,
+                            'attempts_tried' => count($attempts),
                         ]);
                     }
                 }

@@ -24,14 +24,15 @@ class PatientAppointmentController extends AppBaseController
         return view('patients.appointments.index', compact('paymentStatus', 'paymentGateway','logo'));
     }
 
-    public function bookingAppointments($id): \Illuminate\View\View
+    public function bookingAppointments($id)
     {
-        $allPaymentStatus = getAllPaymentStatus();
-        $paymentStatus = Arr::except($allPaymentStatus, [Appointment::MANUALLY]);
-        $paymentGateway = getPaymentGateway();
-        $logo = Setting::where('key', 'logo')->pluck('value');
-
-        return view('patients.appointments.bookings', compact('id','paymentStatus', 'paymentGateway','logo'));
+        // CP-27: Old "package detail" page replaced by the unified
+        // /patients/appointments listing (new redesign). Any link still
+        // pointing here — sidebar items, action buttons, post-booking
+        // redirects from older code paths — now lands on the new design
+        // automatically. Kept the route registered (instead of deleting)
+        // so nothing 404s.
+        return redirect()->route('patients.patient-appointments-index');
     }
 
     public function confirmed_bookings(): \Illuminate\View\View
@@ -44,19 +45,20 @@ class PatientAppointmentController extends AppBaseController
         return view('patients.appointments.confirmed-bookings', compact('paymentStatus', 'paymentGateway','logo'));
     }
 
-    public function feedbackBookingAppointments($id): \Illuminate\View\View
+    public function feedbackBookingAppointments($id)
     {
-        return view('patients.appointments.feedback-booking-detail', compact('id'));
+        // CP-27: Same as bookingAppointments() above — old detail page is
+        // gone, unified appointments list owns this now.
+        return redirect()->route('patients.patient-appointments-index');
     }
 
-    public function feedback_bookings(): \Illuminate\View\View
+    public function feedback_bookings()
     {
-        $allPaymentStatus = getAllPaymentStatus();
-        $paymentStatus = Arr::except($allPaymentStatus, [Appointment::MANUALLY]);
-        $paymentGateway = getPaymentGateway();
-        $logo = Setting::where('key', 'logo')->pluck('value');
-
-        return view('patients.appointments.feedback-bookings', compact('paymentStatus', 'paymentGateway','logo'));
+        // CP-27: Old separate "Feedback Bookings" listing replaced by
+        // the unified appointments page. Sidebar nav still points here
+        // for users with old bookmarks; this redirect keeps them landing
+        // on the new design.
+        return redirect()->route('patients.patient-appointments-index');
     }
 
     public function pending_bookings()

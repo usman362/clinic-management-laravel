@@ -80,17 +80,36 @@ class FeedbackAppointmentRepository extends BaseRepository
 
             // Create the first-class Package record for this feedback package
             Package::create([
-                'relation_id'      => $relation_id,
-                'patient_id'       => $input['patient_id'],
-                'created_by'       => Auth::id(),
-                'appointment_type' => 'feedback',
-                'description'      => $input['description'] ?? null,
-                'payable_amount'   => $input['payable_amount'] ?? null,
-                'payment_type'     => $input['payment_type'] ?? null,
+                'relation_id'       => $relation_id,
+                'patient_id'        => $input['patient_id'],
+                'created_by'        => Auth::id(),
+                'appointment_type'  => 'feedback',
+                // AP-17: Wizard's Step 1 sends `parent_package_id` (the
+                // underlying assessment package the feedback is being
+                // created for). Persist it so downstream features
+                // (status rollup, "Send Feedback" doctor coverage,
+                // restore cascade) can find the link.
+                'parent_package_id' => ! empty($input['parent_package_id']) ? (int) $input['parent_package_id'] : null,
+                'description'       => $input['description'] ?? null,
+                'payable_amount'    => $input['payable_amount'] ?? null,
+                'payment_type'      => $input['payment_type'] ?? null,
                 'payment_method'   => $input['payment_method'] ?? null,
             ]);
 
             foreach ($input['appointments'] as $key => $appt) {
+                // AP-19: Skip rows missing service_id / doctor_id rather
+                // than crashing on PHP 8.1+ "Undefined array key". The
+                // wizard validates client-side, but legacy clone handlers
+                // and stale orphan inputs can still produce sparse rows.
+                if (empty($appt['service_id']) || empty($appt['doctor_id'])) {
+                    \Log::warning('AP-19: feedback store skipping incomplete row', [
+                        'key'        => $key,
+                        'service_id' => $appt['service_id'] ?? null,
+                        'doctor_id'  => $appt['doctor_id']  ?? null,
+                    ]);
+                    continue;
+                }
+
                 $input['appointment_unique_id'] = strtoupper(Appointment::generateAppointmentUniqueId());
                 $fromTime = explode(' ', ($appt['from_time'] ?? ''));
                 $toTime = explode(' ', ($appt['to_time'] ?? ''));
@@ -102,7 +121,7 @@ class FeedbackAppointmentRepository extends BaseRepository
                 $appointment->doctor_id = $appt['doctor_id'];
                 $appointment->patient_id = $input['patient_id'];
                 $appointment->date = $appt['date'] ?? '';
-                $appointment->description = $input['description'];
+                $appointment->description = $input['description'] ?? null;
                 $appointment->status = 5;
                 $appointment->relation_id = $relation_id;
                 $appointment->service_id = $appt['service_id'];
@@ -124,34 +143,35 @@ class FeedbackAppointmentRepository extends BaseRepository
                 $createdAppointmentIds[] = $appointment->id;
             }
 
+            // AP-19: The block below assumed a single-appointment payload
+            // (top-level `service_id`, `doctor_id`, `date`, `from_time`,
+            // `to_time`). The new wizard sends a multi-row `appointments[]`
+            // array WITHOUT those top-level keys, so direct subscripts
+            // here used to throw "Undefined array key". The patient
+            // notification + emails for individual appointment slots are
+            // the patient's responsibility once they book a slot via
+            // their booking link — at create time we just notify the
+            // patient that a feedback package is now available. Per-row
+            // doctor notifications (with full slot times) likewise
+            // belong on slot pickup, not package creation.
             $patient = Patient::whereId($input['patient_id'])->with('user')->first();
-            $input['patient_name'] = $patient->user->full_name;
-            $input['original_from_time'] = ($fromTime[0] ?? '') . ' ' . ($fromTime[1] ?? '');
-            $input['original_to_time'] = ($toTime[0] ?? '') . ' ' . ($toTime[1] ?? '');
-            $service = Service::whereId($input['service_id'])->first();
-            $input['service'] = $service->name;
-
-            if ($patient->user->email_notification) {
-                $deferredMail = ['email' => $patient->user->email, 'data' => $input];
+            if ($patient && $patient->user) {
+                $input['patient_name'] = $patient->user->full_name;
+                if (! getLogInUser()->hasRole('patient')) {
+                    Notification::create([
+                        'title'   => 'A new feedback package has been created for you. Please pick a slot for each feedback appointment.',
+                        'type'    => Notification::BOOKED,
+                        'user_id' => $patient->user->id,
+                    ]);
+                }
+                if ($patient->user->email_notification) {
+                    // The wizard doesn't have a single date/time — defer mail
+                    // dispatch with just the booking link so the patient can
+                    // navigate into the package and pick slots.
+                    $input['booking_link'] = env('APP_URL') . 'patients/feedback-bookings';
+                    $deferredMail = ['email' => $patient->user->email, 'data' => $input];
+                }
             }
-
-            $input['full_time'] = $input['original_from_time'] . '-' . $input['original_to_time'] . ' ' . Carbon::parse($input['date'])->format('jS M, Y');
-            if (! getLogInUser()->hasRole('patient')) {
-                Notification::create([
-                    'title' => Notification::APPOINTMENT_CREATE_PATIENT_MSG . ' ' . $input['full_time'],
-                    'type' => Notification::BOOKED,
-                    'user_id' => $patient->user->id,
-                ]);
-            }
-
-            $doctor = Doctor::whereId($input['doctor_id'])->with('user')->first();
-            $input['doctor_name'] = $doctor->user->full_name;
-
-            Notification::create([
-                'title' => $patient->user->full_name . ' ' . Notification::APPOINTMENT_CREATE_DOCTOR_MSG . ' ' . $input['full_time'],
-                'type' => Notification::BOOKED,
-                'user_id' => $doctor->user->id,
-            ]);
 
             DB::commit();
         } catch (Exception $e) {

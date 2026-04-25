@@ -64,6 +64,33 @@ class SettingController extends AppBaseController
             compact('sectionName', 'setting', 'countries', 'specialities', 'states', 'cities', 'currencies','languages','courentlanguage', 'paymentGateways', 'selectedPaymentGateways'));
     }
 
+    /**
+     * AP-20: Dedicated endpoint to save ONLY the Jotform API key.
+     *
+     * The generic settings form runs `UpdateSettingRequest` which, for
+     * the `smtp` section, requires `mail_username`, `mail_from_name` and
+     * `mail_from_address`. If any of those is blank, validation fails
+     * and the user is redirected back with errors — the jotform_api_key
+     * never reaches the DB. This endpoint skips that validation so the
+     * admin can save the Jotform key independently of SMTP setup state.
+     */
+    public function saveJotformKey(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $key = trim((string) $request->input('jotform_api_key', ''));
+        $row = Setting::firstOrCreate(
+            ['key' => 'jotform_api_key'],
+            ['value' => '']
+        );
+        $row->update(['value' => $key]);
+        \Cache::flush('settings');
+        \Cache::put('settings', Setting::all()->keyBy('key'));
+        \Log::info('[saveJotformKey] saved', [
+            'len'    => strlen($key),
+            'masked' => $key === '' ? '(empty)' : substr($key, 0, 4) . '…' . substr($key, -4),
+        ]);
+        return response()->json(['success' => true, 'message' => 'Jotform API key saved']);
+    }
+
     public function update(UpdateSettingRequest $request): RedirectResponse
     {
         // AP-02 / CP-12 diagnostic: log every settings save so we can see

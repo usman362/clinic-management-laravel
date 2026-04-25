@@ -82,6 +82,16 @@ class Appointment extends Model
         'relation_id',
         'appointment_type',
         'cancel_reason',
+        // AP-16: stamped during package soft-delete so a restore can find
+        // the affected rows and reverse the cancellation in lockstep with
+        // the parent Package being un-trashed.
+        'delete_batch_id',
+        // AP-16: snapshot of `status` taken right before the appointment is
+        // forced to CANCELLED by a package trash, so Restore can roll it
+        // back to whatever state (BOOKED / CHECK_IN / CHECK_OUT / etc.) it
+        // was in pre-trash. Null for appointments that were already
+        // CANCELLED at trash time (preserve their original cancel_reason).
+        'pre_cancel_status',
     ];
 
     protected $casts = [

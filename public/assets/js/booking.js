@@ -357,7 +357,32 @@
                 } catch (err) {
                     console.error('[CP-09] updateStep6ChildDetails failed:', err);
                 }
+                // CP-26: Mirror live step-2 selections into the
+                // server-rendered Booked Appointments rows. Without this
+                // the confirmation page shows DB values (empty / stale
+                // for BOOKING_PENDING rows) until form submit completes
+                // and the user reloads — so patients couldn't see the
+                // slots they had just picked.
+                try {
+                    syncStep6BookedAppointments();
+                } catch (err) {
+                    console.error('[CP-26] syncStep6BookedAppointments failed:', err);
+                }
             }
+        }
+
+        function syncStep6BookedAppointments() {
+            // For each section in step 2 (`.appointments-section[data-index=N]`),
+            // copy its `.date-time` summary into the matching step-6 row
+            // (`.confirmation-appt-row[data-index=N] .confirmation-date-time`).
+            $('.appointments-section').each(function () {
+                var idx     = $(this).attr('data-index');
+                var summary = ($(this).find('.date-time').first().text() || '').trim();
+                if (!summary) return;
+                var $target = $('.confirmation-appt-row[data-index="' + idx + '"] .confirmation-date-time');
+                if (!$target.length) return;
+                $target.text(summary);
+            });
         }
 
         /* ==========================
@@ -398,17 +423,35 @@
             /* STEP 2 */
             if (stepIndex === 1) {
                 let isValid = true;
+                const $sections = $('.appointments-section');
+                console.log('[CP-24] validateStep(1): sections=', $sections.length);
 
-                $('.appointments-section').each(function () {
+                $sections.each(function (i) {
 
-                    const date = $(this).find('.appointmentDate').val();
-                    const from = $(this).find('.timeSlot').val();
-                    const to = $(this).find('.toTime').val();
+                    // CP-24: Hidden `.timeSlot` / `.toTime` inputs are
+                    // pre-rendered by the blade as
+                    // `$relation->from_time . ' ' . $relation->from_time_type`
+                    // — for an empty appointment row that string is `' '`
+                    // (a single space), which is truthy. The previous
+                    // `if (!from || !to)` check therefore accepted blank
+                    // slots and let the wizard advance without the
+                    // patient picking one. Trim before truthy-checking,
+                    // and additionally require an `.activeSlot` highlight
+                    // to be present in the slot list — that's only
+                    // applied by the click handler when the user
+                    // explicitly picks a time.
+                    const date = ($(this).find('.appointmentDate').val() || '').trim();
+                    const from = ($(this).find('.timeSlot').val() || '').trim();
+                    const to   = ($(this).find('.toTime').val() || '').trim();
+                    const hasActiveSlot = $(this).find('.time-slot.activeSlot').length > 0;
 
-                    if (!date || !from || !to) {
+                    console.log('[CP-24] section', i, { date, from, to, hasActiveSlot });
+
+                    if (!date || !from || !to || !hasActiveSlot) {
                         showNotification('Please select date and time for all appointments.');
                         $(this).find('.appointmentDate').addClass('is-invalid');
                         isValid = false;
+                        console.log('[CP-24] BLOCKED at section', i);
                         return false;
                     }
                 });
@@ -757,6 +800,18 @@
             var $section = $(this).closest('.appointments-section');
             if (!$section.length) return;
 
+            // CP-23: When the same section receives two change events in
+            // quick succession (initial blade render + flatpickr init +
+            // CP-08 draft restore that programmatically `.trigger('change')`),
+            // both fired the AJAX. Each cleared the slot container at the
+            // top, but both appended on success — net 2× the slots in the
+            // DOM. Abort the previous in-flight request before firing a
+            // new one so only the latest response paints the UI.
+            var prevXhr = $section.data('slotLoadXhr');
+            if (prevXhr && typeof prevXhr.abort === 'function') {
+                try { prevXhr.abort(); } catch (e) {}
+            }
+
             var selectedDate = $(this).val();
             // CP-09/DP-02: Hidden input fallbacks for disabled selects
             var doctorId = $section.find('.adminAppointmentDoctorId').val() || $section.find('.adminAppointmentDoctorIdHidden').val() || '';
@@ -799,7 +854,7 @@
             var tz = new Date().getTimezoneOffset();
             tz = tz === 0 ? 0 : -tz;
 
-            $.ajax({
+            var xhr = $.ajax({
                 url: getSessionTimeUrl(),
                 type: 'GET',
                 data: {
@@ -814,6 +869,12 @@
 
                     var slots = result.data['slots'] || [];
                     var bookedSlots = result.data['bookedSlot'] || [];
+
+                    // CP-23: Belt-and-braces — even if a stale request
+                    // somehow slipped past the abort above (browser
+                    // coalesce, etc.), wipe the container right before
+                    // re-painting so we never accumulate two answers.
+                    $slotData.html('');
 
                     if (slots.length === 0) {
                         $noSlot.removeClass('d-none');
@@ -868,11 +929,16 @@
                         // fresh slot.
                     }
                 },
-                error: function () {
+                error: function (jqXHR, textStatus) {
+                    // Aborted requests pass through textStatus='abort' — don't
+                    // surface the error UI for those, that's our own doing.
+                    if (textStatus === 'abort') return;
                     $noSlot.removeClass('d-none');
                     $timeOver.addClass('d-none');
                 }
             });
+            // CP-23: Stash the xhr so the next change can abort it.
+            $section.data('slotLoadXhr', xhr);
         });
 
         /* Time slot click handler (per section) */

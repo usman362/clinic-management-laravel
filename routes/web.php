@@ -166,6 +166,12 @@ Route::get('doctor-available-dates', [DoctorSessionController::class, 'getDoctor
 Route::get('get-service', [ServiceController::class, 'getService'])->name('get-service');
 Route::get('get-charge', [ServiceController::class, 'getCharge'])->name('get-charge');
 Route::get('get-doctors-by-service', [ServiceController::class, 'getDoctorsByService'])->name('get-doctors-by-service');
+// AP-17: Used by the standalone "Create Feedback Package" wizard (Step 1) to
+// populate the "Parent Assessment Package" dropdown after the admin picks a
+// client. Returns assessment packages owned by the patient that DO NOT yet
+// have a child feedback package linked via `parent_package_id` — prevents
+// admins from creating duplicate feedback packages for the same assessment.
+Route::get('get-patient-assessment-packages', [\App\Http\Controllers\FeedbackAppointmentController::class, 'getPatientAssessmentPackages'])->name('get-patient-assessment-packages');
 Route::post(
     'front-appointment-book',
     [AppointmentController::class, 'frontAppointmentBook']
@@ -265,6 +271,8 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
     Route::middleware('permission:manage_settings')->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('setting.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('setting.update');
+        // AP-20: Independent save for Jotform API key (bypasses SMTP validation).
+        Route::post('/settings/jotform-key', [SettingController::class, 'saveJotformKey'])->name('setting.jotform-key.save');
         Route::get('states-list', [SettingController::class, 'getStates'])->name('states-list');
         Route::get('cities-list', [SettingController::class, 'getCities'])->name('cities-list');
         Route::resource('clinic-schedules', ClinicScheduleController::class);
@@ -340,8 +348,25 @@ Route::prefix('admin')->middleware('auth', 'xss', 'checkUserStatus', 'checkImper
     )->name('feedback.send-from-package');
 
     Route::middleware('permission:manage_appointments')->group(function () {
+        // AP-16: Trash management for soft-deleted packages. Defined BEFORE
+        // `Route::resource('appointments', ...)` so /packages/trash isn't
+        // intercepted by the resource's wildcard segment.
+        Route::get('packages/trash', [\App\Http\Controllers\PackageTrashController::class, 'index'])
+            ->name('packages.trash.index');
+        Route::post('packages/trash/{id}/restore', [\App\Http\Controllers\PackageTrashController::class, 'restore'])
+            ->name('packages.trash.restore');
+        Route::delete('packages/trash/{id}', [\App\Http\Controllers\PackageTrashController::class, 'forceDestroy'])
+            ->name('packages.trash.force');
+
         Route::resource('appointments', AppointmentController::class);
         Route::resource('feedback-appointments', FeedbackAppointmentController::class);
+        // CP-21: Single-appointment cancel for doctor / admin. Distinct from
+        // the resource's destroy route which now soft-deletes the whole
+        // package (AP-16 trash).
+        Route::post(
+            'appointments-cancel',
+            [AppointmentController::class, 'cancelStatusByActor']
+        )->name('appointments.cancel-single');
         Route::post(
             'appointments/{appointment}',
             [AppointmentController::class, 'changeStatus']

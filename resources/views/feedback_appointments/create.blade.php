@@ -204,18 +204,43 @@
                     </div>
                     {{-- {{ Form::hidden(null, false, ['id' => 'appointmentIsEdit']) }} --}}
 
-                    {{ Form::open(['route' => 'appointments.store', 'id' => 'addAppointmentForm']) }}
+                    {{-- AP-17: Route to feedback-appointments.store (was the assessment
+                         packages route, which silently filed feedback packages under
+                         "Packages"). Hidden `appointment_type=feedback` makes the
+                         shared AppointmentRepository::store() classify the new Package
+                         + Appointment rows correctly. --}}
+                    {{ Form::open(['route' => 'feedback-appointments.store', 'id' => 'addAppointmentForm']) }}
+                    {{ Form::hidden('appointment_type', 'feedback') }}
 
                     {{-- @include('appointments.fields') --}}
 
                     <!-- STEP 1: CLIENT -->
                     <div class="form-step active">
                         <h3 class="fw-bold mb-3">Select Client & Package Setup</h3>
-                        <h5 class="fw-bold mb-3">Choose a client and configure the booking package</h5>
+                        <h5 class="fw-bold mb-3">Choose a client and configure the feedback package</h5>
                         <hr>
                         <div class="mb-3">
                             {{ Form::label('Patient', __('messages.appointment.patient') . ':', ['class' => 'form-label required']) }}
                             {{ Form::select('patient_id', $data['patients'], null, ['class' => 'io-select2 form-select', 'id' => 'client_id', 'data-control' => 'select2', 'placeholder' => __('messages.appointment.patient')]) }}
+                        </div>
+
+                        {{-- AP-17: Underlying assessment package picker. Populated
+                             via AJAX on client change — only shows assessment
+                             packages that don't yet have a feedback child (avoids
+                             accidental duplicates). Required: a feedback package
+                             must always link to a parent. --}}
+                        <div class="mb-3">
+                            <label for="parent_package_id" class="form-label required">
+                                {{ __('Underlying Assessment Package') }}:
+                            </label>
+                            <select name="parent_package_id" id="parent_package_id"
+                                class="form-select" required disabled>
+                                <option value="">Select a client first</option>
+                            </select>
+                            <small class="form-text text-muted parent-package-help">
+                                The feedback package will be linked to this assessment.
+                                Only packages without an existing feedback are listed.
+                            </small>
                         </div>
 
                         <div class="mb-3">

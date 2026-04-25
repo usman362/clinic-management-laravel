@@ -34,8 +34,12 @@ function initAppointmentAvailableDates() {
         var serviceId = section.find('.appointmentServiceId').val();
 
         if (!doctorId) {
-            fp.config.enable = undefined;
-            fp.config.disable = undefined;
+            // CP-25: flatpickr's `disable` setter calls `.slice()` on the
+            // assigned value — passing `undefined` throws
+            // "Cannot read properties of undefined (reading 'slice')".
+            // Use empty arrays to clear filters cleanly.
+            fp.config.enable = [];
+            fp.config.disable = [];
             fp.config.minDate = fp.config.minDate || new Date();
             fp.redraw();
             return;
@@ -54,7 +58,7 @@ function initAppointmentAvailableDates() {
             success: function (result) {
                 if (result.success && result.data && result.data.dates && result.data.dates.length) {
                     fp.config.enable = result.data.dates;
-                    fp.config.disable = undefined;
+                    fp.config.disable = []; // CP-25: never assign undefined — flatpickr slices it
                     fp._availableDates = result.data.dates;
                 } else {
                     fp.config.enable = [];
@@ -66,8 +70,8 @@ function initAppointmentAvailableDates() {
                 }
             },
             error: function () {
-                fp.config.enable = undefined;
-                fp.config.disable = undefined;
+                fp.config.enable = [];
+                fp.config.disable = [];
                 fp.redraw();
             }
         });

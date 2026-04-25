@@ -308,7 +308,12 @@ class DoctorSessionController extends AppBaseController
 
         $slots = [
             'bookedSlot' => ! empty($bookedSlot) ? $bookedSlot : null,
-            'slots' => $bookingSlot,
+            // CP-23: Defensive de-dup. The per-iteration in_array() check
+            // above misses cases where two `WeekDay` records exist for the
+            // same weekday (admin error in the schedule editor) or where a
+            // schedule block crosses midnight and produces overlapping
+            // wrapped slots. array_unique catches all of them in one go.
+            'slots'      => array_values(array_unique($bookingSlot)),
         ];
 
         return $this->sendResponse($slots, __('messages.flash.retrieve'));
