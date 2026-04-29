@@ -110,18 +110,27 @@ class SettingController extends AppBaseController
         // guarantees that if it reaches this controller it reaches the DB.
         if ($request->has('jotform_api_key')) {
             $jotformKey = trim((string) $request->input('jotform_api_key'));
-            $row = Setting::where('key', 'jotform_api_key')->first();
-            if (! $row) {
-                // First-time install without the row — create it. (Migration
-                // should have created it; this is a belt-and-suspenders.)
-                Setting::create(['key' => 'jotform_api_key', 'value' => $jotformKey]);
+            // CP-39: Preserve existing key when the field is submitted
+            // empty. The SMTP page's "Save Changes" button posts the
+            // whole form — admins editing other fields shouldn't wipe
+            // the API key just because they didn't re-paste it. The
+            // dedicated "Save Key" AJAX endpoint remains the way to
+            // explicitly clear/replace the key.
+            if ($jotformKey === '') {
+                \Log::info('[settings.update] jotform_api_key empty — preserved existing value');
             } else {
-                $row->update(['value' => $jotformKey]);
+                $row = Setting::where('key', 'jotform_api_key')->first();
+                if (! $row) {
+                    // First-time install without the row — create it.
+                    Setting::create(['key' => 'jotform_api_key', 'value' => $jotformKey]);
+                } else {
+                    $row->update(['value' => $jotformKey]);
+                }
+                \Log::info('[settings.update] jotform_api_key persisted', [
+                    'key_len' => strlen($jotformKey),
+                    'masked'  => substr($jotformKey, 0, 4) . '…' . substr($jotformKey, -4),
+                ]);
             }
-            \Log::info('[settings.update] jotform_api_key persisted', [
-                'key_len' => strlen($jotformKey),
-                'masked'  => $jotformKey === '' ? '(empty)' : substr($jotformKey, 0, 4) . '…' . substr($jotformKey, -4),
-            ]);
         }
 
         $language = $request->language;
