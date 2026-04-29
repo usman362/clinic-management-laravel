@@ -369,10 +369,22 @@ function getSettingValue($key)
     static $setting;
 
     if (empty($setting)) {
-        $setting = Setting::all()->keyBy('key');
+        // CP-40: settings table can contain duplicate rows for the same
+        // key (legacy migrations + repo seeders both insert). keyBy()
+        // would let the *last* row win — and that's often the empty one,
+        // which makes saved API keys appear "Not configured" randomly.
+        // Prefer the row with a non-empty value when collisions exist.
+        $rows = Setting::all();
+        $setting = collect();
+        foreach ($rows as $row) {
+            $existing = $setting->get($row->key);
+            if (! $existing || (empty($existing->value) && ! empty($row->value))) {
+                $setting->put($row->key, $row);
+            }
+        }
     }
 
-    return $setting[$key]->value;
+    return optional($setting->get($key))->value;
 }
 }
 

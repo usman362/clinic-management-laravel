@@ -77,10 +77,28 @@ class SettingController extends AppBaseController
     public function saveJotformKey(Request $request): \Illuminate\Http\JsonResponse
     {
         $key = trim((string) $request->input('jotform_api_key', ''));
-        $row = Setting::firstOrCreate(
-            ['key' => 'jotform_api_key'],
-            ['value' => '']
-        );
+
+        // CP-40: settings table sometimes contains DUPLICATE rows for the
+        // same key (legacy migration + repo seeder both inserted on first
+        // install). With duplicates, getSettingValue's keyBy() would let
+        // an empty row win and the admin would see "Not configured" even
+        // after saving. Collapse to a single row here, every save.
+        $rows = Setting::where('key', 'jotform_api_key')->orderBy('id')->get();
+        if ($rows->count() > 1) {
+            // Keep the first row, delete the rest.
+            $keep = $rows->shift();
+            Setting::where('key', 'jotform_api_key')
+                ->where('id', '!=', $keep->id)
+                ->delete();
+            \Log::info('[saveJotformKey] collapsed duplicate rows', [
+                'kept_id'    => $keep->id,
+                'deleted'    => $rows->pluck('id')->all(),
+            ]);
+            $row = $keep;
+        } else {
+            $row = $rows->first() ?: Setting::create(['key' => 'jotform_api_key', 'value' => '']);
+        }
+
         $row->update(['value' => $key]);
         \Cache::flush('settings');
         \Cache::put('settings', Setting::all()->keyBy('key'));
