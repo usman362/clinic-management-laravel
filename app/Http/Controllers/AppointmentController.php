@@ -2168,21 +2168,38 @@ class AppointmentController extends AppBaseController
 
     private function fetchJotformSignedPdfOnce(string $baseUrl, string $apiKey, ?string $formId, string $submissionId): ?string
     {
+        // CP-43: ORDER MATTERS — Jotform's `submission/{id}` metadata
+        // endpoint returns a `pdf_url` that, on EU/HIPAA hosts and on
+        // some US accounts, points to the BLANK form template (just
+        // logo + title + description, no answers, no signature). If we
+        // try metadata first and accept that PDF, the admin sees an
+        // empty form with no submission data. Try the endpoints that
+        // actually fill the answers FIRST, and use metadata pdf_url as
+        // a last resort.
         $attempts = [];
-        $attempts[] = ['url' => $baseUrl . '/submission/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey), 'kind' => 'metadata'];
         if ($formId) {
+            // Smart PDF / signed PDF — most reliable for signature widgets.
+            $attempts[] = ['url' => $baseUrl . '/pdf-converter/' . urlencode($formId) . '/fill-pdf?download=1&submissionID=' . urlencode($submissionId) . '&apikey=' . urlencode($apiKey), 'kind' => 'pdf'];
+            // generatePDF — classic filled-PDF endpoint, two casings.
             $attempts[] = ['url' => $baseUrl . '/generatePDF?formID=' . urlencode($formId) . '&submissionID=' . urlencode($submissionId) . '&apikey=' . urlencode($apiKey), 'kind' => 'pdf'];
             $attempts[] = ['url' => $baseUrl . '/generatePDF?formid=' . urlencode($formId) . '&submissionid=' . urlencode($submissionId) . '&apiKey=' . urlencode($apiKey), 'kind' => 'pdf'];
-            $attempts[] = ['url' => $baseUrl . '/pdf-converter/' . urlencode($formId) . '/fill-pdf?download=1&submissionID=' . urlencode($submissionId) . '&apikey=' . urlencode($apiKey), 'kind' => 'pdf'];
         }
         $attempts[] = ['url' => 'https://www.jotform.com/server.php?action=getSubmissionPDF&sid=' . urlencode($submissionId) . ($formId ? '&formID=' . urlencode($formId) : '') . '&apiKey=' . urlencode($apiKey), 'kind' => 'pdf'];
+        // Metadata pdf_url — last resort, often template-only.
+        $attempts[] = ['url' => $baseUrl . '/submission/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey), 'kind' => 'metadata'];
 
         foreach ($attempts as $a) {
             try {
                 $resp = \Illuminate\Support\Facades\Http::timeout(30)
                     ->withHeaders(['APIKEY' => $apiKey])
                     ->get($a['url']);
-                if (! $resp->successful()) continue;
+                if (! $resp->successful()) {
+                    \Log::debug('CP-43: attempt non-2xx', [
+                        'url'    => preg_replace('/apikey=[^&]+/i', 'apikey=***', $a['url']),
+                        'status' => $resp->status(),
+                    ]);
+                    continue;
+                }
                 $body = $resp->body();
 
                 if ($a['kind'] === 'metadata') {
@@ -2203,6 +2220,9 @@ class AppointmentController extends AppBaseController
                         if ($pdfResp->successful()) {
                             $pdfBody = $pdfResp->body();
                             if (is_string($pdfBody) && strncmp($pdfBody, '%PDF-', 5) === 0) {
+                                \Log::info('CP-43: returning metadata pdf_url body (last-resort)', [
+                                    'bytes' => strlen($pdfBody),
+                                ]);
                                 return $pdfBody;
                             }
                         }
@@ -2211,6 +2231,10 @@ class AppointmentController extends AppBaseController
                 }
 
                 if (is_string($body) && strncmp($body, '%PDF-', 5) === 0) {
+                    \Log::info('CP-43: signed PDF fetched', [
+                        'endpoint' => preg_replace('/apikey=[^&]+/i', 'apikey=***', $a['url']),
+                        'bytes'    => strlen($body),
+                    ]);
                     return $body;
                 }
             } catch (\Throwable $ignored) {
