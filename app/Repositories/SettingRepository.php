@@ -71,10 +71,10 @@ class SettingRepository extends BaseRepository
         // them blank (typically password/secret fields that never echo their
         // current value back to the admin). The admin can still clear them
         // explicitly later via tinker / a dedicated "clear" action.
-        // CP-39: Preserve jotform_api_key too — admins editing other SMTP
-        // fields shouldn't accidentally wipe the API key by hitting "Save
-        // Changes" without re-pasting it.
-        $preserveIfBlank = ['mail_password', 'jotform_api_key'];
+        // CP-39/42: Preserve jotform_api_key (and the matching region)
+        // too — admins editing other SMTP fields shouldn't accidentally
+        // wipe these by hitting "Save Changes" without re-pasting them.
+        $preserveIfBlank = ['mail_password', 'jotform_api_key', 'jotform_region'];
 
         foreach ($inputArr as $key => $value) {
 

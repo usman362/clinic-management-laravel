@@ -142,6 +142,26 @@
                                     <i class="fas fa-save me-1"></i> Save Key
                                 </button>
                             </div>
+
+                            {{-- CP-42: Jotform region selector. EU / HIPAA accounts
+                                 use a different API host than the default US one.
+                                 Mismatched region + key = silent 401/404 → fallback. --}}
+                            <div class="mt-3">
+                                <label for="jotform_region" class="form-label small fw-bold mb-1">
+                                    Jotform Region
+                                </label>
+                                @php $jfRegion = $setting['jotform_region'] ?? 'us'; @endphp
+                                <select name="jotform_region" id="jotform_region" class="form-select form-select-sm" style="max-width:340px;">
+                                    <option value="us"    @selected($jfRegion === 'us')>US — api.jotform.com (default)</option>
+                                    <option value="eu"    @selected($jfRegion === 'eu')>EU — eu-api.jotform.com</option>
+                                    <option value="hipaa" @selected($jfRegion === 'hipaa')>HIPAA — hipaa-api.jotform.com</option>
+                                </select>
+                                <small class="text-muted d-block mt-1">
+                                    Pick the region that matches your Jotform account. EU/HIPAA accounts can NOT be queried
+                                    via the US endpoint — wrong region results in API errors and a fallback summary PDF.
+                                </small>
+                            </div>
+
                             <small class="text-muted d-block mt-2">
                                 Used to download the official signed consent PDF from Jotform into the patient's documents.
                                 Create a key at
@@ -171,14 +191,18 @@
                         var btn = document.getElementById('saveJotformKeyBtn');
                         if (!btn) return;
                         btn.addEventListener('click', function () {
-                            var input = document.getElementById('jotform_api_key');
+                            var input  = document.getElementById('jotform_api_key');
+                            var region = document.getElementById('jotform_region');
                             var status = document.getElementById('jotformKeyStatus');
                             btn.disabled = true;
                             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving…';
                             $.ajax({
                                 url: '{{ route('setting.jotform-key.save') }}',
                                 type: 'POST',
-                                data: { jotform_api_key: input.value },
+                                data: {
+                                    jotform_api_key: input.value,
+                                    jotform_region: region ? region.value : 'us'
+                                },
                                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                                 success: function () {
                                     btn.innerHTML = '<i class="fas fa-check me-1"></i> Saved';

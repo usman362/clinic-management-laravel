@@ -76,7 +76,16 @@ class SettingController extends AppBaseController
      */
     public function saveJotformKey(Request $request): \Illuminate\Http\JsonResponse
     {
-        $key = trim((string) $request->input('jotform_api_key', ''));
+        $key    = trim((string) $request->input('jotform_api_key', ''));
+        $region = strtolower(trim((string) $request->input('jotform_region', 'us')));
+        if (! in_array($region, ['us', 'eu', 'hipaa'], true)) {
+            $region = 'us';
+        }
+
+        // CP-42: Persist region alongside the key so background jobs and
+        // download requests hit the correct Jotform host.
+        $regionRow = Setting::firstOrCreate(['key' => 'jotform_region'], ['value' => 'us']);
+        $regionRow->update(['value' => $region]);
 
         // CP-40: settings table sometimes contains DUPLICATE rows for the
         // same key (legacy migration + repo seeder both inserted on first

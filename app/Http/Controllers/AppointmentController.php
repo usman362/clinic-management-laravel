@@ -1570,7 +1570,7 @@ class AppointmentController extends AppBaseController
                 }
                 if (empty($submissionId) && $jotformApiKeyEarly && $formId) {
                     try {
-                        $listUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/')
+                        $listUrl = $this->jotformBaseUrl()
                             . '/form/' . urlencode($formId) . '/submissions?limit=1&orderBy=created_at&apiKey=' . urlencode($jotformApiKeyEarly);
                         $resp = \Illuminate\Support\Facades\Http::timeout(20)
                             ->withHeaders(['APIKEY' => $jotformApiKeyEarly])
@@ -1647,7 +1647,7 @@ class AppointmentController extends AppBaseController
                 if (empty($apiKey)) {
                     $apiKey = config('services.jotform.api_key');
                 }
-                $baseUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
+                $baseUrl = $this->jotformBaseUrl();
 
                 if ($apiKey && $submissionId) {
                     // CP-29: Try the full set of Jotform PDF endpoints. Historically
@@ -1940,7 +1940,7 @@ class AppointmentController extends AppBaseController
 
             if ($apiKey && $formId) {
                 try {
-                    $baseUrl = rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
+                    $baseUrl = $this->jotformBaseUrl();
                     $listUrl = $baseUrl . '/form/' . urlencode($formId)
                                 . '/submissions?limit=100&orderBy=created_at&apiKey=' . urlencode($apiKey);
                     $resp = \Illuminate\Support\Facades\Http::timeout(20)
@@ -2026,7 +2026,28 @@ class AppointmentController extends AppBaseController
                             }
                         }
                     } else {
-                        \Log::warning('CP-33: list submissions failed', ['status' => $resp->status()]);
+                        // CP-41: Make this failure obvious. Most common
+                        // cause is API key + form ID belonging to
+                        // DIFFERENT Jotform accounts — the API returns
+                        // 401/404 and we silently fell back to dompdf,
+                        // making it look like the code was broken when
+                        // the real problem is account ownership.
+                        $body = (string) $resp->body();
+                        $hint = '';
+                        if ($resp->status() === 401) {
+                            $hint = 'INVALID API KEY — key not recognised by Jotform.';
+                        } elseif ($resp->status() === 404) {
+                            $hint = 'FORM NOT FOUND for this API key — the doctor\'s jotform_link points to a form on a DIFFERENT Jotform account than the one the API key belongs to. Either move the form to the same account, or use that account\'s API key.';
+                        } elseif ($resp->status() === 403) {
+                            $hint = 'FORBIDDEN — API key lacks Full Access permission, or form belongs to another account.';
+                        }
+                        \Log::warning('CP-41: Jotform list submissions failed', [
+                            'status'      => $resp->status(),
+                            'form_id'     => $formId,
+                            'hint'        => $hint,
+                            'body_excerpt'=> mb_substr($body, 0, 300),
+                            'document_id' => $doc->id,
+                        ]);
                     }
 
                     if ($matchedId) {
@@ -2100,6 +2121,32 @@ class AppointmentController extends AppBaseController
      * CP-33: Run the CP-29 endpoint chain for a known submissionId.
      * Returns raw PDF bytes on success, null on failure.
      */
+    /**
+     * CP-42: Resolve the correct Jotform API host based on the saved
+     * `jotform_region` setting. EU and HIPAA accounts live on different
+     * hosts than the default US one; mismatched region + key produces
+     * silent 401/404 and a fallback PDF. Falls back to .env config or
+     * api.jotform.com if the setting isn't present.
+     */
+    private function jotformBaseUrl(): string
+    {
+        $region = null;
+        try {
+            $region = strtolower(trim((string) getSettingValue('jotform_region')));
+        } catch (\Throwable $ignored) {
+            // setting row may not exist yet
+        }
+
+        switch ($region) {
+            case 'eu':    return 'https://eu-api.jotform.com';
+            case 'hipaa': return 'https://hipaa-api.jotform.com';
+            case 'us':    return 'https://api.jotform.com';
+        }
+
+        // Fallback: explicit .env override → US default.
+        return rtrim(config('services.jotform.base_url', 'https://api.jotform.com'), '/');
+    }
+
     private function fetchJotformSignedPdf(string $baseUrl, string $apiKey, ?string $formId, string $submissionId): ?string
     {
         // CP-37: Jotform's signed-PDF render is asynchronous — right after
