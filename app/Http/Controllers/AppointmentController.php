@@ -2052,6 +2052,36 @@ class AppointmentController extends AppBaseController
 
                     if ($matchedId) {
                         $pdfBytes = $this->fetchJotformSignedPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+
+                        // CP-44: A returned PDF can be the BLANK form
+                        // template (header only, no answers/signature).
+                        // Heuristic: official filled PDFs are typically
+                        // 12KB+; the EU template-only PDF is < 8KB.
+                        // If suspiciously small, drop it and fall back
+                        // to building a real-data PDF from the
+                        // submission's `answers` payload.
+                        if ($pdfBytes !== null && strlen($pdfBytes) < 8000) {
+                            \Log::info('CP-44: hosted PDF suspiciously small — likely blank template, falling back to answers render', [
+                                'submission_id' => $matchedId,
+                                'bytes'         => strlen($pdfBytes),
+                            ]);
+                            $pdfBytes = null;
+                        }
+
+                        // Fallback: render a PDF from the actual answers
+                        // returned by Jotform metadata. Works on every
+                        // region regardless of whether Smart PDF is set
+                        // up on the form.
+                        if ($pdfBytes === null) {
+                            $pdfBytes = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                            if ($pdfBytes !== null) {
+                                \Log::info('CP-44: rendered PDF from Jotform answers', [
+                                    'submission_id' => $matchedId,
+                                    'bytes'         => strlen($pdfBytes),
+                                ]);
+                            }
+                        }
+
                         if ($pdfBytes !== null) {
                             // Overwrite stored file with the official signed PDF.
                             $newRel = $path;
@@ -2121,6 +2151,152 @@ class AppointmentController extends AppBaseController
      * CP-33: Run the CP-29 endpoint chain for a known submissionId.
      * Returns raw PDF bytes on success, null on failure.
      */
+    /**
+     * CP-44: Build a filled consent PDF from a Jotform submission's
+     * `answers` payload. Used when none of the hosted PDF endpoints
+     * return a usable filled-and-signed copy (most commonly on EU /
+     * HIPAA accounts where /pdf-converter returns the blank template).
+     *
+     * Returns raw PDF bytes on success, null on failure.
+     */
+    private function renderJotformAnswersPdf(string $baseUrl, string $apiKey, ?string $formId, string $submissionId): ?string
+    {
+        try {
+            // 1) Submission metadata (answers + created_at + form_id)
+            $url = $baseUrl . '/submission/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey);
+            $resp = \Illuminate\Support\Facades\Http::timeout(20)
+                ->withHeaders(['APIKEY' => $apiKey])
+                ->get($url);
+            if (! $resp->successful()) {
+                \Log::warning('CP-44: submission metadata fetch failed', ['status' => $resp->status()]);
+                return null;
+            }
+            $content = $resp->json('content') ?? [];
+            $answers = $content['answers'] ?? [];
+            if (empty($answers)) {
+                \Log::warning('CP-44: submission has no answers');
+                return null;
+            }
+
+            // 2) Form metadata (title + description) — best-effort.
+            $formTitle = 'Consent Form';
+            $formDescription = '';
+            $formIdEffective = $formId ?: ($content['form_id'] ?? null);
+            if ($formIdEffective) {
+                try {
+                    $fResp = \Illuminate\Support\Facades\Http::timeout(15)
+                        ->withHeaders(['APIKEY' => $apiKey])
+                        ->get($baseUrl . '/form/' . urlencode($formIdEffective) . '?apiKey=' . urlencode($apiKey));
+                    if ($fResp->successful()) {
+                        $f = $fResp->json('content') ?? [];
+                        if (! empty($f['title'])) {
+                            $formTitle = (string) $f['title'];
+                        }
+                    }
+                } catch (\Throwable $ignored) {
+                    // optional
+                }
+            }
+
+            // 3) Normalise answers into ordered field rows. Skip control
+            //    types that don't carry data (headers, dividers, page
+            //    breaks, captcha, etc.).
+            $skipTypes = [
+                'control_head', 'control_text', 'control_pagebreak',
+                'control_divider', 'control_collapse', 'control_button',
+                'control_captcha', 'control_widget',
+            ];
+            $rows = [];
+            // sort by 'order' if present
+            uasort($answers, function ($a, $b) {
+                $oa = isset($a['order']) ? (int) $a['order'] : 0;
+                $ob = isset($b['order']) ? (int) $b['order'] : 0;
+                return $oa <=> $ob;
+            });
+            foreach ($answers as $ans) {
+                $type  = strtolower((string) ($ans['type'] ?? ''));
+                if (in_array($type, $skipTypes, true)) {
+                    continue;
+                }
+                $label = trim((string) ($ans['text'] ?? $ans['name'] ?? ''));
+                if ($label === '') {
+                    continue;
+                }
+                $val = $ans['answer'] ?? null;
+
+                $sigDataUri = null;
+                if ($type === 'control_signature' && is_string($val) && $val !== '') {
+                    // Jotform may return either a full data: URI or a
+                    // hosted PNG URL (e.g. https://www.jotform.com/...).
+                    if (str_starts_with($val, 'data:image')) {
+                        $sigDataUri = $val;
+                    } elseif (filter_var($val, FILTER_VALIDATE_URL)) {
+                        try {
+                            $imgResp = \Illuminate\Support\Facades\Http::timeout(15)
+                                ->withHeaders(['APIKEY' => $apiKey])
+                                ->get($val);
+                            if ($imgResp->successful()) {
+                                $bin  = $imgResp->body();
+                                $mime = $imgResp->header('Content-Type') ?: 'image/png';
+                                $sigDataUri = 'data:' . $mime . ';base64,' . base64_encode($bin);
+                            }
+                        } catch (\Throwable $ignored) {
+                            // signature embed best-effort
+                        }
+                    }
+                    $val = ''; // hide raw URL/data string from the value column
+                }
+
+                if (is_array($val)) {
+                    // Compose name objects {first, last, middle, ...}
+                    if (isset($val['first']) || isset($val['last'])) {
+                        $val = trim(($val['first'] ?? '') . ' ' . ($val['middle'] ?? '') . ' ' . ($val['last'] ?? ''));
+                    } else {
+                        $val = trim(implode(', ', array_filter(array_map('strval', $val))));
+                    }
+                }
+                $val = is_scalar($val) ? (string) $val : '';
+                if ($val === '' && $sigDataUri === null) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'label'              => $label,
+                    'value'              => $val,
+                    'signature_data_uri' => $sigDataUri,
+                ];
+            }
+
+            if (empty($rows)) {
+                \Log::warning('CP-44: no rendered rows from answers');
+                return null;
+            }
+
+            $submittedAt = $content['created_at'] ?? '';
+            try {
+                if (!empty($content['timestamp']) && is_numeric($content['timestamp'])) {
+                    $submittedAt = date('l, F j, Y', (int) $content['timestamp']);
+                } elseif ($submittedAt) {
+                    $submittedAt = date('l, F j, Y', strtotime($submittedAt));
+                }
+            } catch (\Throwable $ignored) {
+                // keep raw
+            }
+
+            $pdf = \PDF::loadView('documents.consent_pdf_jotform', [
+                'formTitle'       => $formTitle,
+                'formDescription' => $formDescription,
+                'submittedAt'     => $submittedAt,
+                'submissionId'    => $submissionId,
+                'fields'          => $rows,
+            ]);
+            return $pdf->output();
+        } catch (\Throwable $e) {
+            \Log::warning('CP-44: render failed', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
     /**
      * CP-42: Resolve the correct Jotform API host based on the saved
      * `jotform_region` setting. EU and HIPAA accounts live on different
