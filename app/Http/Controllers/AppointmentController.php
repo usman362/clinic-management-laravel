@@ -2051,33 +2051,54 @@ class AppointmentController extends AppBaseController
                     }
 
                     if ($matchedId) {
-                        $pdfBytes = $this->fetchJotformSignedPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                        // CP-45: Determine strategy by region.
+                        //
+                        // - US accounts almost always serve a fully-filled,
+                        //   signed PDF via /generatePDF. Trust the hosted
+                        //   PDF first; only fall back to answers-render if
+                        //   it's missing or suspiciously small.
+                        //
+                        // - EU / HIPAA accounts persistently return the
+                        //   BLANK FORM TEMPLATE (header + logo + title,
+                        //   no answers, no signature) from every hosted
+                        //   PDF endpoint. Skip the hosted attempt and go
+                        //   straight to the answers-render path, which
+                        //   reliably embeds signature + every field.
+                        $region = null;
+                        try {
+                            $region = strtolower(trim((string) getSettingValue('jotform_region')));
+                        } catch (\Throwable $ignored) {}
 
-                        // CP-44: A returned PDF can be the BLANK form
-                        // template (header only, no answers/signature).
-                        // Heuristic: official filled PDFs are typically
-                        // 12KB+; the EU template-only PDF is < 8KB.
-                        // If suspiciously small, drop it and fall back
-                        // to building a real-data PDF from the
-                        // submission's `answers` payload.
-                        if ($pdfBytes !== null && strlen($pdfBytes) < 8000) {
-                            \Log::info('CP-44: hosted PDF suspiciously small — likely blank template, falling back to answers render', [
+                        $pdfBytes = null;
+                        $tryHosted = ! in_array($region, ['eu', 'hipaa'], true);
+
+                        if ($tryHosted) {
+                            $pdfBytes = $this->fetchJotformSignedPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                            // Heuristic: hosted filled PDFs typically run
+                            // 12KB+; sub-8KB is almost certainly the blank
+                            // template, drop it.
+                            if ($pdfBytes !== null && strlen($pdfBytes) < 8000) {
+                                \Log::info('CP-45: hosted PDF too small — likely template, falling back to answers render', [
+                                    'submission_id' => $matchedId,
+                                    'bytes'         => strlen($pdfBytes),
+                                ]);
+                                $pdfBytes = null;
+                            }
+                        } else {
+                            \Log::info('CP-45: region is non-US — skipping hosted PDF, rendering from answers', [
+                                'region'        => $region,
                                 'submission_id' => $matchedId,
-                                'bytes'         => strlen($pdfBytes),
                             ]);
-                            $pdfBytes = null;
                         }
 
-                        // Fallback: render a PDF from the actual answers
-                        // returned by Jotform metadata. Works on every
-                        // region regardless of whether Smart PDF is set
-                        // up on the form.
+                        // Render from answers (universal fallback).
                         if ($pdfBytes === null) {
                             $pdfBytes = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
                             if ($pdfBytes !== null) {
-                                \Log::info('CP-44: rendered PDF from Jotform answers', [
+                                \Log::info('CP-45: rendered PDF from Jotform answers', [
                                     'submission_id' => $matchedId,
                                     'bytes'         => strlen($pdfBytes),
+                                    'region'        => $region,
                                 ]);
                             }
                         }
