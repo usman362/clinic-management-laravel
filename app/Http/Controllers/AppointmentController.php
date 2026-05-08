@@ -1371,14 +1371,48 @@ class AppointmentController extends AppBaseController
             ->first();
 
         if (! $appointment || ! $appointment->patient) {
-            // Try looking up by just appointment_id (doctor_id may not match for packages)
-            $appointment = Appointment::with('patient.user')
+            // CP-46: Multi-doctor package case. The booking wizard sends
+            // ONE appointment_id (the first slot in the package) plus the
+            // specific doctor_id whose consent is being signed. When that
+            // doctor isn't the first appointment's doctor, the strict
+            // lookup misses. Previous code then overwrote $doctorId with
+            // $appointment->doctor_id — silently re-attributing the
+            // second doctor's signature to the FIRST doctor and dropping
+            // the real second-doctor consent on the floor (the existing
+            // first-doctor Document was reused instead of creating a new
+            // one). DO NOT overwrite — trust the request's doctor_id and
+            // try to find a sibling appointment in the same package
+            // (relation_id) that DOES match this doctor.
+            $primary = Appointment::with('patient.user')
                 ->where('id', $appointmentId)
                 ->first();
 
-            if ($appointment) {
-                // Use the actual doctor_id from the appointment
-                $doctorId = $appointment->doctor_id;
+            if ($primary && $primary->relation_id) {
+                $sibling = Appointment::with('patient.user')
+                    ->where('relation_id', $primary->relation_id)
+                    ->where('doctor_id', $doctorId)
+                    ->first();
+                if ($sibling) {
+                    $appointment = $sibling;
+                    \Log::info('CP-46: matched sibling appointment for doctor in package', [
+                        'requested_appointment_id' => $appointmentId,
+                        'requested_doctor_id'      => $doctorId,
+                        'matched_appointment_id'   => $sibling->id,
+                        'relation_id'              => $primary->relation_id,
+                    ]);
+                }
+            }
+
+            // Last resort: if there is no sibling for this doctor (e.g.
+            // single-doctor booking with a transient mismatch), reuse
+            // the primary appointment but KEEP the requested doctor_id
+            // so the Document is recorded for the correct doctor.
+            if (! $appointment && $primary) {
+                $appointment = $primary;
+                \Log::warning('CP-46: no sibling for requested doctor — using primary appointment but preserving requested doctor_id', [
+                    'requested_appointment_id' => $appointmentId,
+                    'requested_doctor_id'      => $doctorId,
+                ]);
             }
         }
 
