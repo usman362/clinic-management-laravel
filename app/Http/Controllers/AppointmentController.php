@@ -1619,6 +1619,18 @@ class AppointmentController extends AppBaseController
                     $cpLock = null;
                 }
 
+                // CP-49: diagnostic — log every reason this block might
+                // be skipped so log readers can SEE why submission_id
+                // ended up empty in the stored Document.
+                \Log::info('CP-49: submission picking pre-conditions', [
+                    'has_submission_id' => $submissionId !== '',
+                    'has_api_key'       => ! empty($jotformApiKeyEarly),
+                    'has_form_id'       => ! empty($formId),
+                    'doctor_id'         => $doctorId,
+                    'form_id'           => $formId,
+                    'doctor_jotform_link' => $doctor ? $doctor->jotform_link : null,
+                ]);
+
                 if (empty($submissionId) && $jotformApiKeyEarly && $formId) {
                     try {
                         // CP-47: Pull a small window of recent submissions
@@ -2132,17 +2144,83 @@ class AppointmentController extends AppBaseController
                         // overwhelmingly the right one. With ?refresh=1
                         // we skip the age check entirely (admin override).
                         if (! $matchedId && $latestId !== null) {
-                            $useIt = $forceRefresh
-                                || $latestAgeSec === null
-                                || $latestAgeSec < 86400; // 24h default
-                            if ($useIt) {
-                                $matchedId = $latestId;
-                                \Log::info('CP-34: no email/name match — using most recent submission', [
-                                    'document_id'   => $doc->id,
-                                    'submission_id' => $matchedId,
-                                    'age_seconds'   => $latestAgeSec,
-                                    'force'         => $forceRefresh,
-                                ]);
+                            // CP-49: POSITIONAL PAIRING. When multiple
+                            // consent docs exist for this user (multi-
+                            // doctor package) and NONE of them have an
+                            // external_id stored (because the
+                            // storeConsentDocument flow couldn't capture
+                            // the submission id at the time), picking
+                            // "latest" for every download collapses every
+                            // PDF to the same signature. Pair docs to
+                            // submissions positionally instead: the
+                            // OLDEST doc gets the OLDEST submission, the
+                            // next gets the next, etc.
+                            $userDocs = Document::where('user_id', $doc->user_id)
+                                ->where('type', 'consent')
+                                ->whereNull('external_id')
+                                ->orderBy('id')
+                                ->pluck('id')
+                                ->all();
+                            $position = array_search($doc->id, $userDocs, true);
+
+                            if ($position !== false && count($userDocs) > 1) {
+                                // Exclude submissions already locked in
+                                // to some OTHER document (shouldn't
+                                // overlap with us since we're filtering
+                                // to NULL external_id, but defensive).
+                                $usedExternal = Document::where('user_id', $doc->user_id)
+                                    ->whereNotNull('external_id')
+                                    ->pluck('external_id')
+                                    ->filter()
+                                    ->map(fn ($v) => (string) $v)
+                                    ->all();
+                                // $items came back from /submissions
+                                // ordered by created_at DESC. We want
+                                // chronological order (OLDEST first) so
+                                // we can map by position.
+                                $usableSubs = [];
+                                foreach ($items as $sub) {
+                                    if (! empty($sub['id'])
+                                        && ! in_array((string) $sub['id'], $usedExternal, true)) {
+                                        $usableSubs[] = (string) $sub['id'];
+                                    }
+                                }
+                                // Take the most recent N (where N = doc
+                                // count) and flip to chronological order
+                                // so position 0 = first signed = oldest.
+                                $usableSubs = array_slice($usableSubs, 0, count($userDocs));
+                                $usableSubs = array_reverse($usableSubs);
+                                if (isset($usableSubs[$position])) {
+                                    $matchedId = $usableSubs[$position];
+                                    \Log::info('CP-49: positional pairing — picked submission by doc index', [
+                                        'document_id'   => $doc->id,
+                                        'position'      => $position,
+                                        'total_docs'    => count($userDocs),
+                                        'submission_id' => $matchedId,
+                                    ]);
+
+                                    // Persist so subsequent downloads
+                                    // (and the other doc) don't have to
+                                    // recompute and can't drift.
+                                    try {
+                                        $doc->fill(['external_id' => $matchedId])->save();
+                                    } catch (\Throwable $ignored) {}
+                                }
+                            }
+
+                            if (! $matchedId) {
+                                $useIt = $forceRefresh
+                                    || $latestAgeSec === null
+                                    || $latestAgeSec < 86400; // 24h default
+                                if ($useIt) {
+                                    $matchedId = $latestId;
+                                    \Log::info('CP-34: no email/name match — using most recent submission', [
+                                        'document_id'   => $doc->id,
+                                        'submission_id' => $matchedId,
+                                        'age_seconds'   => $latestAgeSec,
+                                        'force'         => $forceRefresh,
+                                    ]);
+                                }
                             }
                         }
                     } elseif ($resp) {
