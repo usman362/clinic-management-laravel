@@ -19,6 +19,7 @@ class Document extends Model
         'size',
         'doctor_id',
         'appointment_id',
+        'external_id',
     ];
 
     public function user()

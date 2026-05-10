@@ -1604,14 +1604,46 @@ class AppointmentController extends AppBaseController
                 }
                 if (empty($submissionId) && $jotformApiKeyEarly && $formId) {
                     try {
+                        // CP-47: Pull a small window of recent submissions
+                        // (not just the single latest) so that in
+                        // multi-doctor packages we can SKIP over the one
+                        // already consumed by the previous doctor's
+                        // consent and pick a distinct one for THIS one.
                         $listUrl = $this->jotformBaseUrl()
-                            . '/form/' . urlencode($formId) . '/submissions?limit=1&orderBy=created_at&apiKey=' . urlencode($jotformApiKeyEarly);
+                            . '/form/' . urlencode($formId) . '/submissions?limit=10&orderBy=created_at&apiKey=' . urlencode($jotformApiKeyEarly);
                         $resp = \Illuminate\Support\Facades\Http::timeout(20)
                             ->withHeaders(['APIKEY' => $jotformApiKeyEarly])
                             ->get($listUrl);
                         if ($resp->successful()) {
                             $json = $resp->json();
-                            $latest = $json['content'][0] ?? null;
+                            $items = $json['content'] ?? [];
+
+                            // CP-47: Skip submissions that this patient
+                            // has already had stored against another
+                            // document — they're locked in to the prior
+                            // doctor and reusing them produces duplicate
+                            // signatures across doctors.
+                            $usedIds = Document::where('user_id', $userId)
+                                ->whereNotNull('external_id')
+                                ->pluck('external_id')
+                                ->filter()
+                                ->map(fn ($v) => (string) $v)
+                                ->values()
+                                ->all();
+
+                            $latest = null;
+                            foreach ($items as $candidate) {
+                                if (empty($candidate['id'])) continue;
+                                if (in_array((string) $candidate['id'], $usedIds, true)) {
+                                    continue;
+                                }
+                                $latest = $candidate;
+                                break;
+                            }
+                            if (! $latest && !empty($items[0]['id'])) {
+                                // Fallback to absolute latest (single-doctor case)
+                                $latest = $items[0];
+                            }
                             if ($latest && !empty($latest['id'])) {
                                 // CP-36: Jotform's `created_at` is rendered in
                                 // the form-owner's account timezone (NOT UTC),
@@ -1875,6 +1907,12 @@ class AppointmentController extends AppBaseController
                         'size'           => $sizeKB,
                         'doctor_id'      => $doctorId,
                         'appointment_id' => $appointment->id,
+                        // CP-47: Lock this Document to its specific
+                        // Jotform submission so subsequent downloads
+                        // (and multi-doctor sibling docs) render the
+                        // correct signature instead of resolving to
+                        // "latest" again.
+                        'external_id'    => $submissionId !== '' ? $submissionId : null,
                     ]);
 
                     \Log::info('Consent PDF stored', [
@@ -1975,16 +2013,34 @@ class AppointmentController extends AppBaseController
             if ($apiKey && $formId) {
                 try {
                     $baseUrl = $this->jotformBaseUrl();
-                    $listUrl = $baseUrl . '/form/' . urlencode($formId)
-                                . '/submissions?limit=100&orderBy=created_at&apiKey=' . urlencode($apiKey);
-                    $resp = \Illuminate\Support\Facades\Http::timeout(20)
-                        ->withHeaders(['APIKEY' => $apiKey])
-                        ->get($listUrl);
 
-                    $matchedId       = null;
-                    $latestId        = null;
-                    $latestAgeSec    = null;
-                    if ($resp->successful()) {
+                    // CP-47: If this document already has a stored
+                    // submission id, ALWAYS use that. The latest-by-email
+                    // fallback below is fine for a single-doctor booking
+                    // but resolves to the same id for every document in a
+                    // multi-doctor package — making each doctor's PDF
+                    // show the same signature.
+                    $matchedId    = null;
+                    $latestId     = null;
+                    $latestAgeSec = null;
+
+                    if (! empty($doc->external_id)) {
+                        $matchedId = (string) $doc->external_id;
+                        \Log::info('CP-47: using stored submission id from document', [
+                            'document_id'   => $doc->id,
+                            'submission_id' => $matchedId,
+                        ]);
+                    }
+
+                    $resp = null;
+                    if (! $matchedId) {
+                        $listUrl = $baseUrl . '/form/' . urlencode($formId)
+                                    . '/submissions?limit=100&orderBy=created_at&apiKey=' . urlencode($apiKey);
+                        $resp = \Illuminate\Support\Facades\Http::timeout(20)
+                            ->withHeaders(['APIKEY' => $apiKey])
+                            ->get($listUrl);
+                    }
+                    if ($resp && $resp->successful()) {
                         $items = $resp->json('content') ?? [];
                         // Items come ordered by created_at desc.
                         foreach ($items as $idx => $sub) {
@@ -2059,7 +2115,7 @@ class AppointmentController extends AppBaseController
                                 ]);
                             }
                         }
-                    } else {
+                    } elseif ($resp) {
                         // CP-41: Make this failure obvious. Most common
                         // cause is API key + form ID belonging to
                         // DIFFERENT Jotform accounts — the API returns
