@@ -1769,7 +1769,25 @@ class AppointmentController extends AppBaseController
                 }
                 $baseUrl = $this->jotformBaseUrl();
 
+                // CP-52: Prefer the answers-render path at storage time
+                // too. Hosted Jotform PDF endpoints frequently return a
+                // BLANK FORM TEMPLATE (~19KB on EU) that looks like a
+                // valid PDF but contains no answers or signature. Render
+                // from the submission's answers payload first — same
+                // strategy as the CP-51 download flow — and only fall
+                // back to the hosted chain if that fails.
                 if ($apiKey && $submissionId) {
+                    $pdfBytes = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $submissionId);
+                    if ($pdfBytes !== null) {
+                        $pdfSource = 'jotform_answers';
+                        \Log::info('CP-52: stored PDF from Jotform answers (storage path)', [
+                            'submission_id' => $submissionId,
+                            'bytes'         => strlen($pdfBytes),
+                        ]);
+                    }
+                }
+
+                if ($apiKey && $submissionId && $pdfBytes === null) {
                     // CP-29: Try the full set of Jotform PDF endpoints. Historically
                     // this code tried only 3 URLs with inconsistent param casing
                     // (`formid` vs `formID`, `submissionid` vs `submissionID`,
@@ -2048,11 +2066,20 @@ class AppointmentController extends AppBaseController
         // dompdf summary (title contains "(summary)") OR have no jotform
         // submission marker (no "JotForm #" tag in title). Admin can also
         // force a refresh with ?refresh=1.
+        //
+        // CP-52: ALSO refresh when the stored file is suspiciously small
+        // (< 25KB). Jotform's hosted PDF endpoints on EU/HIPAA frequently
+        // returned a ~19KB blank form template (logo + title only, no
+        // answers, no signature) which we previously trusted and saved.
+        // Re-rendering from the submission's `answers` payload on the
+        // next download heals those rows automatically.
         $forceRefresh = request()->boolean('refresh');
+        $storedSize   = (int) ($doc->size ?? 0); // kilobytes
         $needsRefresh = $isConsent && $isPdf && (
             $forceRefresh
             || str_contains((string) $title, '(summary)')
             || ! str_contains((string) $title, 'JotForm #')
+            || ($storedSize > 0 && $storedSize < 25)
         );
 
         if ($needsRefresh) {
