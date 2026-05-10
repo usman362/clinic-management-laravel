@@ -1602,6 +1602,23 @@ class AppointmentController extends AppBaseController
                 if (empty($jotformApiKeyEarly)) {
                     $jotformApiKeyEarly = config('services.jotform.api_key');
                 }
+                // CP-48: Serialise the pick-and-store across simultaneous
+                // webhook calls for this patient. Without a lock, two
+                // AJAX calls (one per doctor in a multi-doctor package)
+                // race: both query documents.external_id BEFORE either
+                // has committed its row, both see used=[], both pick the
+                // same submission, and the patient ends up with two
+                // Documents pointing at one signature. The lock is held
+                // until the Document row for THIS doctor is committed.
+                $cpLock = null;
+                try {
+                    $cpLock = \Illuminate\Support\Facades\Cache::lock('jotform-pick-user-' . $userId, 60);
+                    $cpLock->block(15);
+                } catch (\Throwable $lockErr) {
+                    \Log::warning('CP-48: lock acquire failed, proceeding without it', ['error' => $lockErr->getMessage()]);
+                    $cpLock = null;
+                }
+
                 if (empty($submissionId) && $jotformApiKeyEarly && $formId) {
                     try {
                         // CP-47: Pull a small window of recent submissions
@@ -1921,11 +1938,24 @@ class AppointmentController extends AppBaseController
                         'source'         => $pdfSource,
                         'size_kb'        => $sizeKB,
                     ]);
+
+                    // CP-48: Release the per-user pick lock now that this
+                    // Document row is committed — the next concurrent
+                    // webhook can safely query documents.external_id and
+                    // see this submission as taken.
+                    if (! empty($cpLock)) {
+                        try { $cpLock->release(); } catch (\Throwable $ignored) {}
+                        $cpLock = null;
+                    }
                 } catch (\Throwable $ex) {
                     \Log::error('Failed to store consent document', [
                         'error' => $ex->getMessage(),
                         'appointment_id' => $appointment->id,
                     ]);
+                    if (! empty($cpLock)) {
+                        try { $cpLock->release(); } catch (\Throwable $ignored) {}
+                        $cpLock = null;
+                    }
                 }
             }
         }

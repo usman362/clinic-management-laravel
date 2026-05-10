@@ -649,7 +649,17 @@
             if (_consentWebhookPending[doctorId]) return; // Already processing
             if (signedConsentForms[doctorId]) return; // Already signed
 
+            // CP-48: Mark this doctor as taken OPTIMISTICALLY so any
+            // postMessage / iframe-load event firing in the next few ms
+            // (race condition during simultaneous multi-doctor signing)
+            // sees this doctor as signed and picks the NEXT unsigned one.
+            // Without this, a rapid second postMessage was re-picking
+            // doctor 1 (already pending) and the real doctor-2 submission
+            // got dropped — every PDF then resolved to the same single
+            // submission at download time and showed identical signatures.
             _consentWebhookPending[doctorId] = true;
+            signedConsentForms[doctorId] = true;
+            updateConsentSignStatus();
 
             $.ajax({
                 url: '/api/consent-webhook',
@@ -661,11 +671,15 @@
                 },
                 success: function (result) {
                     console.log('Consent webhook recorded for doctor ' + doctorId + ':', result);
-                    signedConsentForms[doctorId] = true;
-                    updateConsentSignStatus();
+                    // already set optimistically above
                 },
                 error: function (xhr) {
                     console.warn('Consent webhook failed for doctor ' + doctorId + ':', xhr.responseText);
+                    // Roll back the optimistic flag so the user can retry
+                    // (e.g. by re-signing) instead of silently appearing
+                    // signed when the backend never recorded it.
+                    signedConsentForms[doctorId] = false;
+                    updateConsentSignStatus();
                 },
                 complete: function () {
                     _consentWebhookPending[doctorId] = false;
