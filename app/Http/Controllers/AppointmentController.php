@@ -2307,56 +2307,55 @@ class AppointmentController extends AppBaseController
                     }
 
                     if ($matchedId) {
-                        // CP-45: Determine strategy by region.
-                        //
-                        // - US accounts almost always serve a fully-filled,
-                        //   signed PDF via /generatePDF. Trust the hosted
-                        //   PDF first; only fall back to answers-render if
-                        //   it's missing or suspiciously small.
-                        //
-                        // - EU / HIPAA accounts persistently return the
-                        //   BLANK FORM TEMPLATE (header + logo + title,
-                        //   no answers, no signature) from every hosted
-                        //   PDF endpoint. Skip the hosted attempt and go
-                        //   straight to the answers-render path, which
-                        //   reliably embeds signature + every field.
+                        // CP-51: Always prefer answers-render. Hosted PDF
+                        // endpoints are unreliable across regions and
+                        // form configurations — many return a BLANK
+                        // TEMPLATE (logo + title only, no answers, no
+                        // signature) with valid PDF bytes that look
+                        // legitimate to size checks. The answers-render
+                        // path uses the submission's real `answers`
+                        // payload and is consistent everywhere. Hosted
+                        // is now a last-ditch fallback only when answers
+                        // render fails.
                         $region = null;
                         try {
                             $region = strtolower(trim((string) getSettingValue('jotform_region')));
                         } catch (\Throwable $ignored) {}
 
-                        $pdfBytes = null;
-                        $tryHosted = ! in_array($region, ['eu', 'hipaa'], true);
+                        \Log::info('CP-51: rendering consent PDF from answers (primary path)', [
+                            'document_id'   => $doc->id,
+                            'submission_id' => $matchedId,
+                            'region'        => $region,
+                        ]);
 
-                        if ($tryHosted) {
+                        $pdfBytes  = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                        $tryHosted = ! in_array($region, ['eu', 'hipaa'], true) && $pdfBytes === null;
+
+                        if ($pdfBytes !== null) {
+                            \Log::info('CP-51: answers render OK', [
+                                'document_id'   => $doc->id,
+                                'submission_id' => $matchedId,
+                                'bytes'         => strlen($pdfBytes),
+                            ]);
+                        } elseif ($tryHosted) {
+                            \Log::info('CP-51: answers render returned null — falling back to hosted PDF (US only)', [
+                                'document_id' => $doc->id,
+                            ]);
                             $pdfBytes = $this->fetchJotformSignedPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
-                            // Heuristic: hosted filled PDFs typically run
-                            // 12KB+; sub-8KB is almost certainly the blank
-                            // template, drop it.
+                            // Sub-8KB is almost certainly the blank template.
                             if ($pdfBytes !== null && strlen($pdfBytes) < 8000) {
-                                \Log::info('CP-45: hosted PDF too small — likely template, falling back to answers render', [
+                                \Log::info('CP-51: hosted PDF too small — likely template, dropping', [
                                     'submission_id' => $matchedId,
                                     'bytes'         => strlen($pdfBytes),
                                 ]);
                                 $pdfBytes = null;
                             }
                         } else {
-                            \Log::info('CP-45: region is non-US — skipping hosted PDF, rendering from answers', [
-                                'region'        => $region,
+                            \Log::warning('CP-51: answers render returned null and hosted not attempted', [
+                                'document_id'   => $doc->id,
                                 'submission_id' => $matchedId,
+                                'region'        => $region,
                             ]);
-                        }
-
-                        // Render from answers (universal fallback).
-                        if ($pdfBytes === null) {
-                            $pdfBytes = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
-                            if ($pdfBytes !== null) {
-                                \Log::info('CP-45: rendered PDF from Jotform answers', [
-                                    'submission_id' => $matchedId,
-                                    'bytes'         => strlen($pdfBytes),
-                                    'region'        => $region,
-                                ]);
-                            }
                         }
 
                         if ($pdfBytes !== null) {
