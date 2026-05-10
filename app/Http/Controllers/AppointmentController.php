@@ -1647,6 +1647,17 @@ class AppointmentController extends AppBaseController
                             $json = $resp->json();
                             $items = $json['content'] ?? [];
 
+                            // CP-50: diagnostic — record how many
+                            // submissions the API returned and the first
+                            // few ids/timestamps so silent "no match"
+                            // cases are debuggable.
+                            \Log::info('CP-50: list submissions response', [
+                                'form_id'     => $formId,
+                                'count'       => count($items),
+                                'first_ids'   => collect($items)->take(5)->pluck('id')->all(),
+                                'first_times' => collect($items)->take(5)->pluck('timestamp')->all(),
+                            ]);
+
                             // CP-47: Skip submissions that this patient
                             // has already had stored against another
                             // document — they're locked in to the prior
@@ -1673,6 +1684,13 @@ class AppointmentController extends AppBaseController
                                 // Fallback to absolute latest (single-doctor case)
                                 $latest = $items[0];
                             }
+                            if (! $latest) {
+                                \Log::warning('CP-50: no usable submission picked', [
+                                    'form_id'   => $formId,
+                                    'items_len' => count($items),
+                                    'used_ids'  => $usedIds,
+                                ]);
+                            }
                             if ($latest && !empty($latest['id'])) {
                                 // CP-36: Jotform's `created_at` is rendered in
                                 // the form-owner's account timezone (NOT UTC),
@@ -1692,9 +1710,16 @@ class AppointmentController extends AppBaseController
                                     }
                                 }
                                 $ageSec = time() - $createdTs;
-                                // 30 min window so patient can finish the
-                                // wizard after signing.
-                                if ($ageSec < 1800 && $ageSec > -300) {
+                                // CP-50: Drop the strict 30-min window.
+                                // Jotform `created_at` is in account TZ,
+                                // and `timestamp` was occasionally null
+                                // making age math unreliable. Since CP-47
+                                // already filters out submissions other
+                                // documents have consumed, picking the
+                                // latest unused submission is always the
+                                // correct one for THIS just-signed
+                                // consent — even if the clock disagrees.
+                                if (true) {
                                     $submissionId = (string) $latest['id'];
                                     \Log::info('CP-36: pulled latest submission id from Jotform', [
                                         'form_id'       => $formId,
@@ -2074,6 +2099,31 @@ class AppointmentController extends AppBaseController
                         ]);
                     }
 
+                    // CP-50: When this user has MULTIPLE consent docs
+                    // with NULL external_id (a multi-doctor package
+                    // where storeConsentDocument couldn't capture the
+                    // submission id), DO NOT trust email/name matching
+                    // for the download — every submission carries the
+                    // same patient identity and email-match would
+                    // resolve EVERY document to the SAME first-found
+                    // submission. Pair positionally instead.
+                    $forcePositional = false;
+                    if (! $matchedId) {
+                        $nullDocs = Document::where('user_id', $doc->user_id)
+                            ->where('type', 'consent')
+                            ->whereNull('external_id')
+                            ->orderBy('id')
+                            ->pluck('id')
+                            ->all();
+                        if (count($nullDocs) > 1) {
+                            $forcePositional = true;
+                            \Log::info('CP-50: multi-doc NULL-external_id → forcing positional pairing', [
+                                'document_id' => $doc->id,
+                                'doc_count'   => count($nullDocs),
+                            ]);
+                        }
+                    }
+
                     $resp = null;
                     if (! $matchedId) {
                         $listUrl = $baseUrl . '/form/' . urlencode($formId)
@@ -2086,6 +2136,14 @@ class AppointmentController extends AppBaseController
                         $items = $resp->json('content') ?? [];
                         // Items come ordered by created_at desc.
                         foreach ($items as $idx => $sub) {
+                            // CP-50: skip the email/name match phase
+                            // when we're in forced-positional mode.
+                            if ($forcePositional) {
+                                if ($idx === 0 && !empty($sub['id'])) {
+                                    $latestId = (string) $sub['id'];
+                                }
+                                continue;
+                            }
                             // Capture the most recent submission so we can
                             // use it as a fallback if email/name matching
                             // misses (common in testing where the signer's
