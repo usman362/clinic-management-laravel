@@ -1769,18 +1769,24 @@ class AppointmentController extends AppBaseController
                 }
                 $baseUrl = $this->jotformBaseUrl();
 
-                // CP-52: Prefer the answers-render path at storage time
-                // too. Hosted Jotform PDF endpoints frequently return a
-                // BLANK FORM TEMPLATE (~19KB on EU) that looks like a
-                // valid PDF but contains no answers or signature. Render
-                // from the submission's answers payload first — same
-                // strategy as the CP-51 download flow — and only fall
-                // back to the hosted chain if that fails.
+                // CP-53: Prefer Jotform's OFFICIAL "Signed Document with
+                // Audit Trail" PDF — the same file the admin sees under
+                // the submission's three-dot menu in the Jotform UI.
+                // This includes multi-page audit trail (IP, timestamps,
+                // signer info) that our answers-render can't produce.
+                // Falls back to renderJotformAnswersPdf if the hosted
+                // signed-document endpoints all return template/error.
                 if ($apiKey && $submissionId) {
+                    $pdfBytes = $this->fetchJotformOfficialSignedPdf($apiKey, $formId, (string) $submissionId);
+                    if ($pdfBytes !== null) {
+                        $pdfSource = 'jotform_signed_audit';
+                    }
+                }
+                if ($apiKey && $submissionId && $pdfBytes === null) {
                     $pdfBytes = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $submissionId);
                     if ($pdfBytes !== null) {
                         $pdfSource = 'jotform_answers';
-                        \Log::info('CP-52: stored PDF from Jotform answers (storage path)', [
+                        \Log::info('CP-52: stored PDF from Jotform answers (storage path, signed-PDF endpoints failed)', [
                             'submission_id' => $submissionId,
                             'bytes'         => strlen($pdfBytes),
                         ]);
@@ -2349,13 +2355,21 @@ class AppointmentController extends AppBaseController
                             $region = strtolower(trim((string) getSettingValue('jotform_region')));
                         } catch (\Throwable $ignored) {}
 
-                        \Log::info('CP-51: rendering consent PDF from answers (primary path)', [
+                        \Log::info('CP-53: fetching official signed-with-audit PDF (primary path)', [
                             'document_id'   => $doc->id,
                             'submission_id' => $matchedId,
                             'region'        => $region,
                         ]);
 
-                        $pdfBytes  = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                        // CP-53: Try Jotform's official signed-document
+                        // endpoints (server.php / sign-documents / etc.)
+                        // first. These give the multi-page audit-trail
+                        // PDF the admin sees in the Jotform UI. Falls
+                        // back to answers-render only if those fail.
+                        $pdfBytes = $this->fetchJotformOfficialSignedPdf($apiKey, $formId, (string) $matchedId);
+                        if ($pdfBytes === null) {
+                            $pdfBytes = $this->renderJotformAnswersPdf($baseUrl, $apiKey, $formId, (string) $matchedId);
+                        }
                         $tryHosted = ! in_array($region, ['eu', 'hipaa'], true) && $pdfBytes === null;
 
                         if ($pdfBytes !== null) {
@@ -2598,6 +2612,223 @@ class AppointmentController extends AppBaseController
             \Log::warning('CP-44: render failed', ['error' => $e->getMessage()]);
             return null;
         }
+    }
+
+    /**
+     * CP-53: Map the Jotform API host to the corresponding "web" host
+     * that serves the signed-document UI and legacy server.php. The
+     * official signed-document-with-audit-trail PDF lives on the web
+     * host, NOT the API host.
+     */
+    private function jotformWebHost(): string
+    {
+        try {
+            $region = strtolower(trim((string) getSettingValue('jotform_region')));
+        } catch (\Throwable $ignored) {
+            $region = 'us';
+        }
+        switch ($region) {
+            case 'eu':    return 'https://eu.jotform.com';
+            case 'hipaa': return 'https://hipaa.jotform.com';
+            default:      return 'https://www.jotform.com';
+        }
+    }
+
+    /**
+     * CP-53: Pull Jotform's OFFICIAL "Signed Document with Audit Trail"
+     * PDF for a submission, i.e. the same file an admin downloads from
+     * the submission's three-dot menu → "Signed Document with Audit
+     * Trail" entry in the Jotform UI.
+     *
+     * Strategy:
+     *   1. Inspect submission metadata for any URL field pointing at a
+     *      signed PDF (`signed_pdf_url`, `signed_document_url`,
+     *      `audit_trail_pdf`, etc.). Different account configurations
+     *      expose different field names.
+     *   2. Try the legacy `server.php?action=getSubmissionPDF` endpoint
+     *      on the matching region's WEB host (www / eu / hipaa). This
+     *      is the URL the client referenced and the one Jotform's own
+     *      menu hits.
+     *   3. Try `pdf-submission/{submissionId}.pdf` shorthand.
+     *   4. Try the JotForm Sign download endpoints (`/sign-documents/...`).
+     *
+     * Validates response is `%PDF-` AND large enough to be a real
+     * signed-with-audit-trail PDF (>= 25KB). Returns raw PDF bytes or
+     * null.
+     */
+    private function fetchJotformOfficialSignedPdf(string $apiKey, ?string $formId, string $submissionId): ?string
+    {
+        $apiBase = $this->jotformBaseUrl();
+        $webBase = $this->jotformWebHost();
+
+        // CP-54: 15KB threshold — official "Signed Document" PDFs for
+        // simple forms (name + signature) are ~23KB; only blank
+        // templates fall below 15KB. We previously set 25KB which
+        // rejected legitimate signed PDFs.
+        $minBytes = 15000;
+
+        $tryUrls = [];
+
+        // 1) Submission metadata — collect any URL-shaped fields and
+        //    try them. Surface them in logs so we know which key fired.
+        try {
+            $metaResp = \Illuminate\Support\Facades\Http::timeout(20)
+                ->withHeaders(['APIKEY' => $apiKey])
+                ->get($apiBase . '/submission/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey));
+            if ($metaResp->successful()) {
+                $content = $metaResp->json('content') ?? [];
+                \Log::info('CP-53: submission metadata keys', [
+                    'submission_id' => $submissionId,
+                    'top_keys'      => array_keys(is_array($content) ? $content : []),
+                ]);
+                $candidates = [
+                    'signed_document_url', 'signed_pdf_url', 'signed_pdf',
+                    'audit_trail_pdf', 'audit_trail_url',
+                    'pdf_url', 'pdfUrl', 'pdf', 'download_url', 'downloadUrl',
+                ];
+                foreach ($candidates as $k) {
+                    if (! empty($content[$k]) && is_string($content[$k])) {
+                        $tryUrls[] = ['url' => $content[$k], 'source' => "meta:$k"];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('CP-53: metadata fetch threw', ['error' => $e->getMessage()]);
+        }
+
+        // CP-54: server.php with audit-trail variants FIRST. The vanilla
+        // `getSubmissionPDF` action returns the basic signed document
+        // (~23KB single page) — the multi-page "with audit trail" PDF
+        // needs an explicit audit/extended flag. We try every variant
+        // that has been observed in the wild before falling back to the
+        // basic signed PDF.
+        $auditQueries = [
+            // explicit audit-trail action names
+            ['action' => 'getSubmissionPDFAuditTrail'],
+            ['action' => 'getSubmissionAuditTrailPDF'],
+            ['action' => 'getSubmissionPDFWithAuditTrail'],
+            ['action' => 'downloadSignedDocumentWithAuditTrail'],
+            ['action' => 'getSubmissionPDF', 'extra' => 'audit=1'],
+            ['action' => 'getSubmissionPDF', 'extra' => 'withAudit=1'],
+            ['action' => 'getSubmissionPDF', 'extra' => 'auditTrail=1'],
+            ['action' => 'getSubmissionPDF', 'extra' => 'type=audit'],
+            ['action' => 'getSubmissionPDF', 'extra' => 'includeAudit=1'],
+            // fallback: the vanilla signed PDF
+            ['action' => 'getSubmissionPDF'],
+        ];
+
+        foreach ($auditQueries as $q) {
+            $qs = 'action=' . $q['action']
+                . '&sid=' . urlencode($submissionId)
+                . ($formId ? '&formID=' . urlencode($formId) : '')
+                . '&apiKey=' . urlencode($apiKey);
+            if (! empty($q['extra'])) {
+                $qs .= '&' . $q['extra'];
+            }
+            $tryUrls[] = [
+                'url'    => $webBase . '/server.php?' . $qs,
+                'source' => 'server.php:' . $q['action'] . (isset($q['extra']) ? ':' . $q['extra'] : ''),
+            ];
+        }
+
+        // 3) Pdf-submission shorthand on both web and API hosts.
+        $tryUrls[] = [
+            'url' => $webBase . '/pdf-submission/' . urlencode($submissionId) . '.pdf?apiKey=' . urlencode($apiKey),
+            'source' => 'pdf-submission',
+        ];
+
+        // 4) JotForm Sign endpoints — try both v1 paths.
+        $tryUrls[] = [
+            'url' => $apiBase . '/sign-documents/' . urlencode($submissionId) . '/download?apiKey=' . urlencode($apiKey),
+            'source' => 'sign-documents/download',
+        ];
+        $tryUrls[] = [
+            'url' => $apiBase . '/sign-documents/' . urlencode($submissionId) . '?apiKey=' . urlencode($apiKey),
+            'source' => 'sign-documents',
+        ];
+
+        // CP-54: Walk every endpoint and remember the LARGEST valid PDF
+        // returned across all of them. The basic signed PDF (~23KB) and
+        // the audit-trail PDF (~80KB+) can both come from different
+        // variants of server.php — we want the audit one when both
+        // succeed, so size wins. Bail out immediately as a fast path
+        // if any attempt clears 60KB (definitely audit trail).
+        $best        = null;
+        $bestSize    = 0;
+        $bestSource  = null;
+        $auditFloor  = 60000; // bytes
+
+        foreach ($tryUrls as $attempt) {
+            $url    = $attempt['url'];
+            $source = $attempt['source'];
+            try {
+                $resp = \Illuminate\Support\Facades\Http::timeout(45)
+                    ->withHeaders(['APIKEY' => $apiKey])
+                    ->get($url);
+                if (! $resp->successful()) {
+                    \Log::debug('CP-53: non-2xx', [
+                        'source' => $source,
+                        'status' => $resp->status(),
+                        'url'    => preg_replace('/apikey=[^&]+/i', 'apikey=***', $url),
+                    ]);
+                    continue;
+                }
+                $body = $resp->body();
+                if (! is_string($body) || strncmp($body, '%PDF-', 5) !== 0) {
+                    \Log::debug('CP-53: response is not a PDF', [
+                        'source'       => $source,
+                        'body_excerpt' => substr((string) $body, 0, 120),
+                    ]);
+                    continue;
+                }
+                if (strlen($body) < $minBytes) {
+                    \Log::debug('CP-53: PDF too small — likely template', [
+                        'source' => $source,
+                        'bytes'  => strlen($body),
+                    ]);
+                    continue;
+                }
+
+                $size = strlen($body);
+                if ($size > $bestSize) {
+                    $best       = $body;
+                    $bestSize   = $size;
+                    $bestSource = $source;
+                }
+
+                \Log::info('CP-54: candidate PDF accepted', [
+                    'source' => $source,
+                    'bytes'  => $size,
+                ]);
+
+                // Fast-path: any PDF over 60KB is almost certainly the
+                // multi-page audit-trail version, no point trying more.
+                if ($size >= $auditFloor) {
+                    \Log::info('CP-54: audit-trail PDF found, stopping', [
+                        'source'        => $source,
+                        'submission_id' => $submissionId,
+                        'bytes'         => $size,
+                    ]);
+                    return $body;
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('CP-53: attempt threw', [
+                    'source' => $source,
+                    'error'  => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($best !== null) {
+            \Log::info('CP-54: returning largest accepted PDF', [
+                'source'        => $bestSource,
+                'submission_id' => $submissionId,
+                'bytes'         => $bestSize,
+            ]);
+            return $best;
+        }
+
+        return null;
     }
 
     /**
