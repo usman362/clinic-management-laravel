@@ -164,3 +164,71 @@
            class="btn btn-light btn-active-light-primary">{{__('messages.common.discard')}}</a>
     @endif
 </div>
+
+@push('scripts')
+<script>
+{{-- DP-04: Let a weekday be toggled OFF directly via its checkbox without
+     having to delete its time slots first.
+
+     Root cause of the original complaint ("forced to delete all the other
+     selected days before I can save"): on the create form most days render
+     pre-checked, and each pre-checked day carries a default time slot whose
+     "Slot duration" <select> is `required` but empty. Those empty required
+     selects made the browser's native form validation block submission — so
+     to save a Monday-only schedule the admin was forced to delete every
+     other day's slots (deleting the last slot is what unchecked the day).
+
+     Fix: unchecking a day now DISABLES its slot inputs. A disabled control
+     is neither HTML5-validated nor submitted, so an "off" day can no longer
+     block saving and is cleanly excluded from the POST (the backend already
+     ignores days absent from checked_week_days[]). Re-checking restores it.
+
+     This lives inline (not in resources/assets/js/.../create-edit.js)
+     because the compiled bundle public/js/pages.js can't currently be
+     rebuilt on the server; blades deploy via a plain git pull. --}}
+(function () {
+    function unavailableText () {
+        try { return Lang.get('js.unavailable'); } catch (e) { return 'Unavailable'; }
+    }
+    function setDaySlotsEnabled ($content, enabled) {
+        $content.find('.session-times').find('select, input').prop('disabled', !enabled);
+    }
+    function toggleDay ($chk) {
+        var $content = $chk.closest('.weekly-content');
+        var checked = $chk.is(':checked');
+        setDaySlotsEnabled($content, checked);
+        if (checked) {
+            $content.find('.unavailable-time').html('');
+            $content.find('.session-times').show();
+        } else {
+            $content.find('.session-times').hide();
+            if ($content.find('.unavailable-time').length === 0) {
+                $content.find('.weekly-row').append(
+                    '<div class="unavailable-time">' + unavailableText() + '</div>');
+            } else {
+                $content.find('.unavailable-time').html(unavailableText());
+            }
+        }
+    }
+    function initDp04 () {
+        // Any day that renders unchecked starts with its inputs disabled so
+        // its empty required select can't silently block the form.
+        $('input[name="checked_week_days[]"]').each(function () {
+            if (!$(this).is(':checked')) {
+                setDaySlotsEnabled($(this).closest('.weekly-content'), false);
+            }
+        });
+        // Delegated + namespaced so it survives Turbo navigations and
+        // dynamically-added slots without stacking duplicate handlers.
+        $(document).off('change.dp04', '.timechackbox')
+            .on('change.dp04', '.timechackbox', function () { toggleDay($(this)); });
+    }
+    document.addEventListener('turbo:load', initDp04);
+    if (document.readyState !== 'loading') {
+        initDp04();
+    } else {
+        document.addEventListener('DOMContentLoaded', initDp04);
+    }
+})();
+</script>
+@endpush

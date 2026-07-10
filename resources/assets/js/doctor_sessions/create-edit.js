@@ -35,6 +35,13 @@ function loadDoctorSessionData () {
     // inner / overlapping slots on the same day (e.g. a 1-hour block
     // inside a 9 AM–6 PM block) as long as slot durations differ.
     // Backend validateSlotTiming() handles overlap rules.
+
+    // DP-04: The day-toggle fix (unchecking a day must not block save via
+    // its empty `required` slot-duration select) lives as an inline
+    // script in resources/views/doctor_sessions/fields.blade.php. It is
+    // kept there because this compiled bundle (public/js/pages.js) can't
+    // currently be rebuilt on the server, and the blade deploys via a
+    // plain git pull. See DP-04 there.
 }
 
 listenChange('#selGap', function () {
